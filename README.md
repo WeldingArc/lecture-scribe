@@ -5,7 +5,7 @@
 # 강의 받아쓰기
 
 **온라인 강의를 실시간으로 받아 적어 주는 Mac 앱**<br>
-무료 · 오픈소스 · 모든 처리가 내 Mac 안에서
+OpenAI Whisper large-v3-turbo · 무료 · 오픈소스 · 모든 처리가 내 Mac 안에서
 
 <img src="docs/screenshot.png" width="760" alt="강의 받아쓰기 화면">
 
@@ -13,6 +13,7 @@
 
 ## 이런 앱이에요
 
+- **AI 모델:** OpenAI의 오픈소스 음성 인식 모델 **Whisper large-v3-turbo**(5비트 양자화, 574MB)를 [whisper.cpp](https://github.com/ggml-org/whisper.cpp)로 **Mac의 GPU에서 직접** 돌려요. 말하는 구간을 나누는 데는 작은 음성 감지 모델 [Silero VAD](https://github.com/snakers4/silero-vad)를 써요. 클라우드 AI가 아니라서 강의 내용이 밖으로 나가지 않아요.
 - **Mac에서 나오는 소리를 그대로 받아 적어요.** 런어스·유튜브·줌 등 무엇이든 재생만 하면 돼요. 마이크는 쓰지 않아서 이어폰을 껴도 되고 주변이 시끄러워도 괜찮아요.
 - **실시간 자막처럼** 문장 단위로 받아 적고, 끝나면 텍스트(`.txt`)와 녹음(`.m4a`)을 자동으로 저장해요.
 - **배속 재생도 OK.** 1.5배속은 거의 그대로, 2배속도 따라가요.
@@ -114,7 +115,7 @@ MIT. 사용한 오픈소스와 라이선스는 [THIRD_PARTY_NOTICES.md](THIRD_PA
 
 ## English
 
-**강의 받아쓰기 (Lecture Scribe)** is a free, open-source Mac app that live-transcribes whatever lecture is playing on your Mac (LearnUs, YouTube, Zoom…). It captures system audio directly (no microphone), transcribes Korean and English locally with Whisper large-v3-turbo on the GPU, and saves a text file plus an audio recording when you stop. English speech is written as English, never translated. Sentences containing keywords you choose (e.g. attendance, exam, assignment) are highlighted and collected at the end. Nothing leaves your Mac; the only network use is a one-time model download.
+**강의 받아쓰기 (Lecture Scribe)** is a free, open-source Mac app (speech recognition: OpenAI's open-source **Whisper large-v3-turbo**, 5-bit quantized, run locally on the GPU with whisper.cpp; sentence splitting: Silero VAD) that live-transcribes whatever lecture is playing on your Mac (LearnUs, YouTube, Zoom…). It captures system audio directly (no microphone), transcribes Korean and English locally with Whisper large-v3-turbo on the GPU, and saves a text file plus an audio recording when you stop. English speech is written as English, never translated. Sentences containing keywords you choose (e.g. attendance, exam, assignment) are highlighted and collected at the end. Nothing leaves your Mac; the only network use is a one-time model download.
 
 **Requirements:** Apple Silicon (M1+), macOS 14.2+, ~1 GB free disk.
 **Install:** `curl -fsSL https://raw.githubusercontent.com/JoshiChoi/lecture-scribe/main/scripts/install.sh | bash` — or download the zip from [Releases](https://github.com/JoshiChoi/lecture-scribe/releases/latest) and use System Settings → Privacy & Security → "Open Anyway" on first launch.
