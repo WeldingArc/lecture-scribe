@@ -3,11 +3,13 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/JoshiChoi/lecture-scribe/main/scripts/install.sh | bash
 #
-# Why a script: the app is free and not notarized by Apple, so a zip downloaded in a browser is
-# blocked by Gatekeeper. Downloaded with curl it isn't quarantined, so it opens normally.
+# One line that picks the right version for this Mac (v2 on macOS 26+, v1 on 14.2–15) and puts it in
+# Applications. v1 isn't notarized, so a v1 zip opened from a browser download is blocked by
+# Gatekeeper; downloaded with curl it isn't quarantined and opens normally.
 set -euo pipefail
 REPO="JoshiChoi/lecture-scribe"
-URL="${LECTURE_ZIP_URL:-https://github.com/$REPO/releases/latest/download/LectureScribe-mac.zip}"   # override: tests
+URL_V2="https://github.com/$REPO/releases/latest/download/LectureScribe-mac.zip"
+URL_V1="https://github.com/$REPO/releases/download/v1.0.0/LectureScribe-mac.zip"       # Whisper version
 APP_NAME="강의 받아쓰기.app"
 
 say_ko() { printf '%s\n' "$*"; }
@@ -20,6 +22,9 @@ major="${ver%%.*}"; rest="${ver#*.}"; minor="${rest%%.*}"
 if [ "$major" -lt 14 ] || { [ "$major" -eq 14 ] && [ "${minor:-0}" -lt 2 ]; }; then
   say_ko "macOS 14.2 이상이 필요해요. (지금: $ver)"; exit 1
 fi
+# macOS 26+: v2 (Apple's on-device speech recognition). 14.2–15: v1 (Whisper).
+if [ "$major" -ge 26 ]; then URL="$URL_V2"; else URL="$URL_V1"; say_ko "macOS $ver — Whisper 버전(v1)을 설치해요."; fi
+URL="${LECTURE_ZIP_URL:-$URL}"     # override: tests
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -40,5 +45,10 @@ ditto "$tmp/unzipped/$APP_NAME" "$dest/$APP_NAME"
 xattr -dr com.apple.quarantine "$dest/$APP_NAME" 2>/dev/null || true
 
 say_ko "설치 완료: $dest/$APP_NAME"
-say_ko "처음 실행하면 AI 모델(약 570MB)을 한 번 내려받아요."
+if [ "$major" -ge 26 ]; then
+  [ -d "$HOME/Library/Application Support/LectureScribe/models" ] && \
+    say_ko "참고: v1의 AI 모델(570MB)은 이제 필요 없어요. 지우려면: rm -rf ~/Library/Application\\ Support/LectureScribe/models"
+else
+  say_ko "처음 실행하면 AI 모델(약 570MB)을 한 번 내려받아요."
+fi
 [ -n "${LECTURE_NO_OPEN:-}" ] || open "$dest/$APP_NAME"
