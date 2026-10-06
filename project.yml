@@ -1,0 +1,104 @@
+# Xcode project for 강의 받아쓰기 v2 — Mac (LectureScribe) and iPhone/iPad (LectureScribeiOS) share the
+# engine, library and UI. Generated with `xcodegen generate`; the .xcodeproj is not committed.
+name: LectureScribe
+options:
+  deploymentTarget:
+    macOS: "26.0"
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "2.0.0"
+    CURRENT_PROJECT_VERSION: "200"
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_HARDENED_RUNTIME: YES
+    DEAD_CODE_STRIPPING: YES
+targets:
+  LectureScribe:
+    type: application
+    platform: macOS
+    sources:
+      - path: app
+        excludes: ["make_icon.swift", "Info.plist", "LectureScribe.entitlements", "PrivacyInfo.xcprivacy", "Resources/**", "ios/**"]
+      - path: ui
+        type: folder
+        buildPhase: resources
+      - path: app/Resources/AppIcon.icns
+        buildPhase: resources
+      - path: app/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      - path: licenses/Pretendard-OFL.txt          # → Contents/Resources/licenses/, like build_v2.sh
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+      - path: LICENSE
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+      - path: licenses/whisper.cpp-MIT.txt
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+      - path: licenses/openai-whisper-MIT.txt
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+      - path: licenses/silero-vad-MIT.txt
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+    scheme: {}                                      # shared scheme, so xcodebuild can archive
+    settings:
+      base:
+        PRODUCT_NAME: "강의 받아쓰기"
+        EXECUTABLE_NAME: LectureScribe                # ASCII binary name, as in build_v2.sh
+        PRODUCT_MODULE_NAME: LectureScribe
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.joshichoi.lecture-scribe
+        INFOPLIST_FILE: app/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: app/LectureScribe.entitlements
+        OTHER_SWIFT_FLAGS: "-file-prefix-map $(SRCROOT)/=./"
+        # the optional Whisper engine: run scripts/build_whisper.sh once (→ vendor/whisper) before building
+        ARCHS: arm64                                  # Apple Silicon only (the Whisper runtime is arm64)
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WHISPER"
+        SWIFT_OBJC_BRIDGING_HEADER: app/WhisperBridge.h
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/vendor/whisper/include"
+        LIBRARY_SEARCH_PATHS: "$(SRCROOT)/vendor/whisper/lib"
+        OTHER_LDFLAGS: "-lwhisper -lggml -lggml-base -lggml-cpu -lggml-metal -lggml-blas -lc++ -framework Accelerate -framework Metal"
+
+  LectureScribeiOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: app/Audio.swift
+      - path: app/Recognizer.swift
+      - path: app/Engine.swift
+      - path: app/Library.swift
+      - path: app/Player.swift
+      - path: app/Bridge.swift
+      - path: app/Slides.swift
+      - path: app/ios
+        excludes: ["Info.plist", "PrivacyInfo.xcprivacy"]
+      - path: app/ios/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      - path: ui
+        type: folder
+        buildPhase: resources
+      - path: licenses/Pretendard-OFL.txt
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+      - path: LICENSE
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+    settings:
+      base:
+        PRODUCT_NAME: "강의 받아쓰기"
+        EXECUTABLE_NAME: LectureScribe
+        PRODUCT_MODULE_NAME: LectureScribe
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.joshichoi.lecture-scribe   # same as the Mac app: one App Store listing
+        INFOPLIST_FILE: app/ios/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Ivory AppIcon-Brass AppIcon-Charcoal AppIcon-Sage"   # 설정 › 앱 아이콘
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO                       # the Mac has its own app
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+        OTHER_SWIFT_FLAGS: "-file-prefix-map $(SRCROOT)/=./"
+    scheme: {}

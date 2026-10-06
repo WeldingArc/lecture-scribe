@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>강의 받아쓰기</title>
 <style>
   @font-face { font-family: "Pretendard"; font-weight: 200; font-display: swap;
@@ -17,12 +17,36 @@
     --ink-2: #c2bcb0;
     --muted: #7d8598;
     --faint: #4b5265;
-    --line: rgba(235, 230, 219, 0.09);
-    --line-2: rgba(235, 230, 219, 0.18);
+    --line: rgba(var(--tint-rgb), 0.09);
+    --line-2: rgba(var(--tint-rgb), 0.18);
     --accent: #c9a96b;
     --rec: #c46a5c;
     --ok: #8fae8b;
     --font: "Pretendard", "Pretendard Variable", "Apple SD Gothic Neo", -apple-system, sans-serif;
+    --bg-rgb: 13, 18, 32;
+    --tint-rgb: 235, 230, 219;                 /* ink colour for hairlines and hovers */
+    --accent-rgb: 201, 169, 107;
+    --card: rgba(30, 38, 58, 0.98);
+    --card-2: rgba(32, 40, 60, 0.96);
+    --chip: rgba(32, 38, 56, 0.92);
+    --overlay: rgba(13, 18, 32, 0.72);
+    --veil: rgba(13, 18, 32, 0.86);
+    --bar-bg: rgba(13, 18, 32, 0.94);
+    --shadow: rgba(0, 0, 0, 0.4);
+    --fs: 1;                                   /* 설정 › 글자 크기 */
+    --sat: env(safe-area-inset-top, 0px);      /* iPhone notch / Dynamic Island */
+    --sab: env(safe-area-inset-bottom, 0px);   /* iPhone home indicator */
+    --top-extra: max(0px, calc(var(--sat) - 26px));
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f1ea; --bg-rgb: 244, 241, 234;
+    --ink: #1d2230; --ink-2: #454b59; --muted: #5f6472; --faint: #7b7f89;      /* text ≥ 4.5:1, faint ≥ 3:1, on the settings cards too */
+    --line: rgba(29, 34, 48, 0.1); --line-2: rgba(29, 34, 48, 0.2);
+    --tint-rgb: 29, 34, 48;
+    --rec: #a2493b;                                                            /* also the error text */
+    --card: rgba(255, 255, 255, 0.98); --card-2: rgba(255, 255, 255, 0.97); --chip: rgba(255, 255, 255, 0.95);
+    --overlay: rgba(244, 241, 234, 0.75); --veil: rgba(244, 241, 234, 0.9); --bar-bg: rgba(244, 241, 234, 0.95);
+    --shadow: rgba(40, 44, 60, 0.16);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
@@ -30,7 +54,7 @@
     font-family: var(--font);
     color: var(--ink);
     background:
-      radial-gradient(1100px 520px at 50% -12%, rgba(201, 169, 107, 0.075), transparent 62%),
+      radial-gradient(1100px 520px at 50% -12%, rgba(var(--accent-rgb), 0.075), transparent 62%),
       radial-gradient(900px 640px at 50% 118%, rgba(70, 92, 150, 0.12), transparent 62%),
       var(--bg);
     -webkit-font-smoothing: antialiased;
@@ -44,14 +68,14 @@
   /* ---------- header ---------- */
   .top {
     position: fixed; inset: 0 0 auto 0; z-index: 5;
-    padding: 40px 16px 26px;
+    padding: calc(40px + var(--top-extra)) 16px 26px;
     text-align: center;
-    background: linear-gradient(to bottom, var(--bg) 76%, rgba(13, 18, 32, 0));
+    background: linear-gradient(to bottom, var(--bg) 76%, rgba(var(--bg-rgb), 0));
     pointer-events: none;
   }
   .brand {
     font-size: 12.5px; font-weight: 400; letter-spacing: 0.42em; text-indent: 0.42em;
-    color: rgba(235, 230, 219, 0.56);
+    color: rgba(var(--tint-rgb), 0.56);
   }
   .status {
     margin-top: 12px; height: 20px;
@@ -81,11 +105,11 @@
   main {
     position: absolute; inset: 0;
     overflow-y: auto; overflow-x: hidden;
-    padding: 150px 16px 230px;
+    padding: calc(150px + var(--top-extra)) 16px calc(230px + var(--sab));
     scroll-behavior: smooth;
   }
   main::-webkit-scrollbar { width: 9px; }
-  main::-webkit-scrollbar-thumb { background: rgba(235, 230, 219, 0.1); border-radius: 9px; border: 3px solid transparent; background-clip: padding-box; }
+  main::-webkit-scrollbar-thumb { background: rgba(var(--tint-rgb), 0.1); border-radius: 9px; border: 3px solid transparent; background-clip: padding-box; }
   #transcript { max-width: 700px; margin: 0 auto; }
   .seg {
     text-align: center; padding: 13px 0;
@@ -100,7 +124,7 @@
   }
   body.no-ts .seg time { display: none; }
   .seg p {
-    font-size: clamp(18px, 2.15vw, 22px); line-height: 1.78; font-weight: 300;
+    font-size: calc(clamp(18px, 2.15vw, 22px) * var(--fs)); line-height: 1.78; font-weight: 300;
     word-break: keep-all; overflow-wrap: anywhere;
     user-select: text; -webkit-user-select: text; cursor: text;
   }
@@ -109,21 +133,21 @@
     content: ""; display: inline-block; width: 2px; height: 0.95em; margin-left: 5px;
     background: var(--accent); vertical-align: -0.12em; animation: blink 1.05s steps(1) infinite;
   }
-  .seg p::selection, .seg time::selection { background: rgba(201, 169, 107, 0.32); }
+  .seg p::selection, .seg time::selection { background: rgba(var(--accent-rgb), 0.32); }
   .seg.cue time { color: var(--accent); }
   .seg.cue p {
     display: inline; color: var(--ink);
-    background: linear-gradient(transparent 72%, rgba(201, 169, 107, 0.24) 72%, rgba(201, 169, 107, 0.24) 92%, transparent 92%);
+    background: linear-gradient(transparent 72%, rgba(var(--accent-rgb), 0.24) 72%, rgba(var(--accent-rgb), 0.24) 92%, transparent 92%);
     -webkit-box-decoration-break: clone; box-decoration-break: clone;
   }
   body.recording .seg.cue { opacity: 1; }
   .seg.flash p { animation: flash 1.6s ease; }
-  @keyframes flash { 0%, 60% { background-color: rgba(201, 169, 107, 0.22); } 100% { background-color: transparent; } }
+  @keyframes flash { 0%, 60% { background-color: rgba(var(--accent-rgb), 0.22); } 100% { background-color: transparent; } }
   .cuechip {
-    position: fixed; top: 118px; left: 50%; z-index: 6; transform: translate(-50%, -6px);
+    position: fixed; top: calc(118px + var(--top-extra)); left: 50%; z-index: 6; transform: translate(-50%, -6px);
     opacity: 0; pointer-events: none; max-width: calc(100% - 32px);
     padding: 7px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 400; color: var(--accent);
-    background: rgba(32, 38, 56, 0.92); border: 1px solid rgba(201, 169, 107, 0.35);
+    background: var(--chip); border: 1px solid rgba(var(--accent-rgb), 0.35);
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     transition: opacity 0.3s, transform 0.3s;
@@ -158,22 +182,22 @@
   .dlbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.4s ease; }
   .dl span { font-size: 13px; color: var(--muted); font-weight: 300; font-variant-numeric: tabular-nums; }
   .panel {
-    position: fixed; inset: 0; z-index: 15; display: none; align-items: center; justify-content: center;
-    background: rgba(13, 18, 32, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    position: fixed; inset: 0; z-index: 25; display: none; align-items: center; justify-content: center;
+    background: var(--overlay); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   }
   .panel.show { display: flex; }
   .card {
     width: min(500px, calc(100% - 32px)); padding: 26px 24px 20px; border-radius: 18px; text-align: center;
-    background: rgba(30, 38, 58, 0.98); border: 1px solid var(--line-2); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    background: var(--card); border: 1px solid var(--line-2); box-shadow: 0 24px 60px var(--shadow);
   }
   .card h2 { font-size: 15px; font-weight: 400; letter-spacing: 0.24em; text-indent: 0.24em; color: var(--accent); }
   .card p { margin-top: 10px; font-size: 13.5px; font-weight: 300; color: var(--muted); line-height: 1.7; word-break: keep-all; }
   .card textarea {
     margin-top: 16px; width: 100%; min-height: 108px; resize: vertical; padding: 12px 14px; border-radius: 12px;
-    background: rgba(13, 18, 32, 0.6); border: 1px solid var(--line-2); color: var(--ink);
+    background: rgba(var(--bg-rgb), 0.6); border: 1px solid var(--line-2); color: var(--ink);
     font: 300 14.5px/1.7 var(--font); outline: none; user-select: text; -webkit-user-select: text;
   }
-  .card textarea:focus { border-color: rgba(201, 169, 107, 0.5); }
+  .card textarea:focus { border-color: rgba(var(--accent-rgb), 0.5); }
   .card .acts { margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .saved {
     text-align: center; margin: 34px auto 10px; padding-top: 30px; max-width: 420px;
@@ -186,28 +210,28 @@
   /* ---------- dock ---------- */
   .dock {
     position: fixed; inset: auto 0 0 0; z-index: 5;
-    padding: 64px 16px 26px; text-align: center;
-    background: linear-gradient(to top, var(--bg) 58%, rgba(13, 18, 32, 0));
+    padding: 64px 16px calc(26px + var(--sab)); text-align: center;
+    background: linear-gradient(to top, var(--bg) 58%, rgba(var(--bg-rgb), 0));
   }
   .row { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 4vw, 34px); }
   .ghost {
     min-width: 108px; padding: 10px 18px; border-radius: 999px;
-    border: 1px solid var(--line-2); color: rgba(235, 230, 219, 0.82);
+    border: 1px solid var(--line-2); color: rgba(var(--tint-rgb), 0.82);
     font-size: 14px; font-weight: 400; letter-spacing: 0.04em;
     transition: background 0.2s, border-color 0.2s, opacity 0.2s;
   }
-  .ghost:hover:not(:disabled) { background: rgba(235, 230, 219, 0.05); border-color: rgba(235, 230, 219, 0.32); }
+  .ghost:hover:not(:disabled) { background: rgba(var(--tint-rgb), 0.05); border-color: rgba(var(--tint-rgb), 0.32); }
   .ghost:disabled { opacity: 0.32; cursor: default; }
   .ghost.small { min-width: 0; padding: 7px 14px; font-size: 13px; }
   .recwrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .rec {
     width: 76px; height: 76px; border-radius: 50%;
-    border: 1.5px solid rgba(235, 230, 219, 0.34);
+    border: 1.5px solid rgba(var(--tint-rgb), 0.34);
     display: grid; place-items: center;
     background: radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.05), transparent 70%);
     transition: border-color 0.3s, opacity 0.3s, transform 0.15s;
   }
-  .rec:hover:not(:disabled) { border-color: rgba(235, 230, 219, 0.6); }
+  .rec:hover:not(:disabled) { border-color: rgba(var(--tint-rgb), 0.6); }
   .rec:active:not(:disabled) { transform: scale(0.96); }
   .rec:disabled { opacity: 0.35; cursor: default; }
   .rec .core {
@@ -227,8 +251,21 @@
   .toggle input { display: none; }
   .toggle .sw { width: 26px; height: 15px; border-radius: 15px; background: var(--line-2); position: relative; transition: background 0.25s; }
   .toggle .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--ink-2); transition: transform 0.25s; }
-  .toggle input:checked + .sw { background: rgba(201, 169, 107, 0.55); }
+  .toggle input:checked + .sw { background: rgba(var(--accent-rgb), 0.55); }
   .toggle input:checked + .sw::after { transform: translateX(11px); background: var(--ink); }
+  .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+  .check input { display: none; }
+  .check .box {
+    width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(var(--tint-rgb), 0.32); position: relative; flex: none;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .check input:checked + .box { background: rgba(var(--accent-rgb), 0.6); border-color: transparent; }
+  .check input:checked + .box::after {
+    content: ""; position: absolute; left: 4.5px; top: 1.5px; width: 3.5px; height: 7.5px;
+    border: solid var(--ink); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
+  }
+  .check:hover .box { border-color: rgba(var(--tint-rgb), 0.5); }
+  .row2 { flex-wrap: wrap; row-gap: 10px; }
   .link { font-size: 12.5px; color: var(--muted); font-weight: 300; border-bottom: 1px solid transparent; transition: color 0.2s, border-color 0.2s; }
   .link:hover:not(:disabled) { color: var(--ink-2); border-color: var(--line-2); }
   .link:disabled { opacity: 0.35; cursor: default; }
@@ -236,40 +273,47 @@
 
   /* ---------- overlays ---------- */
   .latest {
-    position: fixed; left: 50%; bottom: 196px; z-index: 6;
+    position: fixed; left: 50%; bottom: calc(196px + var(--sab)); z-index: 6;
     transform: translate(-50%, 8px); opacity: 0; pointer-events: none;
     padding: 7px 15px; border-radius: 999px; font-size: 12.5px; color: var(--ink-2);
-    background: rgba(28, 35, 54, 0.9); border: 1px solid var(--line-2);
+    background: var(--chip); border: 1px solid var(--line-2);
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     transition: opacity 0.25s, transform 0.25s;
   }
   .latest.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
   .toast {
-    position: fixed; left: 50%; bottom: 196px; z-index: 7;
+    position: fixed; left: 50%; bottom: calc(196px + var(--sab)); z-index: 30;
     transform: translate(-50%, 10px); opacity: 0; pointer-events: none;
     padding: 11px 20px; border-radius: 999px; max-width: calc(100% - 32px);
     font-size: 13.5px; font-weight: 300; color: var(--ink); text-align: center;
-    background: rgba(30, 38, 58, 0.94); border: 1px solid var(--line-2);
+    background: var(--card-2); border: 1px solid var(--line-2);
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 14px 40px var(--shadow);
     transition: opacity 0.3s, transform 0.3s;
   }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.has-act { pointer-events: auto; display: flex; align-items: center; gap: 14px; padding-right: 10px; }
+  .toast.has-act:not(.show) { pointer-events: none; }
+  .toast button { padding: 5px 12px; border-radius: 999px; font-size: 13px; color: var(--accent); border: 1px solid rgba(var(--accent-rgb), 0.4); }
+  #undo { display: flex; align-items: center; gap: 14px; padding-right: 10px; z-index: 31; }
+  #undo:not(.show) { pointer-events: none; }
+  #undo.show { pointer-events: auto; }
+  body.has-undo #toast { bottom: calc(252px + var(--sab)); }
   .notice {
-    position: fixed; top: 128px; left: 50%; z-index: 8; width: min(560px, calc(100% - 32px));
+    position: fixed; top: calc(128px + var(--top-extra)); left: 50%; z-index: 30; width: min(560px, calc(100% - 32px));
     transform: translate(-50%, -8px); opacity: 0; pointer-events: none;
     padding: 16px 20px; border-radius: 16px; text-align: center;
-    background: rgba(32, 40, 60, 0.96); border: 1px solid rgba(201, 169, 107, 0.28);
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+    background: var(--card-2); border: 1px solid rgba(var(--accent-rgb), 0.28);
+    box-shadow: 0 18px 50px var(--shadow);
     font-size: 14px; font-weight: 300; line-height: 1.7; color: var(--ink); word-break: keep-all;
     transition: opacity 0.3s, transform 0.3s;
   }
   .notice.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
   .notice .acts { margin-top: 12px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .veil {
-    position: fixed; inset: 0; z-index: 20; display: none;
+    position: fixed; inset: 0; z-index: 40; display: none;
     align-items: center; justify-content: center; flex-direction: column; gap: 14px;
-    background: rgba(13, 18, 32, 0.86); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    background: var(--veil); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     font-size: 17px; font-weight: 200; letter-spacing: 0.06em;
   }
   .veil small { font-size: 13px; color: var(--muted); font-weight: 300; }
@@ -283,14 +327,330 @@
     50% { box-shadow: 0 0 0 11px rgba(196, 106, 92, 0.1); }
   }
 
+
+
+  /* ---------- 슬라이드 PDF: how it works — a calm, readable story, one idea at a time ---------- */
+  .demo-card { width: min(660px, calc(100% - 24px)); padding: 26px 24px 20px; }
+  .card .demo-cap { margin: 14px auto 0; max-width: 540px; min-height: 3.1em; font-size: 17px; font-weight: 300; line-height: 1.55;
+    color: var(--ink); text-align: center; word-break: keep-all; text-wrap: balance; }
+  /* the stage grows with its width (the PDF pages do): 44 px + 47.2% of the width */
+  .demo-stage { position: relative; max-width: 580px; margin: 14px auto 0; --pg-shadow: 0 10px 26px rgba(0, 0, 0, 0.3); }
+  .demo-stage::before { content: ""; display: block; padding-top: calc(44px + 47.2%); }
+  :root[data-theme="light"] .demo-stage { --pg-shadow: 0 0 0 1px rgba(29, 34, 48, 0.08), 0 10px 26px rgba(40, 44, 60, 0.16); }
+  #slidedemo { overflow-y: auto; align-items: flex-start; padding: 16px 0; }      /* a short window scrolls the card */
+  #slidedemo .demo-card { margin: auto; }
+  .dm-lab { position: absolute; top: 0; font: 400 11.5px/1 var(--font); letter-spacing: 0.06em; color: var(--ink-2); text-align: center; white-space: nowrap; }
+  .dm-lab.l { left: 0; width: 58%; }
+  .dm-lab.r { right: 0; width: 34%; }
+  .dm-lab b { font-weight: 500; color: var(--accent); }
+  :root[data-theme="light"] .dm-lab b { color: color-mix(in srgb, var(--accent) 80%, #000); }
+  .dm-win { position: absolute; left: 0; top: 22px; width: 58%; aspect-ratio: 16 / 10; border-radius: 10px; overflow: hidden;
+    background: #f8f6f1; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3); }
+  .dm-chrome { position: absolute; inset: 0 0 auto 0; height: 8%; background: #d6d1c6; display: flex; gap: 4px; align-items: center; padding-left: 7px; }
+  .dm-chrome i { width: 5px; height: 5px; border-radius: 50%; background: #b4ad9f; }
+  /* the slide area: the window, the flying photo and every PDF picture draw the same slide (the last two scaled) */
+  .dm-area { position: absolute; inset: 8% 0 0 0; overflow: hidden; background: #f8f6f1; }
+  .dm-slide { position: absolute; inset: 0; background: #f8f6f1; text-align: left; }
+  .dm-title { height: 24%; background: #2c4170; color: #fff; display: flex; align-items: center; padding-left: 7%;
+    font: 400 clamp(11px, 2.4vw, 14px)/1 var(--font); letter-spacing: 0.01em; white-space: nowrap; }
+  .dm-b { margin: 6% 0 0 8%; font: 300 clamp(10px, 2.1vw, 12.5px)/1.2 var(--font); color: #2a2f3a; white-space: nowrap; }
+  .dm-b + .dm-b { margin-top: 3.5%; }
+  .dm-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+  .dm-cam { position: absolute; right: 3%; bottom: 4%; width: 17%; aspect-ratio: 4 / 3; border-radius: 3px; overflow: hidden; }
+  .dm-cam .p { position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 40%, #d8b99c 0 17%, transparent 18%), radial-gradient(46% 34% at 50% 100%, #39476b 0 97%, transparent 100%), #8f97aa; }
+  .dm-cam .p.b { opacity: 0;
+    background: radial-gradient(circle at 46% 40%, #b98f70 0 16%, transparent 17%), radial-gradient(44% 33% at 46% 100%, #66775a 0 97%, transparent 100%), #bdb5a6; }
+  .dm-cam .p.b.on { opacity: 1; }
+  .card .dm-sub { position: absolute; left: 0; width: 58%; margin: 0; text-align: center; font: 300 13.5px/1.5 var(--font); color: var(--ink); word-break: keep-all; }
+  .dm-fly { position: absolute; left: 0; top: 0; border-radius: 4px; overflow: hidden; background: #f8f6f1; opacity: 0;
+    pointer-events: none; z-index: 9; transform-origin: 0 0; }
+  .dm-doc { position: absolute; right: 0; top: 22px; width: 34%; }
+  .dm-ph { position: absolute; left: 0; top: 0; width: 100%; aspect-ratio: 0.72; border-radius: 6px; border: 1.5px dashed rgba(var(--tint-rgb), 0.5);
+    display: grid; place-items: center; font: 400 13px/1 var(--font); letter-spacing: 0.24em; color: var(--ink-2); opacity: 0; }
+  .dm-page { position: absolute; left: 0; top: 0; width: 100%; aspect-ratio: 0.72; border-radius: 6px; padding: 9% 9% 0;
+    background: #fbfaf7; box-shadow: var(--pg-shadow); opacity: 0; transform-origin: 50% 60%; text-align: left; }
+  .pg-no { font: 400 7.5px/1 var(--font); letter-spacing: 0.12em; color: #a5824a; text-align: center; }
+  .pg-th { position: relative; margin-top: 6%; border-radius: 3px; overflow: hidden; background: #f3f1eb; border: 1px solid #e3dfd5; aspect-ratio: 16 / 9.2; }
+  .pg-th.waiting { background: transparent; border-style: dashed; border-color: #a9a191; }
+  .pg-img { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+  .pg-lab { margin-top: 8%; font: 400 6.5px/1 var(--font); letter-spacing: 0.1em; color: #8b909c; text-align: center; }
+  .pg-tx { margin-top: 5%; font: 300 8px/1.45 var(--font); color: #2a2f3a; word-break: keep-all; text-align: center; }
+  .pg-tx::before { content: "“"; color: #a5824a; }
+  .pg-tx::after { content: "”"; color: #a5824a; }
+  .dm-badge { position: absolute; z-index: 12; padding: 5px 12px; border-radius: 999px; font: 400 12px/1.2 var(--font); white-space: nowrap;
+    background: var(--card); color: var(--ink); border: 1px solid rgba(var(--accent-rgb), 0.5); box-shadow: 0 6px 18px var(--shadow); opacity: 0; }
+  .dm-badge.ok::before { content: "✓ "; color: var(--accent); }
+  #dmDone { left: 50%; top: -5px; transform: translateX(-50%); }
+  .dm-dots { display: flex; justify-content: center; gap: 7px; margin-top: 18px; }
+  .dm-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(var(--tint-rgb), 0.18); transition: background 0.4s, width 0.4s; }
+  .dm-dots i.on { width: 18px; border-radius: 3px; background: var(--accent); }
+  .demo-foot { margin-top: 12px !important; font-size: 12px !important; text-align: center; color: var(--ink-2) !important; }
+  .helpdot { width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--line-2); font-size: 10.5px; color: var(--muted); display: inline-grid; place-items: center; }
+  .helpdot:hover { color: var(--ink); border-color: var(--accent); }
+  body.demo-only > *:not(#slidedemo) { visibility: hidden; }
+  body.demo-only #slidedemo { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  @media (max-width: 520px) { .card .demo-cap { font-size: 15px; } .card .dm-sub { font-size: 11.5px; } .dm-lab { font-size: 10.5px; } }
+
+  /* ---------- 설정 ---------- */
+  .gear {
+    position: fixed; top: calc(30px + var(--top-extra)); right: 16px; z-index: 7; width: 36px; height: 36px; border-radius: 50%;
+    display: grid; place-items: center; color: var(--muted); transition: color 0.2s, background 0.2s;
+  }
+  .gear:hover { color: var(--ink); background: rgba(var(--tint-rgb), 0.06); }
+  .gear svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.4; }
+  .set-group { margin: 22px 0 0; border-radius: 16px; border: 1px solid var(--line); background: rgba(var(--tint-rgb), 0.022); overflow: hidden; }
+  .set-group > em { display: block; padding: 14px 18px 4px; font-style: normal; font-size: 11.5px; letter-spacing: 0.2em; color: var(--accent); }
+  .set-row {
+    display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 14px; min-height: 52px;
+    padding: 10px 18px; border-top: 1px solid var(--line); text-align: left; font-size: 14.5px; font-weight: 300; color: var(--ink);
+  }
+  .set-group > em + .set-row { border-top: 0; }
+  .set-row > span:first-child { display: grid; gap: 3px; }
+  .set-row small, .set-note { font-size: 12px; color: var(--muted); font-weight: 300; }
+  .set-note { display: block; padding: 0 18px 14px; line-height: 1.6; }
+  .link-row { cursor: pointer; transition: background 0.2s; }
+  .link-row:hover { background: rgba(var(--tint-rgb), 0.04); }
+  .link-row i { font-style: normal; color: var(--faint); font-size: 18px; }
+  .muted { color: var(--muted); font-size: 13.5px; }
+  .seg3 { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(var(--tint-rgb), 0.06); flex-wrap: wrap; justify-content: flex-end; }
+  .seg3 button { padding: 6px 13px; border-radius: 999px; font-size: 13px; color: var(--ink-2); transition: background 0.2s, color 0.2s; }
+  .seg3 button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 6px var(--shadow); }
+  .swatches { display: inline-flex; gap: 10px; }
+  .swatches button { width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); position: relative; }
+  .swatches button.on::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 1.5px solid var(--ink-2); }
+  .set-preview { padding: 6px 18px 16px; text-align: center; }
+  .set-preview time { display: block; font-size: 11px; letter-spacing: 0.18em; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .set-preview p { margin-top: 6px; font-size: calc(clamp(18px, 2.15vw, 22px) * var(--fs)); font-weight: 300; line-height: 1.7; color: var(--ink); word-break: keep-all;
+    background: linear-gradient(transparent 72%, rgba(var(--accent-rgb), 0.24) 72%, rgba(var(--accent-rgb), 0.24) 92%, transparent 92%);
+    display: inline; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .icons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 10px 14px 12px; }
+  .icons button { display: grid; justify-items: center; gap: 7px; padding: 8px 4px; border-radius: 14px; font-size: 12px; color: var(--muted); transition: background 0.2s; }
+  .icons button:hover { background: rgba(var(--tint-rgb), 0.04); }
+  .icons img { width: 100%; max-width: 70px; aspect-ratio: 1; }
+  /* 설정 › 음성 인식: one row per engine — pick one; Whisper is downloaded first */
+  .eng-row { display: flex; align-items: center; gap: 14px; width: 100%; padding: 13px 18px; border-top: 1px solid var(--line); text-align: left; }
+  #setEngines .eng-row:first-child { border-top: 0; }
+  .eng-row.pick { cursor: pointer; transition: background 0.2s; }
+  .eng-row.pick:hover { background: rgba(var(--tint-rgb), 0.04); }
+  .eng-row.pick:hover .eng-txt small, .eng-row.pick:hover .eng-txt b i,
+  .eng-row.pick:hover .eng-side, .eng-row.pick:hover .eng-del { color: var(--ink-2); }   /* readable on the hover tint */
+  .eng-radio { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line-2); flex: none; position: relative; }
+  .eng-radio.on { border-color: var(--accent); }
+  .eng-radio.on::after { content: ""; position: absolute; inset: 3.5px; border-radius: 50%; background: var(--accent); }
+  .eng-radio.na { border-style: dashed; opacity: 0.6; }
+  .eng-txt { flex: 1; min-width: 0; display: grid; gap: 4px; font-size: 14.5px; font-weight: 300; color: var(--ink); }
+  .eng-txt b { font-weight: 400; }
+  .eng-txt b i { font-style: normal; font-weight: 300; color: var(--muted); font-size: 12px; margin-left: 6px; white-space: nowrap; }
+  .eng-txt small { font-size: 12px; color: var(--muted); line-height: 1.5; font-weight: 300; word-break: keep-all; }
+  .eng-txt small.err { color: var(--rec); }
+  .eng-bar { display: block; height: 2px; border-radius: 2px; background: rgba(var(--tint-rgb), 0.1); overflow: hidden; margin-top: 4px; }
+  .eng-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
+  .eng-side { display: grid; justify-items: end; gap: 4px; flex: none; font-size: 12px; color: var(--muted); }
+  .eng-del { font-size: 12px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+  .eng-del:hover { color: var(--ink); }
+  @media (max-width: 520px) {                        /* phones: the button goes under the text instead of squeezing it */
+    .eng-row { flex-wrap: wrap; row-gap: 10px; }
+    .eng-side { width: 100%; padding-left: 32px; grid-auto-flow: column; justify-content: start; align-items: center; gap: 12px; }
+  }
+  .icons button.on { color: var(--ink); background: rgba(var(--accent-rgb), 0.1); }
+  .icons button.on img { filter: drop-shadow(0 0 0 transparent); }
   @media (max-width: 520px) {
-    .cuechip { top: 106px; }
-    .top { padding-top: 34px; }
-    main { padding-top: 136px; padding-bottom: 216px; }
+    .gear { top: calc(24px + var(--top-extra)); right: 10px; }
+    .icons { gap: 4px; padding: 8px; }
+    .set-row { padding: 10px 14px; flex-wrap: wrap; }
+    .set-row.wide { flex-direction: column; align-items: stretch; gap: 10px; }
+    .set-row.wide .seg3 { justify-content: space-between; }
+    .set-row.wide .seg3 button { flex: 1; padding: 7px 6px; }
+    .set-row.wide .swatches { justify-content: space-between; padding: 2px 6px; }
+  }
+
+  /* ---------- library (기록) & one session ---------- */
+  .sheet {
+    position: fixed; inset: 0; z-index: 12; display: flex; flex-direction: column;
+    background:
+      radial-gradient(1100px 520px at 50% -12%, rgba(var(--accent-rgb), 0.06), transparent 62%),
+      radial-gradient(900px 640px at 50% 118%, rgba(70, 92, 150, 0.1), transparent 62%),
+      var(--bg);
+    transform: translateX(104%); visibility: hidden;
+    transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.42s;
+    box-shadow: -24px 0 60px var(--shadow);
+  }
+  .sheet.show { transform: none; visibility: visible; transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s; }
+  #detail { z-index: 13; }
+  #settings { z-index: 14; }                 /* ⌘, opens it above 기록 or a session */
+  @media (prefers-reduced-motion: reduce) { .sheet, .sheet.show { transition: none; } }
+  body.noanim *, body.noanim *::before, body.noanim *::after { animation: none !important; transition: none !important; }
+  .bar {
+    flex: none; display: grid; grid-template-columns: minmax(84px, 1fr) minmax(0, auto) minmax(84px, 1fr); align-items: center;
+    padding: calc(30px + var(--top-extra)) 14px 12px;
+    border-bottom: 1px solid transparent; transition: border-color 0.25s;
+  }
+  .sheet.scrolled .bar { border-bottom-color: var(--line); }
+  .back {
+    justify-self: start; display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 12px 8px 6px; border-radius: 10px;
+    font-size: 14px; font-weight: 300; color: var(--ink-2); transition: color 0.2s, background 0.2s;
+  }
+  .back:hover { color: var(--ink); background: rgba(var(--tint-rgb), 0.04); }
+  .back svg { width: 8px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .bar-title { text-align: center; min-width: 0; }
+  .bar-title b { display: block; font-size: 12.5px; font-weight: 400; letter-spacing: 0.42em; text-indent: 0.42em; color: rgba(var(--tint-rgb), 0.6); white-space: nowrap; }
+  .bar-title small { display: block; margin-top: 6px; font-size: 12px; font-weight: 300; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bar-title small:empty { display: none; }
+  .sheet-body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 16px 48px; overscroll-behavior: contain; }
+  .sheet-body::-webkit-scrollbar { width: 9px; }
+  .sheet-body::-webkit-scrollbar-thumb { background: rgba(var(--tint-rgb), 0.1); border-radius: 9px; border: 3px solid transparent; background-clip: padding-box; }
+  .col { max-width: 640px; margin: 0 auto; }
+
+  .search { position: relative; margin: 4px 0 6px; }
+  .search svg { position: absolute; left: 15px; top: 50%; width: 15px; height: 15px; transform: translateY(-50%); fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-linecap: round; }
+  .search input {
+    width: 100%; padding: 12px 16px 12px 41px; border-radius: 14px; border: 1px solid var(--line);
+    background: rgba(var(--tint-rgb), 0.03); color: var(--ink); font: 300 16px var(--font); outline: none;
+    -webkit-appearance: none; appearance: none; user-select: text; -webkit-user-select: text;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .search input::placeholder { color: var(--faint); }
+  .search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+  .search input:focus { border-color: rgba(var(--accent-rgb), 0.45); background: rgba(var(--tint-rgb), 0.05); }
+  .day { margin: 28px 6px 10px; font-size: 12px; font-weight: 400; letter-spacing: 0.08em; color: var(--muted); }
+  .srow {
+    display: block; width: 100%; margin-bottom: 10px; padding: 16px 18px 15px; text-align: left;
+    border-radius: 16px; border: 1px solid var(--line); background: rgba(var(--tint-rgb), 0.022);
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  }
+  .srow:hover { background: rgba(var(--tint-rgb), 0.05); border-color: var(--line-2); }
+  .srow:active { transform: scale(0.994); }
+  .srow-top { display: flex; align-items: baseline; gap: 12px; }
+  .srow-title { flex: 1; min-width: 0; font-size: 16.5px; font-weight: 400; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srow-dur { flex: none; font-size: 12.5px; font-weight: 300; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .srow-text {
+    margin-top: 7px; font-size: 14px; line-height: 1.6; font-weight: 300; color: var(--muted);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    word-break: keep-all; overflow-wrap: anywhere;
+  }
+  .srow-text.cue { color: var(--ink-2); }
+  .tag {
+    display: inline-block; margin-right: 8px; padding: 0 7px; border-radius: 6px; vertical-align: 1px;
+    font-size: 11px; font-style: normal; font-weight: 400; letter-spacing: 0.06em; line-height: 18px;
+    color: var(--accent); border: 1px solid rgba(var(--accent-rgb), 0.42);
+  }
+  .tag.plain { color: var(--muted); border-color: var(--line-2); margin: 0 0 0 9px; vertical-align: 2px; }
+  .srow.live { border-color: rgba(196, 106, 92, 0.38); }
+  .srow.saving { opacity: 0.7; cursor: default; }
+  .srow.live .srow-title::before {
+    content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 10px; border-radius: 50%; vertical-align: 2px;
+    background: var(--rec); box-shadow: 0 0 10px rgba(196, 106, 92, 0.7); animation: pulse 1.8s ease-in-out infinite;
+  }
+  .lib-empty { display: none; padding: 16vh 24px 0; text-align: center; }
+  .lib-empty.show { display: block; }
+  .lib-empty .wave { margin: 0 auto 24px; display: block; }
+  .lib-empty h2 { font-size: 23px; font-weight: 200; color: var(--ink); line-height: 1.5; }
+  .lib-empty p { margin-top: 12px; font-size: 14px; font-weight: 300; color: var(--muted); line-height: 1.75; word-break: keep-all; }
+  .lib-foot { margin: 30px 0 0; text-align: center; }
+
+  .det-head { padding: 2px 0 0; text-align: center; }
+  .det-name {
+    display: block; width: 100%; max-width: 600px; margin: 0 auto; padding: 2px 8px; text-align: center;
+    background: transparent; border: 0; border-bottom: 1px solid transparent; border-radius: 0; outline: none;
+    color: var(--ink); font: 200 clamp(25px, 3.4vw, 32px)/1.4 var(--font); letter-spacing: -0.01em;
+    text-overflow: ellipsis; user-select: text; -webkit-user-select: text; transition: border-color 0.2s;
+  }
+  .det-name:hover:not(:disabled):not(:focus) { border-bottom-color: var(--line-2); cursor: text; }
+  .det-name:focus { border-bottom-color: rgba(var(--accent-rgb), 0.6); }
+  .det-name:disabled { -webkit-text-fill-color: var(--ink); opacity: 1; }
+  .det-meta { margin-top: 10px; font-size: 13px; font-weight: 300; color: var(--muted); font-variant-numeric: tabular-nums; word-break: keep-all; }
+  .det-acts { margin: 20px 0 4px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .ghost.danger:hover:not(:disabled) { color: #eab1a4; border-color: rgba(196, 106, 92, 0.55); background: rgba(196, 106, 92, 0.08); }
+  .det-cues {
+    display: none; max-width: 620px; margin: 24px auto 4px; padding: 16px 16px 12px;
+    border-radius: 16px; background: rgba(var(--accent-rgb), 0.055); border: 1px solid rgba(var(--accent-rgb), 0.22);
+  }
+  .det-cues.show { display: block; }
+  .det-cues em { display: block; margin-bottom: 6px; text-align: center; font-style: normal; font-size: 11.5px; letter-spacing: 0.24em; text-indent: 0.24em; color: var(--accent); }
+  .cue-line {
+    display: flex; gap: 12px; width: 100%; padding: 8px 8px; border-radius: 10px; text-align: left;
+    font-size: 14.5px; line-height: 1.65; font-weight: 300; color: var(--ink); word-break: keep-all; overflow-wrap: anywhere;
+    transition: background 0.2s;
+  }
+  .cue-line:hover { background: rgba(var(--tint-rgb), 0.045); }
+  .cue-line time { flex: none; padding-top: 2px; font-size: 12px; letter-spacing: 0.06em; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .det-lines { max-width: 700px; margin: 22px auto 0; }
+  .det-lines .seg { animation: none; padding: 11px 4px; border-radius: 12px; }
+  .det-lines.audio .seg { cursor: pointer; }
+  .det-lines .seg p { font-size: calc(clamp(17px, 1.9vw, 20px) * var(--fs)); color: var(--ink-2); transition: color 0.25s; cursor: inherit; }
+  .det-lines.audio .seg:hover p { color: var(--ink); }
+  .det-lines.playing .seg { opacity: 0.6; }
+  .det-lines .seg.now { opacity: 1; }
+  .det-lines .seg.now p { color: var(--ink); }
+  .det-lines .seg.now time { color: var(--accent); }
+  .det-lines .seg.cue p { color: var(--ink); }
+  .det-note { margin: 30px auto 0; text-align: center; font-size: 13.5px; font-weight: 300; color: var(--muted); }
+
+  .player {
+    flex: none; padding: 12px 20px calc(14px + var(--sab));
+    border-top: 1px solid var(--line); background: var(--bar-bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  }
+  .player.hide { display: none; }
+  .pl-inner { max-width: 560px; margin: 0 auto; }
+  .seek { display: block; width: 100%; height: 20px; margin: 0; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none; touch-action: none; }
+  .seek:focus { outline: none; }
+  .seek::-webkit-slider-runnable-track {
+    height: 3px; border-radius: 3px;
+    background: linear-gradient(to right, var(--accent) var(--p, 0%), rgba(var(--tint-rgb), 0.16) var(--p, 0%));
+  }
+  .seek::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px; margin-top: -5px; border-radius: 50%;
+    background: var(--ink); box-shadow: 0 0 0 5px rgba(var(--accent-rgb), 0.16);
+  }
+  .seek::-moz-range-track { height: 3px; border-radius: 3px; background: rgba(var(--tint-rgb), 0.16); }
+  .seek::-moz-range-progress { height: 3px; border-radius: 3px; background: var(--accent); }
+  .seek::-moz-range-thumb { width: 13px; height: 13px; border: 0; border-radius: 50%; background: var(--ink); }
+  .pl-times { display: flex; justify-content: space-between; margin-top: 2px; font-size: 11.5px; letter-spacing: 0.04em; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pl-row { margin-top: 4px; display: grid; grid-template-columns: 1fr auto auto auto 1fr; align-items: center; gap: clamp(12px, 5vw, 30px); }
+  .pl-btn { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; color: var(--ink-2); transition: color 0.2s, background 0.2s; }
+  .pl-btn:hover:not(:disabled) { color: var(--ink); background: rgba(var(--tint-rgb), 0.05); }
+  .pl-btn svg { width: 28px; height: 28px; overflow: visible; }
+  .pl-btn svg path { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .pl-btn svg text { fill: currentColor; stroke: none; font: 400 8.6px var(--font); letter-spacing: -0.03em; }
+  .pl-play {
+    width: 60px; height: 60px; display: grid; place-items: center; border-radius: 50%;
+    border: 1.5px solid rgba(var(--tint-rgb), 0.36);
+    background: radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.05), transparent 70%);
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .pl-play:hover { border-color: rgba(var(--tint-rgb), 0.62); }
+  .pl-play:active { transform: scale(0.96); }
+  .pl-play svg { width: 22px; height: 22px; fill: var(--ink); }
+  .pl-play .i-pause, .player.playing .pl-play .i-play { display: none; }
+  .player.playing .pl-play .i-pause { display: block; }
+  .player.playing .pl-play { border-color: rgba(var(--accent-rgb), 0.6); }
+  .pl-rate {
+    justify-self: start; min-width: 54px; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line-2);
+    font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; transition: color 0.2s, border-color 0.2s;
+  }
+  .pl-rate:hover, .pl-rate.on { color: var(--accent); border-color: rgba(var(--accent-rgb), 0.45); }
+  .pl-follow { justify-self: end; width: 40px; height: 40px; }
+  .pl-follow svg { width: 20px; height: 20px; }
+  .pl-follow.on { color: var(--accent); }
+
+  @media (max-width: 520px) {
+    .cuechip { top: calc(106px + var(--top-extra)); }
+    .top { padding-top: calc(34px + var(--top-extra)); }
+    main { padding-top: calc(136px + var(--top-extra)); padding-bottom: calc(216px + var(--sab)); }
     .ghost { min-width: 0; padding: 9px 14px; font-size: 13px; }
     .rec { width: 68px; height: 68px; }
-    .row2 { gap: 14px; }
-    .notice { top: 118px; }
+    .row2 { gap: 10px 18px; }
+    .row2 .dotsep { display: none; }
+    .notice { top: calc(118px + var(--top-extra)); }
+    .bar { padding-top: calc(26px + var(--top-extra)); grid-template-columns: minmax(70px, 1fr) minmax(0, auto) minmax(70px, 1fr); }
+    .srow { padding: 15px 16px 14px; }
+    .srow-title { font-size: 16px; }
+    .pl-row { gap: 10px; }
+    .det-acts .ghost.small { padding: 7px 12px; }
+    .panel { align-items: flex-start; padding-top: calc(70px + var(--top-extra)); }   /* above the keyboard */
   }
 </style>
 </head>
@@ -301,13 +661,15 @@
     <div class="meter"><i id="meter"></i></div>
   </header>
 
+  <button class="gear" id="gear" aria-label="설정"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4z"/></svg></button>
+
   <main id="scroller">
     <div class="empty" id="empty">
       <svg class="wave" viewBox="0 0 120 36" aria-hidden="true">
         <path d="M2 18 C 12 18, 14 6, 22 6 S 32 30, 40 30 S 50 10, 58 10 S 66 24, 74 24 S 84 14, 92 14 S 104 18, 118 18" />
       </svg>
-      <h1>강의 영상을 재생하고<br>시작을 눌러 주세요</h1>
-      <p class="hint">이 Mac에서 나오는 소리를 그대로 받아 적어요. 마이크는 쓰지 않아요.<br>녹음과 받아 적은 글은 ‘기록 폴더’에 자동으로 저장돼요.</p>
+      <h1 id="headline">강의 영상을 재생하고<br>시작을 눌러 주세요</h1>
+      <p class="hint" id="hint">이 Mac에서 나오는 소리를 그대로 받아 적어요. 마이크는 쓰지 않아요.<br>녹음과 받아 적은 글은 ‘기록 폴더’에 자동으로 저장돼요.</p>
       <div class="dl"><div class="dlbar"><i id="dlfill"></i></div><span id="dltext">AI 모델 내려받는 중</span></div>
     </div>
     <article id="transcript" aria-live="polite"></article>
@@ -316,6 +678,7 @@
   <button class="latest" id="latest">↓ 최신 문장으로</button>
   <button class="cuechip" id="cuechip"></button>
   <div class="toast" id="toast"></div>
+  <div class="toast" id="undo"><span id="undoText">기록을 지웠어요</span><button id="undoBtn">되돌리기</button></div>
   <div class="notice" id="notice"><div id="noticeText"></div><div class="acts" id="noticeActs"></div></div>
   <div class="panel" id="kwpanel">
     <div class="card">
@@ -331,6 +694,156 @@
   </div>
   <div class="veil"><div>저장하는 중</div><small>받아 적은 글과 녹음을 정리하고 있어요</small></div>
 
+
+  <!-- 설정 -->
+  <section class="sheet" id="settings" aria-label="설정">
+    <header class="bar">
+      <button class="back" id="setBack"><svg viewBox="0 0 8 14"><path d="M7 1 1 7l6 6"/></svg><span>받아쓰기</span></button>
+      <div class="bar-title"><b>설정</b></div>
+      <span></span>
+    </header>
+    <div class="sheet-body" id="setBody">
+      <div class="col">
+        <div class="set-group"><em>화 면</em>
+          <div class="set-row wide"><span>테마</span><div class="seg3" id="setTheme"><button data-v="system">시스템</button><button data-v="dark">다크</button><button data-v="light">라이트</button></div></div>
+          <div class="set-row wide"><span>강조 색</span><div class="swatches" id="setAccent"></div></div>
+          <div class="set-row wide"><span>글자 크기</span><div class="seg3" id="setSize"><button data-v="s">작게</button><button data-v="m">보통</button><button data-v="l">크게</button><button data-v="xl">아주 크게</button></div></div>
+          <div class="set-preview"><time>12:03</time><p>미리 보기 — 오늘 출석 확인 문구는 푸른 하늘 은하수입니다.</p></div>
+        </div>
+        <div class="set-group"><em>받 아 쓰 기</em>
+          <label class="set-row link-row"><span>시간 표시<small>문장 앞에 강의 시간을 붙여요</small></span><span class="toggle"><input type="checkbox" id="setTs"><span class="sw"></span></span></label>
+          <label class="set-row link-row"><span>슬라이드 PDF<small id="setSlInfo">슬라이드를 모아 한 말과 함께 PDF로</small></span><span class="toggle"><input type="checkbox" id="setSl"><span class="sw"></span></span></label>
+          <button class="set-row link-row" id="setKw"><span>중요 단어<small id="setKwInfo"></small></span><i>›</i></button>
+          <button class="set-row link-row" id="setDemo"><span>슬라이드 PDF는 어떻게 동작하나요?</span><i>›</i></button>
+        </div>
+        <div class="set-group" id="setEngGroup" hidden><em>음 성 인 식</em>
+          <div id="setEngines"></div>
+          <small class="set-note" id="setEngNote"></small>
+        </div>
+        <div class="set-group"><em>앱 아 이 콘</em>
+          <div class="icons" id="setIcon"></div>
+          <small class="set-note" id="setIconNote"></small>
+        </div>
+        <div class="set-group"><em>저 장</em>
+          <div class="set-row"><span>기록<small id="setStorage">—</small></span><button class="ghost small" id="setFolder">폴더 열기</button></div>
+        </div>
+        <div class="set-group"><em>정 보</em>
+          <div class="set-row"><span>버전</span><span class="muted" id="setVersion">—</span></div>
+          <div class="set-row"><span>음성 인식</span><span class="muted" id="setEngInfo">Apple 온디바이스 · 인터넷 전송 없음</span></div>
+          <button class="set-row link-row" data-url="https://github.com/WeldingArc/lecture-scribe"><span>GitHub 페이지</span><i>›</i></button>
+          <button class="set-row link-row" data-url="https://github.com/WeldingArc/lecture-scribe/blob/main/PRIVACY.md"><span>개인정보 처리방침</span><i>›</i></button>
+          <button class="set-row link-row" id="setLogs"><span>문제 신고용 로그 폴더</span><i>›</i></button>
+        </div>
+        <p class="set-note" style="text-align:center; padding-top:22px">강의 받아쓰기 · MIT 라이선스 · 개인 공부용으로 써 주세요</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 기록: every session (transcript + recording) -->
+  <section class="sheet" id="library" aria-label="기록">
+    <header class="bar">
+      <button class="back" id="libBack"><svg viewBox="0 0 8 14"><path d="M7 1 1 7l6 6"/></svg><span>받아쓰기</span></button>
+      <div class="bar-title"><b>기록</b><small id="libCount"></small></div>
+      <span></span>
+    </header>
+    <div class="sheet-body" id="libBody">
+      <div class="col">
+        <label class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5.2"/><path d="m11 11 3.6 3.6"/></svg>
+          <input id="libSearch" type="search" placeholder="제목이나 중요 문장으로 찾기" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>
+        <div id="libList"></div>
+        <div class="lib-empty" id="libEmpty">
+          <svg class="wave" viewBox="0 0 120 36" aria-hidden="true"><path d="M2 18 C 12 18, 14 6, 22 6 S 32 30, 40 30 S 50 10, 58 10 S 66 24, 74 24 S 84 14, 92 14 S 104 18, 118 18" /></svg>
+          <h2 id="libEmptyTitle">아직 기록이 없어요</h2>
+          <p id="libEmptyText">강의를 받아 적으면 녹음과 글이 여기에 차곡차곡 모여요.</p>
+        </div>
+        <div class="lib-foot"><button class="link" id="libFolder">폴더에서 보기</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- one session: transcript + recording together -->
+  <section class="sheet" id="detail" aria-label="기록 보기">
+    <header class="bar">
+      <button class="back" id="detBack"><svg viewBox="0 0 8 14"><path d="M7 1 1 7l6 6"/></svg><span>기록</span></button>
+      <div class="bar-title"><b id="detDay"></b></div>
+      <span></span>
+    </header>
+    <div class="sheet-body" id="detBody">
+      <div class="det-head">
+        <input class="det-name" id="detName" maxlength="100" spellcheck="false" autocomplete="off" enterkeyhint="done" aria-label="기록 이름 (눌러서 바꾸기)">
+        <div class="det-meta" id="detMeta"></div>
+      </div>
+      <div class="det-acts">
+        <button class="ghost small" id="detCopy">전체 복사</button>
+        <button class="ghost small" id="detSlides">슬라이드 PDF</button>
+        <button class="ghost small" id="detShare">공유</button>
+        <button class="ghost small" id="detReveal">Finder에서 보기</button>
+        <button class="ghost small danger" id="detDelete">삭제</button>
+      </div>
+      <div class="det-cues" id="detCues"></div>
+      <article class="det-lines" id="detLines"></article>
+      <div class="det-note" id="detNote"></div>
+    </div>
+    <footer class="player hide" id="player">
+      <div class="pl-inner">
+        <input class="seek" id="plSeek" type="range" min="0" max="1000" step="1" value="0" aria-label="재생 위치">
+        <div class="pl-times"><span id="plNow">00:00</span><span id="plDur">00:00</span></div>
+        <div class="pl-row">
+          <button class="pl-rate" id="plRate" aria-label="재생 속도">1×</button>
+          <button class="pl-btn" id="plBack" aria-label="15초 뒤로"><svg viewBox="0 0 26 26"><path d="M7.2 6.6A9 9 0 1 1 4.6 15"/><path d="M7.8 2.6 7 6.9l4.2.9"/><text x="13" y="16.4" text-anchor="middle">15</text></svg></button>
+          <button class="pl-play" id="plPlay" aria-label="재생"><svg class="i-play" viewBox="0 0 22 22"><path d="M6.5 3.8v14.4a.8.8 0 0 0 1.2.7l11.3-7.2a.8.8 0 0 0 0-1.4L7.7 3.1a.8.8 0 0 0-1.2.7Z"/></svg><svg class="i-pause" viewBox="0 0 22 22"><rect x="5" y="3.5" width="4.2" height="15" rx="1.2"/><rect x="12.8" y="3.5" width="4.2" height="15" rx="1.2"/></svg></button>
+          <button class="pl-btn" id="plFwd" aria-label="15초 앞으로"><svg viewBox="0 0 26 26"><path d="M18.8 6.6A9 9 0 1 0 21.4 15"/><path d="m18.2 2.6.8 4.3-4.2.9"/><text x="13" y="16.4" text-anchor="middle">15</text></svg></button>
+          <button class="pl-btn pl-follow on" id="plFollow" aria-label="재생 중인 문장 따라가기"><svg viewBox="0 0 20 20"><path d="M10 2.5v3M10 14.5v3M2.5 10h3M14.5 10h3"/><path d="M10 6.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6Z"/></svg></button>
+        </div>
+      </div>
+    </footer>
+  </section>
+
+
+  <!-- 슬라이드 PDF: how it works -->
+  <div class="panel" id="slidedemo">
+    <div class="card demo-card">
+      <h2>슬라이드 PDF</h2>
+      <p class="demo-cap" id="demoCap"></p>
+      <div class="demo-stage" aria-hidden="true">
+        <span class="dm-lab l" id="dmLabL">강의 화면</span><span class="dm-lab r" id="dmLabR">PDF</span>
+        <div class="dm-win">
+          <div class="dm-chrome"><i></i><i></i><i></i></div>
+          <div class="dm-area">
+            <div class="dm-slide" data-s="1"><div class="dm-title">1. 수요와 공급</div><div class="dm-b">가격이 오르면 수요량은 줄어요</div></div>
+            <div class="dm-slide" data-s="2"><div class="dm-title">2. 시장 균형</div><div class="dm-b">두 곡선이 만나는 점</div></div>
+            <div class="dm-slide" data-s="3"><div class="dm-title">3. 과제 안내</div><div class="dm-b">• 수요일까지 제출</div><div class="dm-b">• 시험은 4장까지</div><div class="dm-b">• 출석 문구: 은하수</div></div>
+            <div class="dm-cam"><i class="p a"></i><i class="p b" id="dmCamB"></i></div>
+            <div class="dm-flash" id="dmFlash"></div>
+          </div>
+        </div>
+        <p class="dm-sub" id="dmSub"></p>
+        <div class="dm-fly" id="dmFly"></div>
+        <div class="dm-doc">
+          <div class="dm-ph" id="dmPh">PDF</div>
+          <div class="dm-page" data-p="1"><div class="pg-no">1</div><div class="pg-th"><div class="pg-img"><div class="dm-slide"><div class="dm-title">1. 수요와 공급</div><div class="dm-b">가격이 오르면 수요량은 줄어요</div></div><div class="dm-cam"><i class="p a"></i></div></div></div><div class="pg-lab">이 슬라이드에서 한 말</div><div class="pg-tx">오늘은 수요와 공급을 배워요.</div></div>
+          <div class="dm-page" data-p="2"><div class="pg-no">2</div><div class="pg-th"><div class="pg-img"><div class="dm-slide"><div class="dm-title">2. 시장 균형</div><div class="dm-b">두 곡선이 만나는 점</div></div><div class="dm-cam"><i class="p a"></i><i class="p b on"></i></div></div></div><div class="pg-lab">이 슬라이드에서 한 말</div><div class="pg-tx">두 곡선이 만나는 점이 균형이에요.</div></div>
+          <div class="dm-page" data-p="3"><div class="pg-no">3</div><div class="pg-th"><div class="pg-img"><div class="dm-slide"><div class="dm-title">3. 과제 안내</div><div class="dm-b">• 수요일까지 제출</div><div class="dm-b">• 시험은 4장까지</div><div class="dm-b">• 출석 문구: 은하수</div></div><div class="dm-cam"><i class="p a"></i></div></div></div><div class="pg-lab">이 슬라이드에서 한 말</div><div class="pg-tx">과제는 수요일까지 내 주세요.</div></div>
+        </div>
+        <span class="dm-badge ok" id="dmDone">PDF 저장됨 · 슬라이드 3장</span>
+      </div>
+      <div class="dm-dots" id="dmDots"><i></i><i></i><i></i><i></i><i></i></div>
+      <p class="demo-foot" id="demoFoot">구석 카메라 화면이 바뀌는 건 새 슬라이드로 치지 않아요.</p>
+      <div class="acts"><button class="ghost small" id="demoOk">알겠어요</button></div>
+    </div>
+  </div>
+
+  <div class="panel" id="confirm">
+    <div class="card">
+      <h2 id="cfTitle">기록 삭제</h2>
+      <p id="cfText"></p>
+      <div class="acts">
+        <button class="ghost small" id="cfNo">취소</button>
+        <button class="ghost small danger" id="cfYes">삭제</button>
+      </div>
+    </div>
+  </div>
+
   <footer class="dock">
     <div class="row">
       <button class="ghost" id="copy" disabled>전체 복사</button>
@@ -338,9 +851,12 @@
         <button class="rec" id="rec" disabled aria-label="녹음 시작"><span class="core"></span></button>
         <span class="reclabel" id="reclabel">준비 중</span>
       </div>
-      <button class="ghost" id="folder">기록 폴더</button>
+      <button class="ghost" id="folder">기록</button>
     </div>
     <div class="row2">
+      <label class="check" id="slwrap"><input type="checkbox" id="sl"><span class="box"></span><span>슬라이드 PDF</span></label>
+      <button class="helpdot" id="slhelp" aria-label="슬라이드 PDF가 뭔가요?">?</button>
+      <span class="dotsep">·</span>
       <label class="toggle"><input type="checkbox" id="ts" checked><span class="sw"></span><span>시간 표시</span></label>
       <span class="dotsep">·</span>
       <button class="link" id="file" disabled>파일 불러오기</button>
@@ -354,6 +870,11 @@
   const $ = (id) => document.getElementById(id);
   const body = document.body;
   const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.native;
+  let slideCount = 0;
+  const IOS = window.__PLATFORM__ === "ios" || (!native && /[?&]ios\b/.test(location.search));
+  const DEVICE = window.__DEVICE__ || "아이폰";
+  const HAS_LIBRARY = !native || !!window.__LIBRARY__;     // v2 apps (and the browser demo)
+  body.classList.toggle("ios", IOS);
   const state = { engine: "loading", rec: "idle", mode: "live", started: 0, title: "", segs: new Map(),
                   saved: null, timer: null, follow: true,
                   idBase: 0,             // segment ids restart in every backend session
@@ -378,14 +899,23 @@
     return h ? `${h}시간 ${m}분` : m ? `${m}분 ${s}초` : `${s}초`;
   };
   let toastTimer;
-  function toast(msg, ms = 2600) {
+  function toast(msg, ms = 2600, action = null) {
     const t = $("toast");
     t.textContent = msg;
+    t.classList.toggle("has-act", !!action);
+    if (action) {
+      const b = document.createElement("button");
+      b.textContent = action[0];
+      b.onclick = () => { t.classList.remove("show"); clearTimeout(toastTimer); action[1](); };
+      t.appendChild(b);
+    }
     t.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove("show"), ms);
   }
-  function notice(msg, actions = []) {
+  let noticeCode = "";
+  function notice(msg, actions = [], code = "") {
+    noticeCode = code;
     $("noticeText").textContent = msg;
     const acts = $("noticeActs");
     acts.innerHTML = "";
@@ -443,11 +973,12 @@
       const el = document.createElement("section");
       el.className = "seg";
       el.innerHTML = "<time></time><p></p>";
-      seg = { id: key, el };
+      seg = { id: key, el, t: ev.t };
       state.segs.set(key, seg);
-      // keep DOM order by id
-      const after = [...state.segs.values()].filter((s) => s.id > key && s.el.isConnected)
-                                             .sort((a, b) => a.id - b.id)[0];
+      // keep lines in time order (an English quote can arrive after the Korean around it)
+      const after = [...state.segs.values()]
+        .filter((s) => s !== seg && s.el.isConnected && (s.t > ev.t || (s.t === ev.t && s.id > key)))
+        .sort((a, b) => a.t - b.t || a.id - b.id)[0];
       $("transcript").insertBefore(el, after ? after.el : null);
     }
     seg.t = ev.t; seg.text = ev.text; seg.final = ev.final;
@@ -502,7 +1033,7 @@
   }
 
   function finalLines() {
-    return [...state.segs.values()].filter((s) => s.final && s.text).sort((a, b) => a.id - b.id);
+    return [...state.segs.values()].filter((s) => s.final && s.text).sort((a, b) => a.t - b.t || a.id - b.id);
   }
 
   function transcriptText() {
@@ -529,7 +1060,7 @@
     if (!ev.txt) { refreshControls(); return; }
     const box = document.createElement("div");
     box.className = "saved";
-    const what = ev.audio ? "텍스트와 녹음이 저장됐어요" : "텍스트가 저장됐어요";
+    const what = (ev.audio ? "텍스트와 녹음" : "텍스트") + (ev.slides ? `, 슬라이드 ${ev.slides}장 PDF가` : "이") + " 저장됐어요";
     box.innerHTML = `<b>저장됨</b><span>${human(ev.seconds)} · ${ev.count}문장 · ${what}</span><div class="acts"></div>`;
     const cues = cueLines().slice(-3);
     if (cues.length) {
@@ -548,8 +1079,13 @@
       const b = document.createElement("button");
       b.className = "ghost small"; b.textContent = label; b.onclick = fn; acts.appendChild(b);
     };
-    add("텍스트 열기", () => send("openFile", { path: ev.txt }));
-    add("폴더에서 보기", () => send("reveal", { path: ev.txt }));
+    if (HAS_LIBRARY && ev.id) {
+      add("기록에서 보기", () => { openLibrary(); openSession(state.saved && state.saved.id || ev.id); });   // follows renames
+      if (ev.slides) add("슬라이드 PDF", () => send("openSlides", { id: state.saved && state.saved.id || ev.id }));
+    } else {
+      add("텍스트 열기", () => send("openFile", { path: ev.txt }));
+      add("폴더에서 보기", () => send("reveal", { path: ev.txt }));
+    }
     $("transcript").appendChild(box);
     refreshControls();
     requestAnimationFrame(scrollToEnd);
@@ -558,14 +1094,521 @@
   function tick() {
     if (state.rec === "recording" && state.mode === "live" && state.started) {
       $("timer").textContent = fmt(Date.now() / 1000 - state.started);
+      const live = document.querySelector(".srow.live .srow-dur");
+      if (live) live.textContent = fmt(Date.now() / 1000 - state.started);
     }
   }
 
+  let copyCount = 0;
   function copyAll() {
     const lines = finalLines();
     if (!lines.length) return;
+    copyCount = lines.length;
     send("copy", { text: transcriptText() });
   }
+
+
+  // ---------- 기록 (library): every session = transcript + recording
+  const lib = { sessions: [], loaded: false };
+  const det = { id: null, s: null, lines: [], els: [], now: -1, userScrollAt: 0 };
+  const pl = { id: "", t: 0, dur: 0, playing: false, rate: 1, dragging: false, follow: true };
+  const RATES = [1, 1.25, 1.5, 1.75, 2, 0.75];
+  const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
+
+  const pad2 = (n) => String(n).padStart(2, "0");
+  function clock(d) { const h = d.getHours(); return `${h < 12 ? "오전" : "오후"} ${h % 12 || 12}:${pad2(d.getMinutes())}`; }
+  function dayLabel(epoch) {
+    const d = new Date(epoch * 1000), now = new Date();
+    const day0 = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((day0(now) - day0(d)) / 86400000);
+    if (diff === 0) return "오늘";
+    if (diff === 1) return "어제";
+    const md = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEK[d.getDay()]}요일`;
+    return d.getFullYear() === now.getFullYear() ? md : `${d.getFullYear()}년 ${md}`;
+  }
+  function fullDate(epoch) {
+    const d = new Date(epoch * 1000);
+    return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEK[d.getDay()]}요일 ${clock(d)}`;
+  }
+  function durLabel(sec) {
+    sec = Math.round(sec || 0);
+    if (sec < 60) return `${sec}초`;
+    const mins = Math.round(sec / 60), h = Math.floor(mins / 60), m = mins % 60;
+    return h ? (m ? `${h}시간 ${m}분` : `${h}시간`) : `${m}분`;
+  }
+  // The row preview shows the most important 중요 문장: the user's keyword order is the priority (출석 first).
+  function bestCue(cues) {
+    if (!cues || !cues.length) return null;
+    for (const w of keywords) {
+      const re = buildCue([w]);
+      const hit = cues.find((c) => re.test(c[1]));
+      if (hit) return hit;
+    }
+    return cues[0];
+  }
+  function displayName(s) {
+    if (s.kind === "file") return s.id.replace(/ 받아쓰기( \(\d+\))?$/, "");
+    if (!s.custom) return `${clock(new Date(s.date * 1000))} 강의`;
+    return s.id;
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  const isOpen = (id) => $(id).classList.contains("show");
+
+  function openLibrary() {
+    $("library").classList.add("show");
+    renderLibrary();
+    send("library");
+  }
+  function closeLibrary() {
+    $("library").classList.remove("show");
+    $("libSearch").blur();
+  }
+
+  function renderLibrary() {
+    const q = $("libSearch").value.trim().normalize("NFC").toLowerCase();
+    const list = $("libList");
+    list.innerHTML = "";
+    const all = lib.sessions;
+    const shown = !q ? all : all.filter((s) =>
+      [displayName(s), s.id, s.preview, ...(s.cues || []).map((c) => c[1])].join("\n").normalize("NFC").toLowerCase().includes(q));
+    $("libCount").textContent = all.length ? `${all.length}개` : "";
+    const empty = lib.loaded && !shown.length;
+    $("libEmpty").classList.toggle("show", empty);
+    $("libEmptyTitle").textContent = q ? "찾는 기록이 없어요" : "아직 기록이 없어요";
+    $("libEmptyText").textContent = q ? "다른 단어로 찾아보세요. 제목과 중요 문장에서 찾아요."
+                                      : "강의를 받아 적으면 녹음과 글이 여기에 차곡차곡 모여요.";
+    $("libSearch").parentElement.style.display = all.length ? "" : "none";
+    let day = null;
+    for (const s of shown) {
+      const label = s.recording ? "지금" : dayLabel(s.date);
+      if (label !== day) { list.appendChild(el("div", "day", label)); day = label; }
+      const row = el("button", "srow" + (s.recording ? " live" : s.saving ? " saving" : ""));
+      const top = el("div", "srow-top");
+      const title = el("div", "srow-title", s.recording ? "지금 받아 적는 중" : displayName(s));
+      if (s.kind === "file" && !s.recording) title.appendChild(el("i", "tag plain", "파일"));
+      if (s.saving) title.appendChild(el("i", "tag plain", "저장 중"));
+      if (s.slides && !s.recording) title.appendChild(el("i", "tag plain", `슬라이드 ${s.slides}`));
+      top.appendChild(title);
+      top.appendChild(el("span", "srow-dur", s.recording ? (state.started ? fmt(Date.now() / 1000 - state.started) : "") : durLabel(s.seconds)));
+      row.appendChild(top);
+      const cue = bestCue(s.cues);
+      const text = el("div", "srow-text" + (cue ? " cue" : ""));
+      if (cue) {
+        text.appendChild(el("i", "tag", s.cueCount > 1 ? `중요 ${s.cueCount}` : "중요"));
+        text.appendChild(document.createTextNode(cue[1]));
+      } else {
+        text.textContent = s.recording ? "눌러서 받아쓰기 화면으로 돌아가기" : (s.preview || (s.count ? "" : "받아 적은 문장이 없어요"));
+      }
+      if (text.textContent) row.appendChild(text);
+      row.onclick = () => s.recording ? closeLibrary() : s.saving ? toast("저장하는 중이에요. 잠시 후에 열 수 있어요.") : openSession(s.id);
+      list.appendChild(row);
+    }
+  }
+
+  function openSession(id) {
+    det.id = id; det.s = null; det.lines = []; det.els = []; det.now = -1;
+    const known = lib.sessions.find((s) => s.id === id);
+    $("detName").value = known ? displayName(known) : "";
+    $("detDay").textContent = known ? dayLabel(known.date) : "";
+    $("detMeta").textContent = "";
+    $("detLines").innerHTML = "";
+    $("detCues").classList.remove("show");
+    $("detNote").textContent = "";
+    $("player").classList.add("hide");
+    $("detail").classList.add("show");
+    $("detBody").scrollTop = 0;
+    send("session", { id });
+  }
+  function closeDetail() {
+    if (pl.playing) send("pause");
+    $("detName").blur();
+    $("detail").classList.remove("show");
+    det.id = null;
+  }
+
+  function renderSession(s) {
+    det.s = s;
+    det.lines = (s.lines || []).map(([t, text]) => ({ t, text }));
+    $("detName").value = displayName(s);
+    const busy = !!(s.recording || s.saving);
+    $("detName").disabled = busy;
+    $("detDay").textContent = dayLabel(s.date);
+    $("detMeta").textContent = `${fullDate(s.date)} · ${durLabel(s.seconds)} · ${det.lines.length}문장`;
+    $("detReveal").style.display = IOS ? "none" : "";
+    $("detSlides").style.display = s.slides ? "" : "none";
+    $("detSlides").textContent = s.slides ? `슬라이드 PDF · ${s.slides}장` : "슬라이드 PDF";
+    for (const b of ["detShare", "detReveal", "detDelete"]) $(b).disabled = busy;
+    $("detCopy").disabled = !det.lines.length;
+    const box = $("detLines");
+    box.innerHTML = "";
+    box.classList.toggle("audio", !!s.audio);
+    det.els = det.lines.map((l, i) => {
+      const seg = el("section", "seg");
+      seg.appendChild(el("time", null, fmt(l.t)));
+      seg.appendChild(el("p", null, l.text));
+      seg.dataset.i = i;
+      box.appendChild(seg);
+      return seg;
+    });
+    det.now = -1;
+    renderDetailCues();
+    $("detNote").textContent = s.recording ? "녹음을 마치면 들을 수 있어요." : s.saving ? "저장하는 중이에요. 잠시 후에 들을 수 있어요."
+                             : !det.lines.length ? "받아 적은 문장이 없어요." : !s.audio ? "이 기록에는 녹음 파일이 없어요." : "";
+    $("player").classList.toggle("hide", !s.audio);
+    if (s.audio) updatePlayer(pl.id === s.id ? pl : { id: s.id, t: 0, dur: s.seconds, playing: false, rate: pl.rate });
+  }
+
+  function renderDetailCues() {
+    const box = $("detCues");
+    box.innerHTML = "";
+    det.els.forEach((e, i) => e.classList.toggle("cue", CUE.test(det.lines[i].text)));
+    const hits = det.lines.map((l, i) => ({ ...l, i })).filter((l) => CUE.test(l.text));
+    box.classList.toggle("show", hits.length > 0);
+    if (!hits.length) return;
+    box.appendChild(el("em", null, hits.length > 1 ? `중요 문장 ${hits.length}` : "중요 문장"));
+    for (const h of hits) {
+      const b = el("button", "cue-line");
+      b.appendChild(el("time", null, fmt(h.t)));
+      b.appendChild(el("span", null, h.text));
+      b.onclick = () => jumpTo(h.i, true);
+      box.appendChild(b);
+    }
+  }
+
+  function jumpTo(i, flash) {
+    const e = det.els[i];
+    if (!e) return;
+    e.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (flash) { e.classList.remove("flash"); void e.offsetWidth; e.classList.add("flash"); }
+    if (det.s && det.s.audio) send("play", { id: det.id, t: det.lines[i].t });
+  }
+
+  function sessionText() {
+    const withTs = $("ts").checked;
+    const head = det.s && det.s.header ? `${det.s.header}\n\n` : "";
+    const lines = det.lines.map((l) => (withTs ? `[${fmt(l.t)}] ` : "") + l.text);
+    const cues = det.lines.filter((l) => CUE.test(l.text)).map((l) => `[${fmt(l.t)}] ${l.text}`);
+    return head + lines.join("\n") + (cues.length ? `\n\n── 중요 문장 ──\n${cues.join("\n")}` : "");
+  }
+
+  function lineAt(t) {                 // last line that started at or before t
+    let lo = 0, hi = det.lines.length - 1, ans = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (det.lines[mid].t <= t + 0.25) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
+    return ans;
+  }
+
+  function updatePlayer(ev) {
+    if (ev.id && det.id && ev.id !== det.id) return;
+    Object.assign(pl, { id: ev.id || pl.id, t: ev.t || 0, dur: ev.dur || pl.dur, playing: !!ev.playing, rate: ev.rate || pl.rate });
+    $("player").classList.toggle("playing", pl.playing);
+    $("plPlay").setAttribute("aria-label", pl.playing ? "일시정지" : "재생");
+    $("plRate").textContent = `${pl.rate}×`;
+    $("plRate").classList.toggle("on", pl.rate !== 1);
+    $("detLines").classList.toggle("playing", pl.playing);
+    if (!pl.dragging) {
+      const p = pl.dur ? Math.min(1, pl.t / pl.dur) : 0;
+      $("plSeek").value = Math.round(p * 1000);
+      $("plSeek").style.setProperty("--p", `${(p * 100).toFixed(2)}%`);
+      $("plNow").textContent = fmt(pl.t);
+    }
+    $("plDur").textContent = fmt(pl.dur);
+    const i = lineAt(pl.t);
+    if (i !== det.now) {
+      if (det.els[det.now]) det.els[det.now].classList.remove("now");
+      det.now = i;
+      if (det.els[i] && (pl.playing || pl.t > 0)) {
+        det.els[i].classList.add("now");
+        if (pl.playing && pl.follow && Date.now() - det.userScrollAt > 4000) det.els[i].scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    }
+  }
+
+  // 되돌리기 lives in its own bubble for 10 s after the last delete and restores everything deleted meanwhile.
+  const undo = { ids: [], timer: null };
+  function showUndo(id) {
+    undo.ids.push(id);
+    $("undoText").textContent = undo.ids.length > 1 ? `기록 ${undo.ids.length}개를 지웠어요` : "기록을 지웠어요";
+    $("undo").classList.add("show");
+    body.classList.add("has-undo");
+    clearTimeout(undo.timer);
+    undo.timer = setTimeout(hideUndo, 10000);
+  }
+  function hideUndo() {
+    clearTimeout(undo.timer);
+    undo.ids = [];
+    $("undo").classList.remove("show");
+    body.classList.remove("has-undo");
+  }
+
+  function askConfirm(title, text, yes, fn) {
+    $("cfTitle").textContent = title;
+    $("cfText").textContent = text;
+    $("cfYes").textContent = yes;
+    $("cfYes").onclick = () => { $("confirm").classList.remove("show"); fn(); };
+    $("confirm").classList.add("show");
+  }
+
+  function commitRename() {
+    const s = det.s;
+    if (!s || s.recording || s.saving) return;
+    const name = $("detName").value.trim();
+    if (!name || name === displayName(s)) { $("detName").value = displayName(s); return; }
+    send("rename", { id: s.id, name });
+  }
+
+
+
+  // ---------- 설정: theme, accent, text size, app icon (stored by the app; applied here)
+  const ACCENTS = {   // [dark theme, light theme]
+    brass: ["#c9a96b", "#7c5f2c"], sage: ["#8fae8b", "#466d4d"], rose: ["#d39a94", "#984f47"],     // light: ≥ 4.5:1 as text, on cards too
+    blue: ["#8fb0e0", "#3a64a6"], lavender: ["#b3a6e0", "#6757ae"],
+  };
+  const SIZES = { s: 0.88, m: 1, l: 1.15, xl: 1.32 };
+  const ICONS = [["navy", "네이비"], ["ivory", "아이보리"], ["brass", "브라스"], ["charcoal", "차콜"], ["sage", "세이지"]];
+  const prefs = { theme: "dark", accent: "brass", size: "m", icon: "navy" };
+  const darkQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
+  const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(", ");
+  function applyAppearance(tell = true) {
+    const light = prefs.theme === "light" || (prefs.theme === "system" && darkQuery && darkQuery.matches);
+    document.documentElement.dataset.theme = light ? "light" : "dark";
+    const a = (ACCENTS[prefs.accent] || ACCENTS.brass)[light ? 1 : 0];
+    document.documentElement.style.setProperty("--accent", a);
+    document.documentElement.style.setProperty("--accent-rgb", hexRGB(a));
+    document.documentElement.style.setProperty("--fs", SIZES[prefs.size] || 1);
+    if (tell) send("appearance", { dark: !light, system: prefs.theme === "system" });
+    renderSettings();
+  }
+  if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener("change", () => { if (prefs.theme === "system") applyAppearance(); });
+  function renderSettings() {
+    document.querySelectorAll("#setTheme button").forEach((b) => b.classList.toggle("on", b.dataset.v === prefs.theme));
+    document.querySelectorAll("#setSize button").forEach((b) => b.classList.toggle("on", b.dataset.v === prefs.size));
+    const sw = $("setAccent");
+    if (!sw.children.length) for (const k of Object.keys(ACCENTS)) {
+      const b = el("button"); b.dataset.v = k; b.setAttribute("aria-label", k); b.onclick = () => send("settings", { accent: k }); sw.appendChild(b);
+    }
+    const light = document.documentElement.dataset.theme === "light";
+    [...sw.children].forEach((b) => { b.style.background = ACCENTS[b.dataset.v][light ? 1 : 0]; b.classList.toggle("on", b.dataset.v === prefs.accent); });
+    const ic = $("setIcon");
+    if (!ic.children.length) for (const [k, label] of ICONS) {
+      const b = el("button"); b.dataset.v = k;
+      const img = el("img"); img.src = `icons/${k}.png`; img.alt = "";
+      b.appendChild(img); b.appendChild(el("span", null, label));
+      b.onclick = () => send("settings", { icon: k });
+      ic.appendChild(b);
+    }
+    [...ic.children].forEach((b) => b.classList.toggle("on", b.dataset.v === prefs.icon));
+    $("setTs").checked = $("ts").checked;
+    $("setSl").checked = $("sl").checked;
+    $("setKwInfo").textContent = keywords.length ? `${keywords.slice(0, 3).join(", ")}${keywords.length > 3 ? ` 외 ${keywords.length - 3}개` : ""}` : "없음";
+  }
+  // ---------- 설정 › 음성 인식: the engines the app lists (another platform would list its own) — pick one, download Whisper
+  const eng = { list: [], current: "apple", busy: false };
+  const megabytes = (b) => `${Math.round(b / 1e6)}MB`;
+  function readyText() {
+    return eng.current === "whisper" && eng.list.some((e) => e.id === "whisper" && e.state === "ready") ? "준비됨 · Whisper" : "준비됨";
+  }
+  // Rows are kept and updated in place: progress arrives four times a second while a model downloads, and a row
+  // rebuilt under the pointer would swallow the click on 취소.
+  const engRows = new Map();
+  function renderEngines() {
+    const box = $("setEngines");
+    $("setEngGroup").hidden = eng.list.length < 2;                 // one engine (iPhone): nothing to choose
+    const ids = new Set(eng.list.map((e) => e.id));
+    for (const [id, r] of engRows) if (!ids.has(id)) { r.row.remove(); engRows.delete(id); }
+    eng.list.forEach((e, i) => {
+      const ready = e.state === "ready", on = ready && e.id === eng.current, pct = Math.floor((e.progress || 0) * 100);
+      let r = engRows.get(e.id);
+      if (!r) {
+        r = { row: el("div"), radio: el("span"), txt: el("span", "eng-txt"), name: el("b"), note: el("small"),
+              bar: el("span", "eng-bar"), fill: el("span"), side: el("span", "eng-side"), sig: null };
+        r.bar.appendChild(r.fill);
+        r.txt.append(r.name, r.note, r.bar);
+        r.row.append(r.radio, r.txt, r.side);
+        engRows.set(e.id, r);
+      }
+      if (box.children[i] !== r.row) box.insertBefore(r.row, box.children[i] || null);
+      r.row.className = "eng-row" + (ready && !on ? " pick" : "");
+      r.radio.className = "eng-radio" + (on ? " on" : ready ? "" : " na");
+      r.name.textContent = e.name;
+      if (e.model) r.name.appendChild(el("i", null, e.model));
+      r.note.className = e.state === "failed" ? "err" : "";
+      r.note.textContent = e.state === "failed" ? (e.error || "내려받지 못했어요.")
+        : e.state === "downloading" ? (e.verifying ? "내려받은 모델을 확인하고 준비하는 중…" : `내려받는 중 · ${pct}% · ${megabytes((e.progress || 0) * e.bytes)} / ${megabytes(e.bytes)}`)
+        : e.desc || "";
+      r.bar.style.display = e.state === "downloading" ? "" : "none";
+      r.fill.style.width = `${e.verifying ? 100 : pct}%`;
+      const sig = [e.state, !!e.verifying, !!(ready && e.removable), e.bytes, e.name].join("|");
+      if (r.sig !== sig) {                                        // the buttons change only with the state
+        r.sig = sig;
+        r.side.textContent = "";
+        const button = (label, cmd) => {
+          const b = el("button", "ghost small", label);
+          b.onclick = (ev) => { ev.stopPropagation(); send(cmd, { engine: e.id }); };
+          r.side.appendChild(b);
+        };
+        if (e.state === "absent") button(`내려받기 · ${megabytes(e.bytes)}`, "engineDownload");
+        else if (e.state === "failed") button("다시 시도", "engineDownload");
+        else if (e.state === "downloading" && !e.verifying) button("취소", "engineCancel");
+        else if (ready && e.removable) {
+          r.side.appendChild(el("span", null, megabytes(e.bytes)));
+          const del = el("button", "eng-del", "삭제");
+          del.onclick = (ev) => {
+            ev.stopPropagation();
+            askConfirm(`${e.name} 모델 삭제`, `내려받은 모델(${megabytes(e.bytes)})을 지울까요? 다시 쓰려면 다시 내려받아야 해요.`, "삭제",
+                       () => send("engineRemove", { engine: e.id }));
+          };
+          r.side.appendChild(del);
+        }
+        r.side.style.display = r.side.children.length ? "" : "none";
+      }
+      r.row.onclick = ready && !on ? () => send("engineSelect", { engine: e.id }) : null;
+    });
+    $("setEngNote").textContent = eng.busy ? "지금 받아 적는 중이에요. 바꾼 엔진은 다음 녹음부터 적용돼요."
+      : eng.list.some((e) => e.state === "downloading") ? "내려받는 동안에도 지금 엔진으로 받아 적을 수 있어요."
+      : `어느 엔진이든 녹음과 받아쓰기는 이 ${IOS ? DEVICE : "Mac"} 안에서만 처리돼요.`;
+    $("setEngInfo").textContent = eng.current === "whisper" ? "Whisper · 기기 안에서 처리 · 인터넷 전송 없음" : "Apple 온디바이스 · 인터넷 전송 없음";
+    if (state.rec === "idle" && state.engine === "ready") setStatus(readyText());
+  }
+
+  function openSettings() {
+    renderSettings();
+    $("settings").classList.add("show");
+    send("storage");
+  }
+  function closeSettings() { $("settings").classList.remove("show"); }
+
+  // ---------- 슬라이드 PDF demo: a 22-second story drawn from a clock (so it can also be rendered frame by frame)
+  const DEMO_LEN = 22;
+  const DEMO = {
+    caps: ["강의를 받아 적으면서, 화면도 함께 지켜봐요",
+           "슬라이드는 찍어서 PDF 한 장에, 그동안 한 말은 그 아래에",
+           "슬라이드가 바뀌면, 다음 장으로",
+           "글자가 하나씩 늘어나는 슬라이드는 다 채워진 모습으로 한 장만",
+           "강의가 끝나면, 슬라이드와 한 말이 담긴 PDF 완성"],
+    starts: [0, 4, 8, 12, 17.6],
+    says: [[0.9, "오늘은 수요와 공급을 배워요."], [8.8, "두 곡선이 만나는 점이 균형이에요."], [12.8, "과제는 수요일까지 내 주세요."]],
+    slides: [8, 12],                    // slide 1 → 2 → 3
+    shots: [5.0, 9.6, 13.2],            // each slide is photographed (a flash), then glides onto a new page
+    bullets3: [12, 15.3, 16.3],         // slide 3 fills in one line at a time; its page follows half a second later
+    cam: [7.2, 11.4],                   // the corner camera changes: not a new slide
+  };
+  const DEMO_LAND = 1.45;               // from the flash to the photo settling on its page
+  function renderDemo(t) {
+    t = ((t % DEMO_LEN) + DEMO_LEN) % DEMO_LEN;
+    const clamp = (x) => Math.max(0, Math.min(1, x));
+    const span = (a, b) => clamp((t - a) / (b - a));
+    const ease = (x) => x * x * (3 - 2 * x);
+    const lerp = (a, b, k) => a + (b - a) * k;
+    const stage = document.querySelector(".demo-stage"), win = document.querySelector(".dm-win"), area = document.querySelector(".dm-area");
+    const out = 1 - ease(span(21.3, 22));
+    stage.style.opacity = (ease(span(0, 0.8)) * out).toFixed(3);
+    // one caption at a time: it fades in, and fades out before the next one
+    const phase = DEMO.starts.filter((x) => t >= x).length - 1;
+    const next = DEMO.starts[phase + 1];
+    const cap = $("demoCap");
+    if (cap.dataset.p !== String(phase)) { cap.dataset.p = phase; cap.textContent = DEMO.caps[phase]; }
+    cap.style.opacity = (ease(span(DEMO.starts[phase], DEMO.starts[phase] + 0.6)) * (next ? 1 - ease(span(next - 0.4, next)) : 1) * out).toFixed(3);
+    document.querySelectorAll("#dmDots i").forEach((d, i) => d.classList.toggle("on", i === phase));
+    // the lecture window: one slide fades out, then the next fades in; slide 3 fills in line by line
+    const leave = (x) => 1 - ease(span(x, x + 0.3)), arrive = (x) => ease(span(x + 0.3, x + 0.65));
+    const [x2, x3] = DEMO.slides;
+    const slides = document.querySelectorAll(".dm-area > .dm-slide");
+    [leave(x2), arrive(x2) * leave(x3), arrive(x3)].forEach((o, i) => { slides[i].style.opacity = o.toFixed(3); });
+    const bulletOn = (k) => (k === 0 ? 1 : ease(span(DEMO.bullets3[k], DEMO.bullets3[k] + 0.5)));
+    slides[2].querySelectorAll(".dm-b").forEach((e, k) => { e.style.opacity = bulletOn(k).toFixed(3); });
+    $("dmCamB").style.opacity = (ease(span(DEMO.cam[0], DEMO.cam[0] + 0.4)) * (1 - ease(span(DEMO.cam[1], DEMO.cam[1] + 0.4)))).toFixed(3);
+    const end = ease(span(17.6, 18.2));                                  // the lecture is over: only the PDF stays
+    win.style.opacity = (1 - end).toFixed(3);
+    const flash = Math.max(0, ...DEMO.shots.map((x) => {
+      const d = t - x;
+      return d < 0 ? 0 : d < 0.05 ? d / 0.05 : 1 - ease(clamp((d - 0.05) / 0.3));
+    }));
+    $("dmFlash").style.opacity = (flash * 0.75).toFixed(3);
+    // geometry is measured: the stage scales with the card
+    const sr = stage.getBoundingClientRect();
+    const box = (el) => { const r = el.getBoundingClientRect(); return { x: r.left - sr.left, y: r.top - sr.top, w: r.width, h: r.height }; };
+    const W = sr.width, wb = box(win);
+    // what's being said types out under the window, and fades before the slide changes
+    const si = t < x2 ? 0 : t < x3 ? 1 : 2, say = DEMO.says[si], sayEnd = [x2, x3, 17.6][si];
+    const typed = Math.round(say[1].length * clamp((t - say[0]) / 1.7));
+    const sub = $("dmSub");
+    sub.style.top = `${(wb.y + wb.h + 12).toFixed(1)}px`;
+    sub.innerHTML = typed > 0 ? `“${say[1].slice(0, typed)}${typed < say[1].length ? "▍" : "”"}` : "";
+    sub.style.opacity = (1 - ease(span(sayEnd - 0.4, sayEnd))).toFixed(3);
+    // labels: the lecture on the left, the PDF and its page count on the right
+    const landed = DEMO.shots.filter((x) => t >= x + DEMO_LAND).length;
+    const labR = $("dmLabR");
+    if (labR.dataset.n !== String(landed)) { labR.dataset.n = landed; labR.innerHTML = landed ? `PDF · <b>${landed}</b>장` : "PDF"; }
+    $("dmLabL").style.opacity = labR.style.opacity = (1 - end).toFixed(3);
+    // the PDF: an empty page waits; each photo lands on a new page of the pile, then what was said appears under it.
+    // A page's picture is the very same slide, scaled — so the photo turns into it without a jump.
+    $("dmPh").style.opacity = (ease(span(0.6, 1.3)) * (1 - ease(span(DEMO.shots[0] + 0.1, DEMO.shots[0] + 0.4)))).toFixed(3);
+    const pages = document.querySelectorAll(".dm-page");
+    const pageW = pages[0].offsetWidth, aw = area.offsetWidth, ah = area.offsetHeight;
+    const fan = ease(span(17.8, 19)), spacing = Math.min(pageW * 0.94, (W - pageW) / 2 - 4);
+    pages.forEach((pg, k) => {
+      const shot = DEMO.shots[k], land = shot + DEMO_LAND;
+      const fx = lerp(-k * 7, (k - 1) * spacing - W / 2 + pageW / 2, fan), fy = lerp(k * 8, 6, fan), rot = lerp(0, (k - 1) * 3, fan);
+      pg.style.opacity = ease(span(shot + 0.1, shot + 0.4)).toFixed(3);
+      pg.style.zIndex = 2 + k;
+      pg.style.transform = `translate(${fx.toFixed(1)}px, ${fy.toFixed(1)}px) rotate(${rot.toFixed(2)}deg)`;
+      const th = pg.querySelector(".pg-th"), img = pg.querySelector(".pg-img");
+      th.classList.toggle("waiting", t < land);
+      img.style.width = `${aw}px`; img.style.height = `${ah}px`;
+      img.style.transform = `scale(${(th.clientWidth / aw).toFixed(5)})`;
+      img.style.opacity = t >= land ? "1" : "0";
+      const said = ease(span(land + 0.2, land + 0.8)).toFixed(3);
+      pg.querySelector(".pg-lab").style.opacity = said;
+      pg.querySelector(".pg-tx").style.opacity = said;
+    });
+    // page 3 follows its slide: the same page, filled in (it glows a moment each time), never a new one
+    pages[2].querySelectorAll(".pg-img .dm-b").forEach((e, k) => {
+      e.style.opacity = (k === 0 ? 1 : ease(span(DEMO.bullets3[k] + 0.5, DEMO.bullets3[k] + 1))).toFixed(3);
+    });
+    const glow = Math.max(0, ...DEMO.bullets3.slice(1).map((x) => Math.sin(Math.PI * clamp((t - x - 0.5) / 0.9))));
+    pages[2].style.boxShadow = glow > 0.01
+      ? `0 0 0 ${(2.5 * glow).toFixed(2)}px rgba(var(--accent-rgb), ${glow.toFixed(3)}), var(--pg-shadow)` : "";
+    // the photo: a white-edged print lifts off the slide where it is, glides onto its page and becomes its picture
+    const fly = $("dmFly");
+    const k = DEMO.shots.findIndex((x) => t >= x + 0.35 && t < x + DEMO_LAND);
+    if (k >= 0) {
+      const shot = DEMO.shots[k], land = shot + DEMO_LAND;
+      if (fly.dataset.k !== String(k)) {                                 // a copy of the slide as it was photographed
+        fly.dataset.k = k;
+        fly.innerHTML = slides[k].outerHTML + (k === 1 ? '<div class="dm-cam"><i class="p a"></i><i class="p b on"></i></div>'
+                                                        : '<div class="dm-cam"><i class="p a"></i></div>');
+        fly.firstElementChild.style.opacity = "1";
+        fly.querySelectorAll(".dm-b").forEach((e, j) => { e.style.opacity = k === 2 && j > 0 ? "0" : "1"; });
+      }
+      const a = box(area), b = box(pages[k].querySelector(".pg-img"));
+      const go = ease(span(shot + 0.35, land)), lift = ease(span(shot + 0.35, shot + 0.6));
+      const m = 1 - 0.05 * lift * (1 - go);                                // the print shrinks a little as it comes off
+      const sc = lerp(1, b.w / a.w, go) * m;
+      const x = lerp(a.x, b.x, go) + (1 - m) * a.w / 2 * (1 - go);
+      const y = lerp(a.y, b.y, go) + (1 - m) * a.h / 2 * (1 - go) - Math.sin(Math.PI * go) * 16;
+      fly.style.width = `${aw}px`; fly.style.height = `${ah}px`;
+      fly.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${sc.toFixed(5)})`;
+      fly.style.opacity = "1";
+      const edge = lift * (1 - ease(clamp((go - 0.6) / 0.35))), shade = 0.35 * lift * (1 - ease(clamp((go - 0.75) / 0.25)));
+      fly.style.boxShadow = `0 0 0 ${(3 / sc).toFixed(2)}px rgba(255, 255, 255, ${edge.toFixed(3)}), 0 ${(10 / sc).toFixed(1)}px ${(26 / sc).toFixed(1)}px rgba(0, 0, 0, ${shade.toFixed(3)})`;
+    } else if (fly.dataset.k !== "") { fly.style.opacity = "0"; fly.dataset.k = ""; }
+    $("dmDone").style.opacity = (ease(span(19, 19.5)) * out).toFixed(3);
+  }
+  let demoRAF = 0;
+  function openSlideDemo() {
+    $("slidedemo").classList.add("show");
+    $("demoCap").dataset.p = "";
+    const t0 = performance.now();
+    cancelAnimationFrame(demoRAF);
+    const loop = (now) => { renderDemo((now - t0) / 1000); demoRAF = requestAnimationFrame(loop); };
+    demoRAF = requestAnimationFrame(loop);
+  }
+  function closeSlideDemo() { cancelAnimationFrame(demoRAF); $("slidedemo").classList.remove("show"); }
 
   // The backend died under an active session (the app restarts it). Its text is already on disk.
   function lostSession() {
@@ -588,8 +1631,9 @@
         const mb = (x) => Math.round(x / 1e6);
         $("dlfill").style.width = pct + "%";
         $("dltext").textContent = ev.verifying ? "내려받은 파일 확인 중…"
+          : ev.label ? `${ev.label} · ${pct}% — 처음 한 번만`
           : `AI 모델 내려받는 중 · ${pct}% (${mb(ev.done)} / ${mb(ev.total)} MB) — 처음 한 번만`;
-        setStatus(ev.verifying ? "모델 확인 중" : `모델 내려받는 중 · ${pct}%`);
+        setStatus(ev.verifying ? "모델 확인 중" : ev.label ? `${ev.label} · ${pct}%` : `모델 내려받는 중 · ${pct}%`);
         if (state.engine !== "downloading") send("log", { msg: "ui engine=downloading" });
         state.engine = "downloading";
         refreshControls();
@@ -602,7 +1646,7 @@
       }
       state.engine = ev.state;
       send("log", { msg: `ui engine=${ev.state}` });
-      if (state.rec === "idle") setStatus(ev.state === "ready" ? "준비됨" : ev.msg || "엔진 준비 중");
+      if (state.rec === "idle") setStatus(ev.state === "ready" ? readyText() : ev.msg || "엔진 준비 중");
       if (ev.state === "error") setStatus(ev.msg || "엔진 오류");
       refreshControls();
       if (ev.state === "ready" && state.resumePending) {
@@ -630,6 +1674,7 @@
         state.resuming = false;
         state.started = ev.started || Date.now() / 1000;
         state.follow = true;
+        slideCount = 0;
         $("notice").classList.remove("show");
         setStatus(state.mode === "file" ? "파일 받아 적는 중" : "받아 적는 중");
         $("timer").textContent = state.mode === "file" ? "0%" : "00:00";
@@ -642,15 +1687,19 @@
         clearInterval(state.timer);
         $("timer").textContent = "";
         $("meter").style.transform = "scaleX(0)";
-        setStatus(state.engine === "ready" ? "준비됨" : "엔진 준비 중");
+        setStatus(state.engine === "ready" ? readyText() : "엔진 준비 중");
       }
       refreshControls();
     },
     level(ev) { $("meter").style.transform = `scaleX(${Math.min(1, ev.v * 1.25).toFixed(3)})`; },
+    slides(ev) {
+      slideCount = ev.count || 0;
+      if (state.rec === "recording") setStatus(`${state.mode === "file" ? "파일 받아 적는 중" : "받아 적는 중"} · 슬라이드 ${slideCount}장`);
+    },
     seg: upsertSeg,
     progress(ev) {
       if (state.rec === "finishing") {
-        $("timer").textContent = ev.pending ? `남은 문장 ${ev.pending}` : "";
+        $("timer").textContent = ev.slides != null ? `슬라이드 정리 중 ${Math.round(ev.slides * 100)}%` : ev.pending ? `남은 문장 ${ev.pending}` : "";
       } else if (state.mode === "file" && ev.done != null) {
         $("timer").textContent = `${Math.round(ev.done * 100)}%`;
       }
@@ -661,10 +1710,62 @@
       if (ev.txt) toast(`저장됨 · ${ev.count}문장`);
     },
     copied(ev) {
-      toast(`복사됨 · ${finalLines().length}문장 — 다른 AI 창에 붙여 넣으세요`, 3200);
+      toast(`복사됨 · ${copyCount || finalLines().length}문장 — 다른 AI 창에 붙여 넣으세요`, 3200);
+    },
+    library(ev) {
+      lib.sessions = ev.sessions || [];
+      lib.loaded = true;
+      if (isOpen("library")) renderLibrary();
+      send("log", { msg: `ui library ${lib.sessions.length} sessions` });
+    },
+    session(ev) {
+      if (ev.id !== det.id) return;
+      renderSession(ev);
+      send("log", { msg: `ui session ${det.lines.length} lines, audio=${ev.audio ? "yes" : "no"}` });
+    },
+    player(ev) {
+      if (!pl.logged && ev.dur) { pl.logged = true; send("log", { msg: `ui player ready dur=${Math.round(ev.dur)}s` }); }
+      updatePlayer(ev);
+    },
+    renamed(ev) {
+      if (state.saved && state.saved.id === ev.from) state.saved.id = ev.to;
+      if (det.id === ev.from) {
+        det.id = ev.to;
+        if (det.s) det.s = { ...det.s, id: ev.to, custom: det.s.custom || ev.from !== ev.to };
+        if (det.s) $("detName").value = displayName(det.s);
+        if (pl.id === ev.from) pl.id = ev.to;
+      }
+      if (ev.from !== ev.to) toast("이름을 바꿨어요");
+    },
+    deleted(ev) {
+      send("log", { msg: "ui deleted" });
+      if (det.id === ev.id) closeDetail();
+      showUndo(ev.id);
+    },
+    restored(ev) {
+      send("log", { msg: "ui restored" });
+      if (state.saved && ev.from && state.saved.id === ev.from) state.saved.id = ev.id;
+      toast(ev.from && ev.id !== ev.from ? `‘${ev.id}’(으)로 되돌렸어요` : "되돌렸어요");
     },
     notice(ev) {
-      if (ev.code === "no_input") {
+      const openSettings = [IOS ? "설정 열기" : "권한 설정 열기", () => send("openPrivacy")];
+      if (IOS && ["no_input", "tap_error", "mic_denied"].includes(ev.code)) {
+        notice(`마이크를 쓸 수 없어요. 설정에서 강의 받아쓰기의 ‘마이크’를 켜 주세요.`, [openSettings]);
+      } else if (IOS && ev.code === "no_audio") {
+        notice(`20초째 아무 소리도 들리지 않아요. 강의 소리가 ${DEVICE}에 들리는지 확인해 주세요.`);
+      } else if (ev.code === "capture_resumed") {
+        if (noticeCode.startsWith("capture_")) $("notice").classList.remove("show");
+        toast(ev.msg, 3600);
+      } else if (["slides_on", "slides_note", "slides_missing"].includes(ev.code)) {
+        toast(ev.msg, ev.code === "slides_on" ? 3600 : 5200);
+      } else if (["busy_recording", "busy_saving", "rename", "delete", "undo"].includes(ev.code)) {
+        toast(ev.msg, 3600);
+      } else if (["file_error", "capture_paused", "capture_stopped"].includes(ev.code)) {
+        notice(ev.msg, [], ev.code);
+      } else if (ev.code === "session_missing") {
+        toast(ev.msg, 3600);
+        closeDetail();
+      } else if (ev.code === "no_input") {
         notice("아직 소리가 들어오지 않아요. 강의 영상을 재생해 주세요. "
              + "영상이 재생 중인데도 이 메시지가 계속 보이면 ‘시스템 오디오 녹음’ 권한에서 강의 받아쓰기를 허용해 주세요.",
                [["권한 설정 열기", () => send("openPrivacy")]]);
@@ -678,23 +1779,39 @@
              + "처음 쓰는 거라면 ‘시스템 오디오 녹음’ 권한에서 강의 받아쓰기를 허용해야 해요.",
                [["권한 설정 열기", () => send("openPrivacy")]]);
       } else if (ev.code === "tap_error") {
-        notice("이 Mac의 소리를 가져오지 못했어요. " + (ev.msg || ""), [["권한 설정 열기", () => send("openPrivacy")]]);
+        notice("이 Mac의 소리를 가져오지 못했어요. ‘시스템 오디오 녹음’ 권한을 확인해 주세요.", [["권한 설정 열기", () => send("openPrivacy")]]);
       } else if (ev.msg) {
         toast(ev.msg, 3200);
       }
     },
     settings(ev) {
-      if (Array.isArray(ev.keywords)) applyKeywords(ev.keywords);
+      let look = false;
+      for (const k of ["theme", "accent", "size", "icon"]) if (typeof ev[k] === "string" && prefs[k] !== ev[k]) { prefs[k] = ev[k]; look = true; }
+      if (look) applyAppearance();
+      if (typeof ev.version === "string") $("setVersion").textContent = ev.version;
+      if (Array.isArray(ev.keywords)) { applyKeywords(ev.keywords); if (det.s) renderDetailCues(); }
       if (pendingKwToast && Array.isArray(ev.keywords)) {
         pendingKwToast = false;
         toast(ev.keywords.length ? `중요 단어 ${ev.keywords.length}개 저장됨` : "중요 단어를 모두 지웠어요");
       }
+      if (typeof ev.slides === "boolean") $("sl").checked = ev.slides;
       if (typeof ev.timestamps === "boolean") {
         $("ts").checked = ev.timestamps;
         body.classList.toggle("no-ts", !ev.timestamps);
       }
     },
+    engines(ev) {
+      eng.list = Array.isArray(ev.list) ? ev.list : [];
+      eng.current = ev.current || "apple";
+      eng.busy = !!ev.busy;
+      renderEngines();
+    },
     quitting() { body.classList.add("quitting"); },
+    storage(ev) {
+      const mb = (ev.bytes || 0) / 1e6;
+      $("setStorage").textContent = `${ev.count || 0}개 · ${mb >= 1000 ? (mb / 1000).toFixed(1) + "GB" : Math.round(mb) + "MB"}${IOS ? " · 파일 앱에서 볼 수 있어요" : " · 다운로드/강의기록"}`;
+    },
+    openSettings() { openSettings(); },
     bye() {},
   };
 
@@ -713,7 +1830,88 @@
     else if (state.rec === "idle") send("start");
   };
   $("copy").onclick = copyAll;
-  $("folder").onclick = () => send("openFolder");
+  $("folder").onclick = () => HAS_LIBRARY ? openLibrary() : send("openFolder");
+  if (!HAS_LIBRARY) $("folder").textContent = "기록 폴더";
+  $("libBack").onclick = closeLibrary;
+  $("gear").onclick = openSettings;
+  $("setBack").onclick = closeSettings;
+  document.querySelectorAll("#setTheme button").forEach((b) => (b.onclick = () => send("settings", { theme: b.dataset.v })));
+  document.querySelectorAll("#setSize button").forEach((b) => (b.onclick = () => send("settings", { size: b.dataset.v })));
+  $("setTs").onchange = () => { $("ts").checked = $("setTs").checked; $("ts").onchange(); };
+  $("setSl").onchange = () => { $("sl").checked = $("setSl").checked; $("sl").onchange(); };
+  $("setKw").onclick = () => $("kw").click();
+  $("setDemo").onclick = openSlideDemo;
+  $("setFolder").onclick = () => send("openFolder");
+  $("setLogs").onclick = () => send("openLogs");
+  $("setLogs").style.display = IOS ? "none" : "";
+  document.querySelectorAll("[data-url]").forEach((b) => (b.onclick = () => send("openLink", { url: b.dataset.url })));
+  $("setIconNote").textContent = IOS ? "홈 화면 아이콘이 바뀌어요. iOS가 바꿨다고 한 번 알려 줘요."
+                                     : "Dock의 아이콘이 바로 바뀌어요. Finder와 Launchpad의 아이콘은 그대로예요.";
+  $("setSlInfo").textContent = IOS ? "영상 파일의 슬라이드를 모아 한 말과 함께 PDF로" : "강의 창의 슬라이드를 모아 한 말과 함께 PDF로";
+  $("libSearch").oninput = renderLibrary;
+  $("libFolder").textContent = IOS ? "파일 앱에서 보기" : "폴더에서 보기";
+  $("libFolder").onclick = () => send("openFolder");
+  $("detBack").onclick = closeDetail;
+  $("detCopy").onclick = () => { copyCount = det.lines.length; send("copy", { text: sessionText() }); };
+  $("detShare").onclick = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    send("share", { id: det.id, x: r.left, y: r.top, w: r.width, h: r.height });
+  };
+  $("detReveal").onclick = () => send("revealSession", { id: det.id });
+  $("detSlides").onclick = () => send("openSlides", { id: det.id });
+  $("sl").onchange = () => {
+    send("settings", { slides: $("sl").checked });
+    if (!$("sl").checked) return;
+    let seen = false;
+    try { seen = localStorage.getItem("seenSlidesDemo") === "1"; localStorage.setItem("seenSlidesDemo", "1"); } catch (e) {}
+    if (!seen) openSlideDemo();                                        // the first time: show how it works
+    else toast(IOS ? "영상 파일을 받아 적을 때 슬라이드를 모아 PDF로 만들어요."
+                   : "시작하면 강의 창을 골라 주세요. 슬라이드가 바뀔 때마다 모아 PDF로 만들어요.", 4200);
+  };
+  $("slhelp").onclick = openSlideDemo;
+  $("demoOk").onclick = closeSlideDemo;
+  $("slwrap").title = IOS ? "영상 파일의 슬라이드를 PDF로" : "강의 창의 슬라이드를 PDF로";
+  $("detDelete").onclick = () => askConfirm("기록 삭제", `‘${$("detName").value}’의 받아 적은 글과 녹음을 함께 지울까요?`, "삭제",
+                                            () => send("delete", { id: det.id }));
+  $("cfNo").onclick = () => $("confirm").classList.remove("show");
+  $("undoBtn").onclick = () => { const ids = undo.ids.slice(); hideUndo(); ids.forEach((id) => send("undoDelete", { id })); };
+  $("detName").addEventListener("focus", () => setTimeout(() => $("detName").select(), 0));
+  $("detName").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); $("detName").blur(); }
+    if (e.key === "Escape") { e.stopPropagation(); if (det.s) $("detName").value = displayName(det.s); $("detName").blur(); }
+  });
+  $("detName").addEventListener("blur", commitRename);
+  $("detLines").addEventListener("click", (e) => {
+    const seg = e.target.closest(".seg");
+    const sel = window.getSelection();
+    if (!seg || !det.s || !det.s.audio || (sel && !sel.isCollapsed)) return;
+    send("play", { id: det.id, t: det.lines[+seg.dataset.i].t });
+  });
+  for (const ev of ["wheel", "touchmove"]) $("detBody").addEventListener(ev, () => { det.userScrollAt = Date.now(); }, { passive: true });
+  for (const id of ["libBody", "detBody"]) {
+    $(id).addEventListener("scroll", () => $(id).closest(".sheet").classList.toggle("scrolled", $(id).scrollTop > 4), { passive: true });
+  }
+  $("plPlay").onclick = () => pl.playing ? send("pause") : send("play", { id: det.id });
+  $("plBack").onclick = () => send("skip", { d: -15 });
+  $("plFwd").onclick = () => send("skip", { d: 15 });
+  $("plRate").onclick = () => send("rate", { r: RATES[(RATES.indexOf(pl.rate) + 1) % RATES.length] });
+  $("plFollow").onclick = () => {
+    pl.follow = !pl.follow;
+    $("plFollow").classList.toggle("on", pl.follow);
+    det.userScrollAt = 0;
+    if (pl.follow && det.els[det.now]) det.els[det.now].scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+  $("plSeek").addEventListener("input", () => {
+    pl.dragging = true;
+    const t = ($("plSeek").value / 1000) * pl.dur;
+    $("plSeek").style.setProperty("--p", `${$("plSeek").value / 10}%`);
+    $("plNow").textContent = fmt(t);
+  });
+  $("plSeek").addEventListener("change", () => {
+    pl.dragging = false;
+    det.userScrollAt = 0;
+    send("seek", { t: ($("plSeek").value / 1000) * pl.dur });
+  });
   $("file").onclick = () => send("pickFile");
   $("latest").onclick = scrollToEnd;
   $("cuechip").onclick = jumpToCue;
@@ -731,10 +1929,24 @@
     send("settings", { keywords: words });
     $("kwpanel").classList.remove("show");
   };
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("kwpanel").classList.remove("show"); });
+  document.addEventListener("keydown", (e) => {
+    const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement && document.activeElement.tagName);
+    if (e.key === "Escape") {
+      if (isOpen("slidedemo")) closeSlideDemo();
+      else if (isOpen("settings") && !isOpen("kwpanel")) closeSettings();
+      else if (isOpen("kwpanel")) $("kwpanel").classList.remove("show");
+      else if (isOpen("confirm")) $("confirm").classList.remove("show");
+      else if (isOpen("detail")) closeDetail();
+      else if (isOpen("library")) closeLibrary();
+    } else if (e.key === " " && !typing && isOpen("detail") && !isOpen("confirm") && !isOpen("kwpanel") && det.s && det.s.audio) {
+      e.preventDefault();
+      $("plPlay").click();
+    }
+  });
   $("scroller").addEventListener("scroll", () => { if (nearBottom()) $("latest").classList.remove("show"); });
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") { e.preventDefault(); copyAll(); }
+    if ((e.metaKey || e.ctrlKey) && e.key === ",") { e.preventDefault(); openSettings(); }
   });
   // Let file drops fall through to the app (it transcribes dropped audio/video files).
   document.addEventListener("dragover", (e) => { if (!native) e.preventDefault(); });
@@ -750,9 +1962,11 @@
       "잠깐, 지금 이 강의를 듣고 계신 분들은 오늘의 단어 코끼리를 기억해 주세요.",
       "다음 주 수요일까지 과제를 제출해 주시고, 중간고사 범위는 4장까지입니다.",
     ],
-    handle(cmd) {
+    handle(cmd, extra = {}) {
       const emit = (ev) => window.app.receive(ev);
-      if (cmd === "ready") setTimeout(() => emit({ ev: "engine", state: "ready" }), 700);
+      if (this.library(cmd, extra, emit)) return;
+      if (cmd === "ready") setTimeout(() => { emit({ ev: "engine", state: "ready" }); this.engines(emit); }, 700);
+      if (cmd.startsWith("engine")) { this.engineCmd(cmd, extra, emit); return; }
       if (cmd === "start") {
         emit({ ev: "rec", state: "recording", mode: "live", started: Date.now() / 1000, title: "2026-10-04 16시30분 강의" });
         let t = 0, id = 1;
@@ -773,12 +1987,144 @@
         this.timers = [];
         emit({ ev: "rec", state: "finishing" });
         setTimeout(() => {
-          emit({ ev: "saved", txt: "/demo.txt", audio: "/demo.m4a", seconds: 1874, count: finalLines().length });
+          emit({ ev: "saved", id: this.sessions()[0].id, txt: "/demo.txt", audio: "/demo.m4a", seconds: 1874, count: finalLines().length });
           emit({ ev: "rec", state: "idle" });
         }, 900);
       }
       if (cmd === "copy") setTimeout(() => window.app.receive({ ev: "copied" }), 50);
-      if (cmd === "settings") window.app.receive({ ev: "settings", ...arguments[1] });
+      if (cmd === "settings") window.app.receive({ ev: "settings", ...extra });
+    },
+    // 음성 인식 demo: Apple plus a pretend Whisper download (nothing is downloaded)
+    eng: { current: "apple", whisper: "absent", progress: 0, timer: 0 },
+    engines(emit) {
+      const w = this.eng;
+      emit({ ev: "engines", current: w.current, busy: false, list: [
+        { id: "apple", name: "Apple 음성 인식", desc: "기본 · 추가 다운로드 없이 가볍고 빨라요", state: "ready", bytes: 0 },
+        { id: "whisper", name: "Whisper", model: "large-v3 turbo", desc: "OpenAI의 공개 모델을 이 Mac에서 실행해요 · Apple보다 전력을 더 써요",
+          state: w.whisper === "verifying" ? "downloading" : w.whisper, verifying: w.whisper === "verifying", progress: w.progress,
+          bytes: 574926293, removable: true },
+      ] });
+    },
+    engineCmd(cmd, extra, emit) {
+      const w = this.eng;
+      clearInterval(w.timer);
+      if (cmd === "engineDownload") {
+        w.whisper = "downloading"; w.progress = 0;
+        w.timer = setInterval(() => {
+          w.progress = Math.min(1, w.progress + 0.07);
+          if (w.progress >= 1 && w.whisper === "downloading") w.whisper = "verifying";
+          else if (w.whisper === "verifying") { w.whisper = "ready"; w.current = "whisper"; clearInterval(w.timer); }
+          this.engines(emit);
+        }, 250);
+      }
+      if (cmd === "engineCancel") { w.whisper = "absent"; w.progress = 0; }
+      if (cmd === "engineRemove") { w.whisper = "absent"; w.progress = 0; w.current = "apple"; }
+      if (cmd === "engineSelect") w.current = extra.engine;
+      this.engines(emit);
+    },
+    // 기록 demo: a few sessions and a simulated player (no audio is played)
+    sessionsData: null,
+    deletedData: {},
+    sessions() {
+      if (this.sessionsData) return this.sessionsData;
+      const now = new Date(), at = (daysAgo, h, m) => {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo, h, m);
+        return d.getTime() / 1000;
+      };
+      const stamp = (e) => { const d = new Date(e * 1000); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}시${pad2(d.getMinutes())}분 강의`; };
+      const lecture = [
+        [12, "여러분 안녕하세요. 오늘 강의에서는 수요와 공급의 기본 원리를 함께 살펴보겠습니다."],
+        [95, "지난 시간에 배운 기회비용 개념을 잠깐 복습하고 시작할게요."],
+        [214, "가격이 오르면 수요량은 줄어들고, 공급량은 늘어납니다."],
+        [388, "이것을 그래프로 그리면 수요 곡선은 오른쪽 아래로, 공급 곡선은 오른쪽 위로 향합니다."],
+        [541, "두 곡선이 만나는 점이 바로 시장 균형입니다."],
+        [702, "균형 가격보다 가격이 높으면 초과 공급이 생기고, 낮으면 초과 수요가 생깁니다."],
+        [866, "여러분, 우리는 매일 수많은 선택을 하며 살아갑니다. 커피 한 잔을 살지, 버스를 탈지 택시를 탈지, 모든 선택에는 기회비용이 있습니다."],
+        [1012, "It is not from the benevolence of the butcher, the brewer, or the baker that we expect our dinner."],
+        [1080, "애덤 스미스의 이 유명한 문장은 각자의 이익 추구가 시장을 움직인다는 뜻입니다."],
+        [1255, "그렇다면 정부가 가격을 정하면 어떤 일이 벌어질까요?"],
+        [1398, "최고가격제를 시행하면 단기적으로는 소비자에게 이득처럼 보이지만, 공급이 줄어 품귀 현상이 나타납니다."],
+        [1563, "반대로 최저임금처럼 가격의 하한을 정하면 초과 공급, 즉 실업이 생길 수 있다는 주장이 있습니다."],
+        [1742, "물론 실제 효과에 대해서는 경제학자들 사이에서도 의견이 갈립니다."],
+        [1915, "이번에는 탄력성이라는 개념을 소개하겠습니다."],
+        [2088, "가격이 1% 변할 때 수요량이 몇 % 변하는지를 수요의 가격 탄력성이라고 합니다."],
+        [2260, "필수재는 탄력성이 낮고, 사치재는 탄력성이 높은 경향이 있습니다."],
+        [2431, "다음 주 수요일까지 과제를 제출해 주시고, 중간고사 범위는 4장까지입니다."],
+        [2577, "질문 있으면 이메일로 보내 주세요."],
+        [2703, "마지막으로 한 가지를 더 부탁드립니다. 오늘 출석 확인 문구는 푸른 하늘 은하수입니다."],
+        [2840, "수고하셨습니다. 다음 시간에 뵙겠습니다."],
+      ];
+      const mk = (id, kind, custom, date, seconds, lines) => ({ id, kind, custom, date, seconds, lines, audio: true,
+        header: kind === "live" ? `강의 녹취 · ${stamp(date).slice(0, 10)} (${WEEK[new Date(date * 1000).getDay()]}) ${stamp(date).slice(11, 13)}:${stamp(date).slice(14, 16)} 시작` : `파일 받아쓰기 · ${id.replace(/ 받아쓰기$/, "")}.m4a · ${stamp(date).slice(0, 10)}` });
+      const d0 = at(0, 15, 25), d1 = at(1, 10, 0), d3 = at(3, 11, 0), d6 = at(6, 20, 40), d9 = at(9, 13, 0);
+      this.sessionsData = [
+        Object.assign(mk(stamp(d0), "live", false, d0, 2876, lecture), { slides: 14 }),
+        mk("경제학원론 5주차", "live", true, d1, 4321, [[8, "오늘은 시장 실패에 대해 이야기하겠습니다."], [1810, "외부효과가 있으면 시장 가격이 사회적 비용을 반영하지 못합니다."], [3920, "시험 범위는 6장까지입니다. 잊지 마세요."]]),
+        mk("채플 5주차", "live", true, d3, 3120, [[30, "오늘 말씀의 제목은 감사입니다."], [1500, "작은 일에 감사하는 마음이 우리를 바꿉니다."], [2950, "오늘의 단어는 감사입니다. 출석 확인에 적어 주세요."]]),
+        mk("녹음 2026-09-28 받아쓰기", "file", false, d6, 1862, [[3, "스터디 녹음입니다. 오늘은 3장 연습문제를 풀어 볼게요."], [940, "이 문제는 한계비용과 평균비용을 헷갈리면 안 됩니다."]]),
+        mk(stamp(d9), "live", false, d9, 2710, [[15, "이번 주에는 생산 함수와 비용 곡선을 다룹니다."], [1320, "규모의 경제가 생기는 이유를 세 가지로 정리해 볼게요."]]),
+      ];
+      return this.sessionsData;
+    },
+    summary(s) {
+      const hits = s.lines.filter(([, t]) => CUE.test(t));
+      return { id: s.id, kind: s.kind, custom: s.custom, date: s.date, seconds: s.seconds, count: s.lines.length, audio: s.audio,
+               recording: false, cues: hits.slice(0, 3), cueCount: hits.length, preview: (s.lines[0] || [0, ""])[1], slides: s.slides || 0 };
+    },
+    player: { id: "", t: 0, dur: 0, playing: false, rate: 1, timer: null },
+    library(cmd, x, emit) {
+      const all = this.sessions(), P = this.player;
+      const find = (id) => all.find((s) => s.id === id);
+      const report = () => emit({ ev: "player", id: P.id, t: P.t, dur: P.dur, playing: P.playing, rate: P.rate });
+      const list = () => emit({ ev: "library", sessions: all.map((s) => this.summary(s)) });
+      const stopTimer = () => { clearInterval(P.timer); P.timer = null; };
+      switch (cmd) {
+        case "library": setTimeout(list, 60); return true;
+        case "session": {
+          const s = find(x.id);
+          setTimeout(() => {
+            if (!s) return emit({ ev: "notice", code: "session_missing", msg: "이 기록을 찾을 수 없어요." });
+            emit({ ev: "session", ...this.summary(s), header: s.header, lines: s.lines });
+            if (P.id !== s.id) { stopTimer(); Object.assign(P, { id: s.id, t: 0, dur: s.seconds, playing: false }); }
+            report();
+          }, 80);
+          return true;
+        }
+        case "play": {
+          const s = find(x.id); if (!s) return true;
+          if (P.id !== s.id) Object.assign(P, { id: s.id, t: 0, dur: s.seconds });
+          if (x.t != null) P.t = x.t;
+          P.playing = true; stopTimer();
+          P.timer = setInterval(() => { P.t = Math.min(P.dur, P.t + 0.25 * P.rate); if (P.t >= P.dur) { P.playing = false; stopTimer(); } report(); }, 250);
+          report(); return true;
+        }
+        case "pause": P.playing = false; stopTimer(); report(); return true;
+        case "seek": P.t = Math.max(0, Math.min(P.dur, x.t)); report(); return true;
+        case "skip": P.t = Math.max(0, Math.min(P.dur, P.t + x.d)); report(); return true;
+        case "rate": P.rate = x.r; report(); return true;
+        case "rename": {
+          const s = find(x.id), name = (x.name || "").replace(/[\/:]/g, "-").trim();
+          if (!s || !name) return true;
+          if (all.some((o) => o.id === name && o !== s)) { emit({ ev: "notice", code: "rename", msg: "같은 이름의 기록이 이미 있어요." }); emit({ ev: "renamed", from: s.id, to: s.id }); return true; }
+          const from = s.id; s.id = name; s.custom = true; if (P.id === from) P.id = name;
+          emit({ ev: "renamed", from, to: name }); list(); return true;
+        }
+        case "delete": {
+          const i = all.findIndex((s) => s.id === x.id); if (i < 0) return true;
+          this.deletedData[x.id] = { s: all[i], i }; all.splice(i, 1);
+          if (P.id === x.id) { stopTimer(); P.playing = false; P.id = ""; }
+          emit({ ev: "deleted", id: x.id }); list(); return true;
+        }
+        case "undoDelete": {
+          const d = this.deletedData[x.id]; if (!d) return true;
+          all.splice(d.i, 0, d.s); delete this.deletedData[x.id];
+          emit({ ev: "restored", id: x.id }); list(); return true;
+        }
+        case "share": case "revealSession": case "openFolder": case "openSlides": case "openLink": case "openLogs": toast("데모에서는 파일을 열지 않아요"); return true;
+        case "storage": setTimeout(() => emit({ ev: "storage", count: all.length, bytes: 312e6 }), 60); return true;
+        case "appearance": return true;
+      }
+      return false;
     },
     still() {   // ?shot — a frozen, populated frame for the README screenshot
       const emit = (ev) => window.app.receive(ev);
@@ -797,9 +2143,66 @@
     },
   };
 
+  if (IOS) {
+    $("headline").innerHTML = "강의 소리가 들리는 곳에서<br>시작을 눌러 주세요";
+    $("hint").innerHTML = `${DEVICE} 마이크로 받아 적어요. 화면을 꺼도 계속 녹음돼요.<br>녹음과 글은 ‘기록’에 자동으로 모여요.`;
+  } else if (HAS_LIBRARY) {
+    $("hint").innerHTML = "이 Mac에서 나오는 소리를 그대로 받아 적어요. 마이크는 쓰지 않아요.<br>녹음과 받아 적은 글은 ‘기록’에 자동으로 모여요.";
+  }
+
+  applyAppearance(false);
   refreshControls();
   send("ready");
-  if (!native && location.search.includes("shot")) demo.still();
+  if (window.__TEST_OPEN__) setTimeout(() => {           // app test hook (LECTURE_TEST_OPEN)
+    const [what, id] = window.__TEST_OPEN__.includes(":") ? window.__TEST_OPEN__.split(/:(.*)/s) : ["open", window.__TEST_OPEN__];
+    openLibrary();
+    if (id === "library") return;
+    openSession(id);
+    if (what === "trash" || what === "delete") setTimeout(() => send("delete", { id }), 1500);
+    if (what === "trash") setTimeout(() => send("undoDelete", { id }), 3500);
+  }, 800);
+  if (!native && location.search.includes("shot")) {
+    body.classList.add("noanim");          // screenshots: final frames, no fades
+    demo.still();
+    const kind = new URLSearchParams(location.search).get("shot");
+    if (kind === "saved") setTimeout(() => {
+      window.app.receive({ ev: "rec", state: "finishing" });
+      window.app.receive({ ev: "saved", id: demo.sessions()[0].id, txt: "/demo.txt", audio: "/demo.m4a", seconds: 2952, count: 318 });
+      window.app.receive({ ev: "rec", state: "idle" });
+      $("timer").textContent = "";
+      $("scroller").style.scrollBehavior = "auto";
+      setTimeout(() => { $("toast").classList.remove("show"); $("cuechip").classList.remove("show"); scrollToEnd(); }, 60);
+    }, 120);
+    if (kind === "keywords") setTimeout(() => {
+      $("kwtext").value = DEFAULT_KEYWORDS.join(", ");
+      $("kwpanel").classList.add("show");
+    }, 120);
+    if (kind === "slidesdemo") {
+      body.classList.add("demo-only");
+      clearInterval(state.timer);
+      $("slidedemo").classList.add("show");
+      renderDemo(parseFloat(new URLSearchParams(location.search).get("t") || "7.4"));
+      window.__renderDemo = renderDemo;                                   // tools/frames.swift draws the GIF frame by frame
+    }
+    if (kind === "library" || kind === "detail" || kind === "playing") {   // detail: the top; playing: at the 중요 문장
+      body.classList.add("noanim");
+      setTimeout(() => {
+        clearInterval(state.timer);
+        window.app.receive({ ev: "rec", state: "idle" });
+        $("timer").textContent = "";
+        openLibrary();
+        if (kind !== "library") setTimeout(() => {
+          openSession(demo.sessions()[0].id);
+          setTimeout(() => {
+            pl.follow = kind === "playing";
+            window.app.receive({ ev: "player", id: demo.sessions()[0].id, t: 2706, dur: 2876, playing: true, rate: 1 });
+            if (kind === "playing" && det.els[det.now]) det.els[det.now].scrollIntoView({ block: "center" });
+            if (kind === "detail") $("detBody").scrollTop = 0;
+          }, 200);
+        }, 150);
+      }, 120);
+    }
+  }
 })();
 </script>
 </body>
