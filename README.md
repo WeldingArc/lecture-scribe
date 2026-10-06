@@ -32,7 +32,7 @@ Apple 온디바이스 음성 인식 · 무료 · 오픈소스 · 모든 처리�
 ## 필요한 것
 
 - **macOS 26 (Tahoe) 이상**, Apple Silicon(M1 이상) Mac
-- macOS 14.2~15라면 [v1(Whisper 버전)](https://github.com/WeldingArc/lecture-scribe/releases/tag/v1.0.0)을 쓰세요. 아래 설치 명령은 macOS 버전에 맞는 걸 알아서 골라요.
+- macOS 14.2~15라면 [v1(Whisper 버전)](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)을 쓰세요. 아래 설치 명령은 macOS 버전에 맞는 걸 알아서 골라요.
 
 ## 설치
 
@@ -41,14 +41,14 @@ Apple 온디바이스 음성 인식 · 무료 · 오픈소스 · 모든 처리�
 **터미널** 앱(Spotlight에서 "터미널" 검색)을 열고 아래 한 줄을 붙여 넣은 뒤 Enter:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-scribe/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-transcriber/main/scripts/install.sh | bash
 ```
 
 업데이트할 때도 같은 줄을 다시 실행하면 돼요.
 
 ### 방법 2 · 직접 다운로드
 
-[최신 릴리스](https://github.com/WeldingArc/lecture-scribe/releases/latest)에서 `LectureScribe-mac.zip`을 받아 압축을 풀고, `강의 받아쓰기.app`을 응용 프로그램 폴더로 옮기세요.
+[최신 릴리스](https://github.com/WeldingArc/lecture-transcriber/releases/latest)에서 `LectureScribe-mac.zip`을 받아 압축을 풀고, `강의 받아쓰기.app`을 응용 프로그램 폴더로 옮기세요.
 
 ## 처음 실행할 때
 
@@ -98,7 +98,7 @@ rm -rf ~/Library/Application\ Support/LectureScribe/models
 <details>
 <summary>문제가 생겼어요</summary>
 
-메뉴 **도움말 → 로그 폴더 열기 (문제 신고용)**에서 `app.log`를 첨부해 [이슈](https://github.com/WeldingArc/lecture-scribe/issues)로 알려 주세요. 로그에는 받아 적은 내용도, Mac 사용자 이름도 들어가지 않아요.
+메뉴 **도움말 → 로그 폴더 열기 (문제 신고용)**에서 `app.log`를 첨부해 [이슈](https://github.com/WeldingArc/lecture-transcriber/issues)로 알려 주세요. 로그에는 받아 적은 내용도, Mac 사용자 이름도 들어가지 않아요.
 </details>
 
 ## 어떻게 동작하나요
@@ -114,7 +114,7 @@ Whisper를 고르면 SpeechAnalyzer 대신 **whisper.cpp**(앱에 들어 있는 
 
 하나의 네이티브 Swift 앱이에요(AppKit + WKWebView). Apple 샌드박스 안에서 동작하고, 앱 크기는 약 10MB예요(Whisper 모델은 내려받을 때만). 직접 빌드하려면 [DEVELOPMENT.md](DEVELOPMENT.md)를 보세요.
 
-**v1**은 OpenAI Whisper large-v3-turbo를 whisper.cpp로 돌리는 버전이었어요. macOS 14.2~15용으로 [v1.0.0 릴리스](https://github.com/WeldingArc/lecture-scribe/releases/tag/v1.0.0)에 남아 있어요.
+**v1**은 OpenAI Whisper large-v3-turbo를 whisper.cpp로 돌리는 버전이었어요. macOS 14.2~15용으로 [v1.0.0 릴리스](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)에 남아 있어요.
 
 ## 라이선스
 
@@ -124,8 +124,8 @@ MIT. 사용한 오픈소스와 라이선스는 [THIRD_PARTY_NOTICES.md](THIRD_PA
 
 ## English
 
-**강의 받아쓰기 (Lecture Scribe)** is a free, open-source Mac app that live-transcribes whatever lecture is playing on your Mac (LearnUs, YouTube, Zoom…). It captures system audio directly (no microphone) and transcribes it on-device with **Apple's SpeechAnalyzer** — Korean, with English quotes kept in English (it never translates on purpose; a very short English reply can occasionally come out in Korean) — then saves a text file and an audio recording when you stop. Sentences containing keywords you choose (attendance, exam, assignment…) are highlighted and collected at the end. A built-in Library keeps every session's transcript and recording together — click any sentence to hear it. Nothing leaves your Mac, and there is no model to download — unless you choose the optional **Whisper large-v3 turbo** engine in Settings › 음성 인식, a one-time ~575 MB download that also runs entirely on your Mac.
+**강의 받아쓰기 (Lecture Transcriber)** is a free, open-source Mac app that live-transcribes whatever lecture is playing on your Mac (LearnUs, YouTube, Zoom…). It captures system audio directly (no microphone) and transcribes it on-device with **Apple's SpeechAnalyzer** — Korean, with English quotes kept in English (it never translates on purpose; a very short English reply can occasionally come out in Korean) — then saves a text file and an audio recording when you stop. Sentences containing keywords you choose (attendance, exam, assignment…) are highlighted and collected at the end. A built-in Library keeps every session's transcript and recording together — click any sentence to hear it. Nothing leaves your Mac, and there is no model to download — unless you choose the optional **Whisper large-v3 turbo** engine in Settings › 음성 인식, a one-time ~575 MB download that also runs entirely on your Mac.
 
-**Requirements:** macOS 26+, Apple Silicon. (macOS 14.2–15: use [v1](https://github.com/WeldingArc/lecture-scribe/releases/tag/v1.0.0), which runs Whisper large-v3-turbo locally.)
-**Install:** `curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-scribe/main/scripts/install.sh | bash`, or download the zip from [Releases](https://github.com/WeldingArc/lecture-scribe/releases/latest).
+**Requirements:** macOS 26+, Apple Silicon. (macOS 14.2–15: use [v1](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0), which runs Whisper large-v3-turbo locally.)
+**Install:** `curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-transcriber/main/scripts/install.sh | bash`, or download the zip from [Releases](https://github.com/WeldingArc/lecture-transcriber/releases/latest).
 **Please** use it for personal study only and respect your instructors' rights and your school's recording policy.

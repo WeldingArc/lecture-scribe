@@ -1,6 +1,6 @@
 # 개인정보 처리방침 · Privacy Policy
 
-**강의 받아쓰기** (Lecture Scribe) · 최종 수정 2026-10-06
+**강의 받아쓰기** (Lecture Transcriber) · 최종 수정 2026-10-06
 
 ## 한국어
 
@@ -11,15 +11,15 @@
 - **권한:** Mac의 ‘시스템 오디오 녹음’ 권한은 Mac에서 재생되는 강의 소리를 받아 적는 데만 쓰여요(Mac에서는 마이크를 쓰지 않아요). iPhone·iPad의 ‘마이크’ 권한은 녹음 버튼을 눌러 받아 적는 동안에만 쓰여요.
 - **슬라이드 PDF(선택):** 켜면 Mac에서는 사용자가 직접 고른 강의 창 하나만 보면서 슬라이드를 찍어요(macOS의 창 선택 화면 사용). 찍은 슬라이드는 PDF로만 저장되고 기기 밖으로 나가지 않아요.
 - **제3자:** 광고, 분석 도구, 추적 기능이 없어요.
-- **문의:** https://github.com/WeldingArc/lecture-scribe/issues
+- **문의:** https://github.com/WeldingArc/lecture-transcriber/issues
 
 ## English
 
-- **No data is collected.** Lecture Scribe does not collect, store, or transmit any personal information — no names, emails, device identifiers, or usage analytics. There are no accounts.
+- **No data is collected.** Lecture Transcriber does not collect, store, or transmit any personal information — no names, emails, device identifiers, or usage analytics. There are no accounts.
 - **Everything stays on your device.** Speech recognition runs on-device (Mac, iPhone, iPad) with Apple's SpeechAnalyzer; the optional Whisper engine on the Mac runs on the Mac too. Audio and transcripts are never sent over the network.
 - **Whisper model download (optional):** if you download Whisper in Settings › 음성 인식 on a Mac, the model files (about 575 MB) are fetched once from Hugging Face (huggingface.co). It is a plain file download — no personal information or usage data is sent. You can delete the model there at any time.
 - **Where files go:** transcripts and recordings are saved only on your device — on a Mac in `Downloads/강의기록`, on iPhone/iPad in the app's folder in the Files app. You can delete them at any time, in the app's Library or directly.
 - **Permissions:** on a Mac, System Audio Recording is used only to transcribe the lecture audio playing on the Mac (the Mac app never uses the microphone). On iPhone/iPad, the microphone is used only while you are recording.
 - **Slide PDF (optional):** when enabled on a Mac, the app watches only the one window you pick in macOS's sharing picker to capture slides. The slides are saved only in a PDF on your device.
 - **Third parties:** no advertising, analytics, or tracking.
-- **Contact:** https://github.com/WeldingArc/lecture-scribe/issues
+- **Contact:** https://github.com/WeldingArc/lecture-transcriber/issues

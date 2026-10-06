@@ -25,7 +25,7 @@ let dataDir = env["LECTURE_DATA_DIR"]       // tests may point this elsewhere
         .appendingPathComponent("LectureScribe")
 let logDir = devDir.map { $0 + "/logs" } ?? (dataDir + "/logs")
 let outDir = home.appendingPathComponent("강의기록")
-let repoURL = "https://github.com/WeldingArc/lecture-scribe"
+let repoURL = "https://github.com/WeldingArc/lecture-transcriber"
 
 func openLog(_ name: String) -> FileHandle? {
     try? FileManager.default.createDirectory(atPath: logDir, withIntermediateDirectories: true)

@@ -3,7 +3,9 @@
 | Field | Value |
 |---|---|
 | Name | 강의 받아쓰기 |
-| Subtitle | 온라인 강의 실시간 받아쓰기 |
+| Subtitle | 한 마디도 놓치지 않는 실시간 받아쓰기 |
+| Name (English localization) | Lecture Transcriber |
+| Subtitle (English) | Every word, live and on-device |
 | Bundle ID | io.github.joshichoi.lecture-scribe |
 | SKU | lecture-scribe-mac |
 | Primary language | Korean |
@@ -11,9 +13,9 @@
 | Price | Free |
 | Age rating | 4+ (answer "No/None" to every question) |
 | Copyright | 2026 JoshiChoi |
-| Support URL | https://github.com/WeldingArc/lecture-scribe/issues |
-| Marketing URL | https://github.com/WeldingArc/lecture-scribe |
-| Privacy Policy URL | https://github.com/WeldingArc/lecture-scribe/blob/main/PRIVACY.md |
+| Support URL | https://github.com/WeldingArc/lecture-transcriber/issues |
+| Marketing URL | https://github.com/WeldingArc/lecture-transcriber |
+| Privacy Policy URL | https://github.com/WeldingArc/lecture-transcriber/blob/main/PRIVACY.md |
 | App Privacy | Data Not Collected |
 | Encryption | No (ITSAppUsesNonExemptEncryption = NO in Info.plist) |
 | Screenshots (2880×1800), in this order | docs/appstore/live.png, library.png, detail.png, saved.png, keywords.png |
@@ -51,7 +53,7 @@
 • 처음 [시작]을 누를 때 ‘시스템 오디오 녹음’ 권한을 허용해 주세요
 • 개인 공부용으로 만들었어요. 강의 녹음이나 녹취록을 다른 사람과 공유하면 저작권 문제가 될 수 있어요
 
-오픈소스(MIT)예요: https://github.com/WeldingArc/lecture-scribe
+오픈소스(MIT)예요: https://github.com/WeldingArc/lecture-transcriber
 
 ## What's New (2.0)
 • Apple 온디바이스 음성 인식으로 새로 만들었어요 — AI 모델을 따로 내려받을 필요가 없어요
@@ -61,7 +63,7 @@
 • 영어 구간은 영어 그대로 받아 적어요
 
 ## Notes for App Review (English)
-Lecture Scribe transcribes the audio that is playing on the Mac (e.g. an online lecture in a browser) in real time, entirely on-device, using Apple's SpeechAnalyzer/SpeechTranscriber (ko-KR, plus en-US to keep English quotes in English). Optionally (Settings › 음성 인식) the user can download the open Whisper large-v3-turbo model (~575 MB, from huggingface.co) and transcribe with it instead — also entirely on-device. No account, no server, no network use for content.
+Lecture Transcriber transcribes the audio that is playing on the Mac (e.g. an online lecture in a browser) in real time, entirely on-device, using Apple's SpeechAnalyzer/SpeechTranscriber (ko-KR, plus en-US to keep English quotes in English). Optionally (Settings › 음성 인식) the user can download the open Whisper large-v3-turbo model (~575 MB, from huggingface.co) and transcribe with it instead — also entirely on-device. No account, no server, no network use for content.
 
 How to test:
 1. Launch the app and wait for "준비됨" (Ready).
