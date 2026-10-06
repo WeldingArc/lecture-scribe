@@ -6,7 +6,7 @@ This repo holds two generations of the app:
   sharing the engine, the session library and the UI: `app/`, `app/ios/`, `ui/`, `project.yml`, `scripts/build_v2.sh`.
 - **v1 (macOS 14.2–15)** — Swift shell + Python engine + whisper.cpp: `native/`, `backend.py`,
   `models/`, `tools/`, `tests/`, `scripts/build_release.sh`. Released as
-  [v1.0.0](https://github.com/WeldingArc/lecture-scribe/releases/tag/v1.0.0); notes [below](#v1-legacy).
+  [v1.0.0](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0); notes [below](#v1-legacy).
 
 `ui/index.html` is shared: both engines speak the same JSON events to it.
 
