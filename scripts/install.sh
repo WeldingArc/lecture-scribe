@@ -1,13 +1,13 @@
 #!/bin/bash
 # 강의 받아쓰기 installer — downloads the latest release and puts it in your Applications folder.
 #
-#   curl -fsSL https://raw.githubusercontent.com/JoshiChoi/lecture-scribe/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-scribe/main/scripts/install.sh | bash
 #
 # One line that picks the right version for this Mac (v2 on macOS 26+, v1 on 14.2–15) and puts it in
 # Applications. v1 isn't notarized, so a v1 zip opened from a browser download is blocked by
 # Gatekeeper; downloaded with curl it isn't quarantined and opens normally.
 set -euo pipefail
-REPO="JoshiChoi/lecture-scribe"
+REPO="WeldingArc/lecture-scribe"
 URL_V2="https://github.com/$REPO/releases/latest/download/LectureScribe-mac.zip"
 URL_V1="https://github.com/$REPO/releases/download/v1.0.0/LectureScribe-mac.zip"       # Whisper version
 APP_NAME="강의 받아쓰기.app"

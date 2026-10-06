@@ -11,9 +11,9 @@
 | Price | Free |
 | Age rating | 4+ (answer "No/None" to every question) |
 | Copyright | 2026 JoshiChoi |
-| Support URL | https://github.com/JoshiChoi/lecture-scribe/issues |
-| Marketing URL | https://github.com/JoshiChoi/lecture-scribe |
-| Privacy Policy URL | https://github.com/JoshiChoi/lecture-scribe/blob/main/PRIVACY.md |
+| Support URL | https://github.com/WeldingArc/lecture-scribe/issues |
+| Marketing URL | https://github.com/WeldingArc/lecture-scribe |
+| Privacy Policy URL | https://github.com/WeldingArc/lecture-scribe/blob/main/PRIVACY.md |
 | App Privacy | Data Not Collected |
 | Encryption | No (ITSAppUsesNonExemptEncryption = NO in Info.plist) |
 | Screenshots (2880×1800), in this order | docs/appstore/live.png, library.png, detail.png, saved.png, keywords.png |
@@ -51,7 +51,7 @@
 • 처음 [시작]을 누를 때 ‘시스템 오디오 녹음’ 권한을 허용해 주세요
 • 개인 공부용으로 만들었어요. 강의 녹음이나 녹취록을 다른 사람과 공유하면 저작권 문제가 될 수 있어요
 
-오픈소스(MIT)예요: https://github.com/JoshiChoi/lecture-scribe
+오픈소스(MIT)예요: https://github.com/WeldingArc/lecture-scribe
 
 ## What's New (2.0)
 • Apple 온디바이스 음성 인식으로 새로 만들었어요 — AI 모델을 따로 내려받을 필요가 없어요

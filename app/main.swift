@@ -12,7 +12,7 @@ import WebKit
 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
 let devDir = env["LECTURE_DEV_DIR"]
 let uiDir = devDir.map { $0 + "/ui" } ?? ((Bundle.main.resourcePath ?? "") + "/ui")
-let repoURL = "https://github.com/JoshiChoi/lecture-scribe"
+let repoURL = "https://github.com/WeldingArc/lecture-scribe"
 let sandboxed = env["APP_SANDBOX_CONTAINER_ID"] != nil
 
 @MainActor
