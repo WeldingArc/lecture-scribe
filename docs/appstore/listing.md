@@ -18,6 +18,7 @@
 | Privacy Policy URL | https://github.com/WeldingArc/lecture-transcriber/blob/main/PRIVACY.md |
 | App Privacy | Data Not Collected |
 | Encryption | No (ITSAppUsesNonExemptEncryption = NO in Info.plist) |
+| Marketing screenshots (2880×1800, upload these) | Korean store: docs/appstore/marketing/ko/01-live.jpg, 02-key-sentences.jpg, 03-slides.jpg, 04-library.jpg, 05-find.jpg, 06-privacy.jpg · English store: the same names in docs/appstore/marketing/en/ (a headline and a line of pitch over each screen; re-render with `tools/make_marketing.sh`) |
 | Screenshots (2880×1800), in this order | docs/appstore/screenshots/01-start.png, 02-live.png, 03-library.png, 04-playback.png, 05-saved.png, 06-slide-pdf.png, 07-settings.png (demo data only; re-render with tools/shot.swift and `?shot=start / (none) / library / playing / saved / slidesdemo&t=19.5 / settings` at 1440×900; the 2.0 set is kept in docs/appstore/*.png) |
 
 ## Promotional text
@@ -35,7 +36,9 @@
 ■ 주요 기능
 • 말하는 대로 글자가 바로 나타나는 실시간 받아쓰기
 • 기록 — 강의마다 녹음과 받아 적은 글이 한곳에. 문장을 누르면 그 부분부터 다시 들려줍니다
-• ‘중요 문장’은 기록 맨 위에 모아 보여 주고, 이름 바꾸기·검색·공유도 가능합니다
+• ‘중요 문장’은 기록 맨 위에 모아 보여 주고, 기록마다 보이는 버튼으로 이름 변경·삭제를 바로 할 수 있습니다
+• ⌘F로 기록 안에서 단어를 찾고, 잘못 들린 단어는 [글 편집]으로 바로 고칩니다
+• 쉬는 시간에는 [일시정지] — 그동안의 소리는 녹음하지 않고, [계속]을 누르면 이어서 받아 적습니다
 • 텍스트(.txt)와 녹음(.m4a)은 다운로드 폴더의 ‘강의기록’에도 그대로 저장됩니다
 • 1.5배·2배속 재생도 따라갑니다
 • [전체 복사] 한 번이면 ChatGPT·Claude 같은 AI에 붙여 넣어 요약·정리
@@ -43,7 +46,7 @@
 • 음성 인식 엔진 선택 — 기본은 Apple, 원하면 공개 모델 Qwen3-ASR(약 1.5GB, 한국어·영어가 섞인 강의에 강합니다)·Whisper(약 575MB)·Parakeet(약 540MB, 영어 강의 전용)를 한 번 내려받아 Mac 안에서 사용합니다
 • 중요 문장 표시 — ‘출석’, ‘시험’, ‘과제’ 같은 단어가 나온 문장에 밑줄을 긋고 파일 끝에 따로 모아 줍니다. 단어는 직접 바꿀 수 있습니다
 • 녹음·영상 파일을 끌어다 놓아도 받아 적습니다 (재생 시간보다 훨씬 빨리)
-• 슬라이드 PDF — 강의 자료가 없을 때, 슬라이드가 바뀔 때마다 한 장씩 모아 그동안 한 말과 함께 PDF로 만듭니다 (보여 줄 강의 창은 직접 선택합니다)
+• 슬라이드 PDF — 강의 자료가 없을 때, 슬라이드가 바뀔 때마다 한 장씩 모아 그동안 한 말과 함께 PDF로 만듭니다 (보여 줄 강의 창은 직접 선택합니다). 강의자 카메라는 스스로 찾아 테두리로 표시하고 슬라이드 인식에서 제외합니다
 
 ■ 개인정보
 음성 인식은 Apple의 온디바이스 음성 인식으로 Mac 안에서만 처리됩니다. 소리와 글은 어디에도 전송되지 않고, 계정도 필요 없습니다.
@@ -62,6 +65,15 @@
 • 처음 실행할 때 이 내용에 동의해야 사용할 수 있으며, 설정에서 다시 볼 수 있습니다.
 
 오픈소스(MIT)입니다: https://github.com/WeldingArc/lecture-transcriber
+
+## What's New (2.3)
+• 기록마다 이름 변경·삭제 버튼이 바로 보입니다 (⋯ 또는 우클릭으로 공유)
+• 일시정지 / 계속 — 쉬는 시간의 소리는 녹음하지 않습니다 (⌘P)
+• 글 편집 — 잘못 들린 단어를 기록에서 바로 고칩니다
+• ⌘F로 기록 안에서 찾기
+• ‘녹음’ 메뉴와 단축키: ⌘R 시작·정지, ⌘O 파일 불러오기
+• 녹음 중에 종료하거나 창을 닫으면 먼저 확인하고, 종료하더라도 지금까지의 내용을 저장합니다
+• 슬라이드 PDF: 강의자 카메라를 스스로 찾아 표시하고 슬라이드 인식에서 제외합니다 (카메라 때문에 같은 슬라이드가 여러 장 담기던 문제를 줄였습니다)
 
 ## What's New (2.2)
 • 앱 전체의 문구를 격식 있는 표현으로 다듬었습니다

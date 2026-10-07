@@ -86,6 +86,7 @@
   body.engine-ready .dot { background: var(--ok); }
   body.engine-loading .dot { animation: pulse 1.4s ease-in-out infinite; }
   body.recording .dot { background: var(--rec); box-shadow: 0 0 12px rgba(196, 106, 92, 0.7); animation: pulse 1.8s ease-in-out infinite; }
+  body.paused .dot { background: var(--accent); box-shadow: none; animation: none; }      /* 일시정지: still, not recording */
   body.finishing .dot { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
   #timer { font-variant-numeric: tabular-nums; color: var(--ink-2); letter-spacing: 0.06em; }
   #timer:empty { display: none; }
@@ -236,6 +237,12 @@
   }
   .card textarea:focus { border-color: rgba(var(--accent-rgb), 0.5); }
   .card .acts { margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .card .rn-input {
+    margin-top: 16px; width: 100%; padding: 11px 14px; border-radius: 12px; text-align: center;
+    background: rgba(var(--bg-rgb), 0.6); border: 1px solid var(--line-2); color: var(--ink);
+    font: 300 16px/1.5 var(--font); outline: none; user-select: text; -webkit-user-select: text;
+  }
+  .card .rn-input:focus { border-color: rgba(var(--accent-rgb), 0.5); }
   #legal { z-index: 45; overflow-y: auto; padding: 16px 0; }   /* above everything: at first launch nothing works before it */
   .legal-card { width: min(560px, calc(100% - 32px)); margin: auto; text-align: left; }
   .legal-card h2 { text-align: center; }
@@ -257,6 +264,42 @@
     background: linear-gradient(to top, var(--bg) 58%, rgba(var(--bg-rgb), 0));
   }
   .row { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 4vw, 34px); }
+  /* 슬라이드 PDF while recording: the lecture window as the app sees it, and the lecturer's camera it leaves out */
+  .campv {
+    position: absolute; left: 24px; bottom: calc(70px + var(--sab)); width: clamp(150px, calc(50vw - 230px), 260px);
+    display: none; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  }
+  .campv.show { display: flex; animation: rise 0.5s ease; }
+  .campv-frame {
+    position: relative; overflow: hidden; border-radius: 10px; line-height: 0; background: #05070c;
+    border: 1px solid var(--line-2); box-shadow: 0 10px 28px var(--shadow);
+  }
+  .campv-frame img { display: block; max-width: 100%; max-height: 130px; width: auto; height: auto; }
+  .campv-box {
+    position: absolute; display: none; border: 1.5px solid var(--accent); border-radius: 3px; font-style: normal;
+    box-shadow: 0 0 0 999px rgba(5, 8, 16, 0.22), 0 0 10px rgba(var(--accent-rgb), 0.6);
+    transition: left 0.5s ease, top 0.5s ease, width 0.5s ease, height 0.5s ease;
+  }
+  .campv.cam .campv-box { display: block; }
+  .campv-box.found { animation: cam-found 2.6s ease-out; }       /* found: the rest of the picture dims, the box closes in */
+  @keyframes cam-found {
+    0% { opacity: 0; transform: scale(1.8); box-shadow: 0 0 0 999px rgba(5, 8, 16, 0), 0 0 0 rgba(var(--accent-rgb), 0); }
+    22% { opacity: 1; transform: none; box-shadow: 0 0 0 999px rgba(5, 8, 16, 0.6), 0 0 16px rgba(var(--accent-rgb), 0.95); }
+    70% { box-shadow: 0 0 0 999px rgba(5, 8, 16, 0.6), 0 0 16px rgba(var(--accent-rgb), 0.95); }
+  }
+  .campv-tag {
+    position: absolute; top: calc(100% + 4px); right: -1.5px; white-space: nowrap; line-height: 1;
+    padding: 3px 6px 4px; border-radius: 4px; font-size: 10px; font-weight: 500; letter-spacing: 0.02em;
+    color: var(--bg); background: var(--accent);
+  }
+  .campv-box.left .campv-tag { right: auto; left: -1.5px; }
+  .campv-box.low .campv-tag { top: auto; bottom: calc(100% + 4px); }
+  .campv-cap { font-size: 11.5px; font-weight: 300; line-height: 1.55; color: var(--muted); word-break: keep-all; }
+  .campv-cap b { display: block; font-weight: 400; color: var(--ink-2); }
+  .campv.cam .campv-cap b { color: var(--accent); }
+  @media (max-width: 759px), (max-height: 560px) { .campv { display: none !important; } }
+  @media (min-width: 760px) and (min-height: 561px) { body.campv-on main { padding-bottom: calc(250px + var(--sab)); } }   /* the last line stays above it */
+  @media (prefers-reduced-motion: reduce) { .campv.show, .campv-box.found { animation: none; } }
   .ghost {
     min-width: 108px; padding: 10px 18px; border-radius: 999px;
     border: 1px solid var(--line-2); color: rgba(var(--tint-rgb), 0.82);
@@ -286,6 +329,18 @@
   body.recording .rec .core { width: 22px; height: 22px; border-radius: 5px; }
   body.finishing .rec .core { background: var(--accent); width: 18px; height: 18px; border-radius: 50%; animation: pulse 1s ease-in-out infinite; }
   .reclabel { font-size: 12px; letter-spacing: 0.26em; text-indent: 0.26em; color: var(--muted); font-weight: 400; }
+  /* 일시정지 / 계속: under the round button while a live recording runs, in the place of the "정지" label */
+  .pausebtn {
+    display: none; align-items: center; gap: 7px; margin-top: -4px; padding: 4px 13px 5px; border-radius: 999px;
+    border: 1px solid var(--line-2); font-size: 12px; font-weight: 400; letter-spacing: 0.08em; color: var(--ink-2);
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .pausebtn svg { width: 8px; height: 10px; fill: currentColor; }
+  .pausebtn:hover { background: rgba(var(--tint-rgb), 0.06); border-color: rgba(var(--tint-rgb), 0.32); }
+  body.live-rec .pausebtn { display: inline-flex; }
+  body.live-rec .reclabel { display: none; }
+  body.paused .pausebtn { color: var(--accent); border-color: rgba(var(--accent-rgb), 0.55); }
+  body.paused .rec { animation: none; border-color: rgba(var(--accent-rgb), 0.5); }
   .row2 {
     margin-top: 18px; display: flex; gap: 22px; justify-content: center; align-items: center;
     font-size: 12.5px; color: var(--muted); font-weight: 300;
@@ -570,6 +625,36 @@
   }
   .srow:hover { background: rgba(var(--tint-rgb), 0.05); border-color: var(--line-2); }
   .srow:active { transform: scale(0.994); }
+  .srow-wrap { position: relative; margin-bottom: 10px; }
+  .srow-wrap .srow { margin-bottom: 0; }
+  .srow-wrap.has-acts .srow-top { padding-right: 106px; }     /* room for the buttons on the title line */
+  .srow-wrap:hover .srow { background: rgba(var(--tint-rgb), 0.05); border-color: var(--line-2); }
+  .srow-acts { position: absolute; top: 11px; right: 10px; display: flex; gap: 2px; }   /* 이름 변경 · 삭제 · ⋯, always shown */
+  .srow-act {
+    width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px;
+    color: var(--muted); transition: background 0.2s, color 0.2s;      /* full strength at rest: ≥ 3:1, easy to find */
+  }
+  .srow-act svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .srow-act.srow-more svg { width: 17px; height: 5px; fill: currentColor; stroke: none; }
+  .srow-act:hover, .srow-act:focus-visible, .srow-act[aria-expanded="true"] { background: rgba(var(--tint-rgb), 0.08); color: var(--ink-2); }
+  .srow-act.srow-del:hover, .srow-act.srow-del:focus-visible { color: #e3a092; background: rgba(196, 106, 92, 0.1); }
+  :root[data-theme="light"] .srow-act.srow-del:hover, :root[data-theme="light"] .srow-act.srow-del:focus-visible { color: var(--rec); }
+  .menu {
+    position: fixed; z-index: 40; display: none; min-width: 184px; padding: 6px;
+    border-radius: 13px; background: var(--card); border: 1px solid var(--line-2);
+    box-shadow: 0 18px 44px var(--shadow);
+  }
+  .menu.show { display: block; animation: menu-in 0.14s ease-out; }
+  @keyframes menu-in { from { opacity: 0; transform: translateY(-3px); } }
+  .menu button {
+    display: block; width: 100%; padding: 9px 14px; border-radius: 8px; text-align: left;
+    font-size: 14px; font-weight: 300; color: var(--ink); outline: none;
+  }
+  .menu button[hidden] { display: none; }
+  .menu button:hover, .menu button:focus-visible { background: rgba(var(--tint-rgb), 0.08); }
+  .menu hr { height: 1px; margin: 5px 10px; border: 0; background: var(--line); }
+  .menu .danger { color: #e3a092; }
+  :root[data-theme="light"] .menu .danger { color: var(--rec); }
   .srow-top { display: flex; align-items: baseline; gap: 12px; }
   .srow-title { flex: 1; min-width: 0; font-size: 16.5px; font-weight: 400; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .srow-dur { flex: none; font-size: 12.5px; font-weight: 300; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -624,6 +709,36 @@
   }
   .cue-line:hover { background: rgba(var(--tint-rgb), 0.045); }
   .cue-line time { flex: none; padding-top: 2px; font-size: 12px; letter-spacing: 0.06em; color: var(--accent); font-variant-numeric: tabular-nums; }
+  /* ⌘F: find in this recording — always there above the lines */
+  .det-find { display: flex; align-items: center; gap: 6px; max-width: 620px; margin: 22px auto 0; }
+  .det-find .search { flex: 1; margin: 0; }
+  .det-find .search input { padding-top: 9px; padding-bottom: 9px; }        /* 16 px text: iOS doesn't zoom in */
+  .det-find-count { flex: none; min-width: 52px; text-align: center; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .det-find-count:empty { min-width: 0; }
+  .det-find-step {
+    flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; color: var(--muted);
+    transition: background 0.2s, color 0.2s;
+  }
+  .det-find-step svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .det-find-step:hover:not(:disabled) { background: rgba(var(--tint-rgb), 0.08); color: var(--ink-2); }
+  .det-find-step:disabled { opacity: 0.35; cursor: default; }
+  mark.hit { background: rgba(var(--accent-rgb), 0.3); color: inherit; border-radius: 3px; padding: 0 1px; }
+  mark.hit.cur { background: var(--accent); color: var(--bg); }
+  /* 글 편집: a line is fixed where it stands */
+  .det-edit-hint {
+    display: none; max-width: 620px; margin: 14px auto 0; padding: 11px 16px; border-radius: 12px; text-align: center;
+    font-size: 13px; line-height: 1.65; font-weight: 300; color: var(--ink-2); word-break: keep-all;
+    background: rgba(var(--accent-rgb), 0.07); border: 1px dashed rgba(var(--accent-rgb), 0.4);
+  }
+  .det-edit-hint.show { display: block; }
+  .ghost.small.on { color: var(--accent); border-color: rgba(var(--accent-rgb), 0.55); background: rgba(var(--accent-rgb), 0.08); }
+  .det-lines.editing .seg { cursor: text; }
+  .det-lines.editing .seg p { border-radius: 8px; box-shadow: 0 0 0 1px transparent; transition: box-shadow 0.2s, background 0.2s; }
+  .det-lines.editing .seg:hover p { box-shadow: 0 0 0 1px var(--line-2); }
+  .det-lines .seg p[contenteditable] {
+    outline: none; color: var(--ink); background: rgba(var(--tint-rgb), 0.05);
+    box-shadow: 0 0 0 1.5px rgba(var(--accent-rgb), 0.6); user-select: text; -webkit-user-select: text;
+  }
   .det-lines { max-width: 700px; margin: 22px auto 0; }
   .det-lines .seg { animation: none; padding: 11px 4px; border-radius: 12px; }
   .det-lines.audio .seg { cursor: pointer; }
@@ -867,12 +982,22 @@
       </div>
       <div class="det-acts">
         <button class="ghost small" id="detCopy">전체 복사</button>
+        <button class="ghost small" id="detEdit">글 편집</button>
         <button class="ghost small" id="detSlides">슬라이드 PDF</button>
         <button class="ghost small" id="detShare">공유</button>
         <button class="ghost small" id="detReveal">Finder에서 보기</button>
+        <button class="ghost small" id="detRename">이름 변경</button>
         <button class="ghost small danger" id="detDelete">삭제</button>
       </div>
       <div class="det-cues" id="detCues"></div>
+      <div class="det-find" id="detFindBar">
+        <label class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5.2"/><path d="m11 11 3.6 3.6"/></svg>
+          <input id="detFind" type="search" placeholder="이 기록에서 찾기" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-label="이 기록에서 찾기"></label>
+        <span class="det-find-count" id="detFindCount" aria-live="polite"></span>
+        <button class="det-find-step" id="detFindPrev" aria-label="이전 결과" title="이전 결과 (⇧Return)" disabled><svg viewBox="0 0 12 12"><path d="M2.5 7.8 6 4.3l3.5 3.5"/></svg></button>
+        <button class="det-find-step" id="detFindNext" aria-label="다음 결과" title="다음 결과 (Return)" disabled><svg viewBox="0 0 12 12"><path d="M2.5 4.2 6 7.7l3.5-3.5"/></svg></button>
+      </div>
+      <div class="det-edit-hint" id="detEditHint" aria-live="polite"></div>
       <article class="det-lines" id="detLines"></article>
       <div class="det-note" id="detNote"></div>
     </div>
@@ -936,12 +1061,39 @@
     </div>
   </div>
 
+  <div class="panel" id="renamePanel">
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="rnTitle">
+      <h2 id="rnTitle">이름 변경</h2>
+      <p>받아 적은 글과 녹음 파일의 이름도 함께 바뀝니다.</p>
+      <input class="rn-input" id="rnInput" maxlength="100" spellcheck="false" autocomplete="off" enterkeyhint="done" aria-label="새 이름">
+      <div class="acts">
+        <button class="ghost small" id="rnNo">취소</button>
+        <button class="ghost small" id="rnYes">변경</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⋯ / right-click on a recording in 기록 -->
+  <div class="menu" id="rowMenu" role="menu" aria-label="기록 메뉴">
+    <button role="menuitem" id="rmOpen">열기</button>
+    <button role="menuitem" id="rmRename">이름 변경</button>
+    <button role="menuitem" id="rmShare">공유</button>
+    <button role="menuitem" id="rmReveal">Finder에서 보기</button>
+    <hr>
+    <button role="menuitem" class="danger" id="rmDelete">삭제</button>
+  </div>
+
   <footer class="dock">
+    <figure class="campv" id="campv">
+      <div class="campv-frame"><img id="campvImg" alt="슬라이드 PDF가 보고 있는 강의 화면"><i class="campv-box" id="campvBox"><span class="campv-tag">강의자 카메라</span></i></div>
+      <figcaption class="campv-cap" id="campvCap" aria-live="polite"></figcaption>
+    </figure>
     <div class="row">
       <button class="ghost" id="copy" disabled>전체 복사</button>
       <div class="recwrap">
         <button class="rec" id="rec" disabled aria-label="녹음 시작"><span class="core"></span></button>
         <span class="reclabel" id="reclabel">준비 중</span>
+        <button class="pausebtn" id="pauseBtn"><svg viewBox="0 0 8 10" aria-hidden="true"></svg><span>일시정지</span></button>
       </div>
       <button class="ghost" id="folder">기록</button>
     </div>
@@ -966,6 +1118,39 @@
   const body = document.body;
   const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.native;
   let slideCount = 0;
+  // 슬라이드 PDF while recording: the frame the app last looked at (about once a second) and the lecturer's camera,
+  // outlined, once found — it is left out when slides are compared, so a turning face never makes a new page
+  const campv = {
+    timer: 0,
+    show(img, cam) {
+      const card = $("campv"), box = $("campvBox"), had = card.classList.contains("cam");
+      $("campvImg").src = img;
+      card.classList.add("show");
+      body.classList.add("campv-on");
+      if (cam) {
+        const [x, y, w, h] = cam;
+        if (!had) box.style.transition = "none";                   // appears where it is; moves smoothly after that
+        Object.assign(box.style, { left: `${x * 100}%`, top: `${y * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` });
+        box.classList.toggle("left", x + w / 2 < 0.5);              // the label stays inside the picture
+        box.classList.toggle("low", y + h > 0.78);
+        card.classList.add("cam");
+        if (!had) { box.classList.remove("found"); void box.offsetWidth; box.style.transition = ""; box.classList.add("found"); }
+      } else {
+        card.classList.remove("cam");
+      }
+      const cap = cam ? "<b>강의자 카메라 인식</b>얼굴이 움직여도 새 슬라이드로 인식하지 않습니다."
+                      : "<b>슬라이드 인식 중</b>강의자 카메라가 있으면 자동으로 표시합니다.";
+      if ($("campvCap").innerHTML !== cap) $("campvCap").innerHTML = cap;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this.hide(), 8000);             // no frames for a while: capture ended
+    },
+    hide() {
+      clearTimeout(this.timer);
+      $("campv").classList.remove("show", "cam");
+      body.classList.remove("campv-on");
+      $("campvImg").removeAttribute("src");
+    },
+  };
   const IOS = window.__PLATFORM__ === "ios" || (!native && /[?&]ios\b/.test(location.search));
   const DEVICE = window.__DEVICE__ || "아이폰";
   const HAS_LIBRARY = !native || !!window.__LIBRARY__;     // v2 apps (and the browser demo)
@@ -974,7 +1159,17 @@
                   saved: null, timer: null, follow: true,
                   idBase: 0,             // segment ids restart in every backend session
                   resumePending: false,  // engine restarted mid-lecture: start again when ready
-                  resuming: false };
+                  resuming: false,
+                  paused: false, pausedTotal: 0, pausedSince: 0 };   // 일시정지: the clock leaves those seconds out
+
+  /// Recording time so far, without the paused stretches (the recording leaves them out too).
+  function recElapsed() {
+    return Math.max(0, (state.pausedSince || Date.now() / 1000) - state.started - state.pausedTotal);
+  }
+  function recStatus() {
+    const what = state.paused ? "일시정지 중" : state.mode === "file" ? "파일 받아 적는 중" : "받아 적는 중";
+    return slideCount ? `${what} · 슬라이드 ${slideCount}장` : what;
+  }
 
   function send(cmd, extra = {}) {
     if ((cmd === "start" || cmd === "pickFile") && typeof legalPending === "function" && legalPending()) return;   // not before the agreement
@@ -1043,6 +1238,13 @@
     body.classList.toggle("engine-loading", state.engine === "loading");
     body.classList.toggle("recording", state.rec === "recording");
     body.classList.toggle("finishing", state.rec === "finishing");
+    const liveRec = state.rec === "recording" && state.mode === "live", paused = liveRec && state.paused;
+    body.classList.toggle("live-rec", liveRec);
+    body.classList.toggle("paused", paused);
+    $("pauseBtn").querySelector("span").textContent = paused ? "계속" : "일시정지";
+    $("pauseBtn").querySelector("svg").innerHTML = paused ? '<path d="M0 0 8 5 0 10z"/>' : '<path d="M0 0h2.6v10H0zM5.4 0H8v10H5.4z"/>';
+    $("pauseBtn").title = paused ? "이어서 받아 적기 (⌘P)" : "잠시 멈추기 (⌘P) — 그동안의 소리는 녹음하지 않습니다";
+    $("rec").title = state.rec === "recording" ? "받아쓰기 정지 (⌘R)" : ready ? "받아쓰기 시작 (⌘R)" : "";
     body.classList.toggle("has-text", state.segs.size > 0 || !!state.saved);
   }
 
@@ -1189,9 +1391,9 @@
 
   function tick() {
     if (state.rec === "recording" && state.mode === "live" && state.started) {
-      $("timer").textContent = fmt(Date.now() / 1000 - state.started);
+      $("timer").textContent = fmt(recElapsed());
       const live = document.querySelector(".srow.live .srow-dur");
-      if (live) live.textContent = fmt(Date.now() / 1000 - state.started);
+      if (live) live.textContent = fmt(recElapsed());
     }
   }
 
@@ -1268,6 +1470,9 @@
   function renderLibrary() {
     const q = $("libSearch").value.trim().normalize("NFC").toLowerCase();
     const list = $("libList");
+    const f = document.activeElement, fw = f && f.closest ? f.closest("#libList .srow-wrap") : null;   // keyboard focus in the list
+    const keep = fw && { id: fw.dataset.id, btn: ["srow-ren", "srow-del", "srow-more"].find((c) => f.classList.contains(c)),
+                         i: [...list.querySelectorAll(".srow-wrap")].indexOf(fw) };
     list.innerHTML = "";
     const all = lib.sessions;
     const shown = !q ? all : all.filter((s) =>
@@ -1290,7 +1495,7 @@
       if (s.saving) title.appendChild(el("i", "tag plain", "저장 중"));
       if (s.slides && !s.recording) title.appendChild(el("i", "tag plain", `슬라이드 ${s.slides}`));
       top.appendChild(title);
-      top.appendChild(el("span", "srow-dur", s.recording ? (state.started ? fmt(Date.now() / 1000 - state.started) : "") : durLabel(s.seconds)));
+      top.appendChild(el("span", "srow-dur", s.recording ? (state.started ? fmt(recElapsed()) : "") : durLabel(s.seconds)));
       row.appendChild(top);
       const cue = bestCue(s.cues);
       const text = el("div", "srow-text" + (cue ? " cue" : ""));
@@ -1302,12 +1507,145 @@
       }
       if (text.textContent) row.appendChild(text);
       row.onclick = () => s.recording ? closeLibrary() : s.saving ? toast("저장하는 중입니다. 잠시 후에 열 수 있습니다.") : openSession(s.id);
-      list.appendChild(row);
+      const wrap = el("div", "srow-wrap");
+      wrap.dataset.id = s.id;
+      wrap.appendChild(row);
+      if (s.recording || s.saving) {
+        row.addEventListener("contextmenu", (e) => e.preventDefault());       // nothing to rename or delete yet
+      } else {                                        // 이름 변경 · 삭제 right on the row, the rest under ⋯ (or right-click)
+        const name = displayName(s), acts = el("div", "srow-acts");
+        const act = (cls, label, title, svg) => {
+          const b = el("button", `srow-act ${cls}`);
+          b.innerHTML = svg;
+          b.title = title;
+          b.setAttribute("aria-label", `‘${name}’ ${label}`);
+          acts.appendChild(b);
+          return b;
+        };
+        act("srow-ren", "이름 변경", "이름 변경", '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.6 2.6l2.8 2.8-7.7 7.7-3.4.6.6-3.4z"/><path d="M9.2 4l2.8 2.8"/></svg>')
+          .onclick = () => openRename(s);
+        act("srow-del", "삭제", "삭제 (⌘⌫)", '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.6 4.3h10.8"/><path d="M6.1 4.3V2.7h3.8v1.6"/><path d="M4.1 4.3l.8 9.1h6.2l.8-9.1"/><path d="M6.8 6.8v4.3M9.2 6.8v4.3"/></svg>')
+          .onclick = () => askDelete(s.id, name);
+        const more = act("srow-more", "더 보기", "더 보기",
+          '<svg viewBox="0 0 17 5" aria-hidden="true"><circle cx="2.5" cy="2.5" r="1.9"/><circle cx="8.5" cy="2.5" r="1.9"/><circle cx="14.5" cy="2.5" r="1.9"/></svg>');
+        more.setAttribute("aria-haspopup", "menu");
+        more.setAttribute("aria-expanded", "false");
+        more.onclick = () => rowMenu.anchor === more && isOpen("rowMenu") ? closeRowMenu() : openRowMenu(s, more);
+        row.addEventListener("contextmenu", (e) => { e.preventDefault(); openRowMenu(s, more, e.clientX, e.clientY); });
+        const delKey = (e) => {                                                  // ⌘⌫, as in Finder
+          if ((e.metaKey || e.ctrlKey) && (e.key === "Backspace" || e.key === "Delete")) { e.preventDefault(); askDelete(s.id, name); }
+        };
+        row.addEventListener("keydown", delKey);
+        acts.addEventListener("keydown", delKey);
+        wrap.classList.add("has-acts");
+        wrap.appendChild(acts);
+      }
+      list.appendChild(wrap);
+    }
+    const wraps = [...list.querySelectorAll(".srow-wrap")];
+    const find = (id) => wraps.find((w) => w.dataset.id === id);
+    if (keep && wraps.length) {                       // focus stays with that recording (renamed too), or the next one
+      const w = find(lib.moved && lib.moved.from === keep.id ? lib.moved.to : keep.id) || wraps[Math.min(keep.i, wraps.length - 1)];
+      ((keep.btn && w.querySelector(`.${keep.btn}`)) || w.querySelector(".srow")).focus({ preventScroll: true });
+    }
+    if (isOpen("rowMenu")) {                          // drawn again under the open menu: it follows its row, or closes
+      const w = rowMenu.s && find(rowMenu.s.id), b = w && w.querySelector(".srow-more");
+      if (b) {
+        rowMenu.anchor = b;
+        rowMenu.s = all.find((o) => o.id === rowMenu.s.id) || rowMenu.s;
+        b.setAttribute("aria-expanded", "true");
+        placeRowMenu(b);
+      } else closeRowMenu();
     }
   }
 
+  // ---------- one recording's menu (⋯ or right-click): 열기 · 이름 변경 · 공유 · Finder에서 보기 · 삭제
+  const rowMenu = { s: null, anchor: null };
+  function openRowMenu(s, anchor, x, y) {
+    closeRowMenu();
+    rowMenu.s = s; rowMenu.anchor = anchor;
+    $("rmReveal").hidden = IOS;
+    $("rowMenu").classList.add("show");
+    anchor.setAttribute("aria-expanded", "true");
+    placeRowMenu(anchor, x, y);
+    $("rmOpen").focus({ preventScroll: true });
+  }
+  function placeRowMenu(anchor, x, y) {
+    const m = $("rowMenu"), r = m.getBoundingClientRect(), a = anchor.getBoundingClientRect();
+    let left = x != null ? x : a.right - r.width, top = y != null ? y : a.bottom + 6;
+    if (top + r.height > innerHeight - 12) top = (y != null ? y : a.top - 6) - r.height;     // no room below: open upwards
+    m.style.left = `${Math.max(12, Math.min(left, innerWidth - r.width - 12))}px`;
+    m.style.top = `${Math.max(12, top)}px`;
+  }
+  function closeRowMenu(refocus) {
+    if (!isOpen("rowMenu")) return;
+    const inside = $("rowMenu").contains(document.activeElement);     // never leave focus on a hidden menu item
+    $("rowMenu").classList.remove("show");
+    const a = rowMenu.anchor;
+    rowMenu.anchor = null;
+    if (a) a.setAttribute("aria-expanded", "false");
+    if ((refocus || inside) && a && a.isConnected) a.focus({ preventScroll: true });
+    else if (inside) document.activeElement.blur();
+  }
+  function rowAction(fn) {          // focus goes back to the ⋯ first, so a dialog it opens can return it there
+    return () => { const s = rowMenu.s; closeRowMenu(true); if (s) fn(s); };
+  }
+  $("rmOpen").onclick = rowAction((s) => openSession(s.id));
+  $("rmRename").onclick = rowAction(openRename);
+  $("rmShare").onclick = () => {
+    const r = $("rmShare").getBoundingClientRect();                           // the share sheet points at the menu
+    rowAction((s) => send("share", { id: s.id, x: r.left, y: r.top, w: r.width, h: r.height }))();
+  };
+  $("rmReveal").onclick = rowAction((s) => send("revealSession", { id: s.id }));
+  $("rmDelete").onclick = rowAction((s) => askDelete(s.id, displayName(s)));
+  $("rowMenu").addEventListener("keydown", (e) => {
+    if (!isOpen("rowMenu")) return;
+    const items = [...$("rowMenu").querySelectorAll("button:not([hidden])")];
+    const i = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      items[(i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
+    } else if (e.key === "Escape" || e.key === "Tab") {
+      e.preventDefault(); e.stopPropagation();
+      closeRowMenu(true);
+    }
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (isOpen("rowMenu") && !$("rowMenu").contains(e.target) && !(e.target.closest && e.target.closest(".srow-more"))) closeRowMenu();
+  }, true);
+  $("libBody").addEventListener("scroll", () => closeRowMenu(), { passive: true });
+  window.addEventListener("resize", () => closeRowMenu());
+  window.addEventListener("blur", () => closeRowMenu());
+
+  // 이름 변경 from the list: a small dialog (in 기록 보기 the title itself is editable)
+  let renaming = null;
+  function openRename(s) {
+    renaming = s.id;
+    $("rnInput").value = displayName(s);
+    showDialog("renamePanel");
+    $("rnInput").focus({ preventScroll: true });
+    $("rnInput").select();
+  }
+  function closeRename() {
+    renaming = null;
+    hideDialog("renamePanel");
+  }
+  function commitRenamePanel() {
+    const s = lib.sessions.find((o) => o.id === renaming);
+    const name = $("rnInput").value.trim();
+    closeRename();
+    if (s && name && name !== displayName(s)) send("rename", { id: s.id, name });
+  }
+  $("rnYes").onclick = commitRenamePanel;
+  $("rnNo").onclick = closeRename;
+  $("rnInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); commitRenamePanel(); }   // not the Enter that ends Hangul composition
+  });
+
   function openSession(id) {
-    det.id = id; det.s = null; det.lines = []; det.els = []; det.now = -1;
+    setEditing(false);
+    resetFind();
+    det.id = id; det.s = null; det.lines = []; det.els = []; det.now = -1; det.open = null;
     const known = lib.sessions.find((s) => s.id === id);
     $("detName").value = known ? displayName(known) : "";
     $("detDay").textContent = known ? dayLabel(known.date) : "";
@@ -1322,6 +1660,7 @@
   }
   function closeDetail() {
     if (pl.playing) send("pause");
+    setEditing(false);                                 // a line still open is saved first
     $("detName").blur();
     $("detail").classList.remove("show");
     det.id = null;
@@ -1338,11 +1677,22 @@
     $("detReveal").style.display = IOS ? "none" : "";
     $("detSlides").style.display = s.slides ? "" : "none";
     $("detSlides").textContent = s.slides ? `슬라이드 PDF · ${s.slides}장` : "슬라이드 PDF";
-    for (const b of ["detShare", "detReveal", "detDelete"]) $(b).disabled = busy;
+    for (const b of ["detShare", "detReveal", "detRename", "detDelete"]) $(b).disabled = busy;
     $("detCopy").disabled = !det.lines.length;
+    $("detEdit").disabled = busy || !det.lines.length;
+    $("detFindBar").style.display = det.lines.length ? "" : "none";
+    if (busy) setEditing(false);
+    $("detLines").classList.toggle("audio", !!s.audio);
+    renderLines();
+    $("detNote").textContent = s.recording ? "녹음을 마치면 들을 수 있습니다." : s.saving ? "저장하는 중입니다. 잠시 후에 들을 수 있습니다."
+                             : !det.lines.length ? "받아 적은 문장이 없습니다." : !s.audio ? "이 기록에는 녹음 파일이 없습니다." : "";
+    $("player").classList.toggle("hide", !s.audio);
+    if (s.audio) updatePlayer(pl.id === s.id ? pl : { id: s.id, t: 0, dur: s.seconds, playing: false, rate: pl.rate });
+  }
+
+  function renderLines() {
     const box = $("detLines");
     box.innerHTML = "";
-    box.classList.toggle("audio", !!s.audio);
     det.els = det.lines.map((l, i) => {
       const seg = el("section", "seg");
       seg.appendChild(el("time", null, fmt(l.t)));
@@ -1353,11 +1703,130 @@
     });
     det.now = -1;
     renderDetailCues();
-    $("detNote").textContent = s.recording ? "녹음을 마치면 들을 수 있습니다." : s.saving ? "저장하는 중입니다. 잠시 후에 들을 수 있습니다."
-                             : !det.lines.length ? "받아 적은 문장이 없습니다." : !s.audio ? "이 기록에는 녹음 파일이 없습니다." : "";
-    $("player").classList.toggle("hide", !s.audio);
-    if (s.audio) updatePlayer(pl.id === s.id ? pl : { id: s.id, t: 0, dur: s.seconds, playing: false, rate: pl.rate });
+    if (find.q) runFind(true);
+    if (det.s && det.s.audio && pl.id === det.id) updatePlayer(pl);
   }
+
+  // ---------- ⌘F in a recording: every match marked; Return / ⇧Return (or ↑ ↓) step through them
+  const find = { q: "", hits: [], cur: -1, timer: 0 };
+  function paintLine(i) {
+    const p = det.els[i] && det.els[i].querySelector("p");
+    if (!p || p.isContentEditable) return;
+    const text = det.lines[i].text, low = text.toLowerCase();
+    p.textContent = "";
+    if (!find.q || low.length !== text.length) { p.textContent = text; return; }
+    let at = 0, k;
+    while ((k = low.indexOf(find.q, at)) !== -1) {
+      if (k > at) p.appendChild(document.createTextNode(text.slice(at, k)));
+      p.appendChild(el("mark", "hit", text.slice(k, k + find.q.length)));
+      at = k + find.q.length;
+    }
+    if (at < text.length) p.appendChild(document.createTextNode(text.slice(at)));
+  }
+  function runFind(keep) {
+    clearTimeout(find.timer);
+    const q = $("detFind").value.trim().normalize("NFC").toLowerCase();
+    const same = q === find.q;
+    find.q = q;
+    det.lines.forEach((_, i) => paintLine(i));
+    find.hits = [...$("detLines").querySelectorAll("mark.hit")];
+    find.cur = !find.hits.length ? -1 : keep && same ? Math.min(Math.max(find.cur, 0), find.hits.length - 1) : 0;
+    showHit(!keep);
+  }
+  function stepFind(d) {
+    if (find.timer || $("detFind").value.trim().normalize("NFC").toLowerCase() !== find.q) return runFind(false);
+    if (!find.hits.length) return;
+    find.cur = (find.cur + d + find.hits.length) % find.hits.length;
+    showHit(true);
+  }
+  function showHit(scroll) {
+    find.timer = 0;
+    find.hits.forEach((m, k) => m.classList.toggle("cur", k === find.cur));
+    $("detFindCount").textContent = !find.q ? "" : find.hits.length ? `${find.cur + 1}/${find.hits.length}` : "결과 없음";
+    $("detFindPrev").disabled = $("detFindNext").disabled = find.hits.length < 2;
+    const m = find.hits[find.cur];
+    if (m && scroll) { det.userScrollAt = Date.now(); m.scrollIntoView({ block: "center", behavior: "smooth" }); }
+  }
+  function openFind() {
+    if (legalPending() || dialog.saved) return;
+    if (isOpen("detail") && det.lines.length) { $("detFind").focus(); $("detFind").select(); }
+    else if (isOpen("library")) { $("libSearch").focus(); $("libSearch").select(); }
+  }
+  $("detFind").addEventListener("input", () => { clearTimeout(find.timer); find.timer = setTimeout(() => runFind(false), 140); });
+  $("detFind").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); stepFind(e.shiftKey ? -1 : 1); }
+    else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); stepFind(e.key === "ArrowDown" ? 1 : -1); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); $("detFind").value = ""; runFind(false); $("detFind").blur(); }
+  });
+  $("detFindPrev").onclick = () => stepFind(-1);
+  $("detFindNext").onclick = () => stepFind(1);
+  function resetFind() {
+    clearTimeout(find.timer);
+    Object.assign(find, { q: "", hits: [], cur: -1, timer: 0 });
+    $("detFind").value = "";
+    $("detFindCount").textContent = "";
+    $("detFindPrev").disabled = $("detFindNext").disabled = true;
+  }
+
+  // ---------- 글 편집: a misheard word is fixed where it stands (the recording itself does not change)
+  function setEditing(on) {
+    if (on && (!det.s || det.s.recording || det.s.saving || !det.lines.length)) return;
+    if (!on) commitOpenLine();                                                                // the open line is kept
+    det.editing = !!on;
+    $("detLines").classList.toggle("editing", det.editing);
+    $("detEdit").textContent = det.editing ? "편집 완료" : "글 편집";
+    $("detEdit").classList.toggle("on", det.editing);
+    $("detEditHint").classList.toggle("show", det.editing);
+    $("detEditHint").textContent = det.editing
+      ? `고칠 문장을 누르십시오. Return으로 저장하고 Esc로 취소합니다. 내용을 모두 지우면 그 문장이 삭제됩니다.${det.s && det.s.slides ? " 슬라이드 PDF에는 반영되지 않습니다." : ""}`
+      : "";
+  }
+  function editLine(seg, x, y) {
+    const i = +seg.dataset.i, p = seg.querySelector("p");
+    if (!p || p.isContentEditable || !det.lines[i]) return;
+    commitOpenLine();                                      // another line was open: keep it first
+    if (!p.isConnected) return;                            // …which redrew the list
+    p.textContent = det.lines[i].text;                     // without find marks
+    try { p.contentEditable = "plaintext-only"; } catch (e) { p.contentEditable = "true"; }
+    if (!p.isContentEditable) p.contentEditable = "true";
+    p.spellcheck = false;
+    p.focus();
+    const r = document.caretRangeFromPoint && document.caretRangeFromPoint(x, y);   // the caret where the click was
+    const sel = window.getSelection();
+    if (sel) { sel.removeAllRanges(); if (r && p.contains(r.startContainer)) sel.addRange(r); else { const end = document.createRange(); end.selectNodeContents(p); end.collapse(false); sel.addRange(end); } }
+    det.open = { p, i };
+    p.onkeydown = (e) => {
+      if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); commitOpenLine(); }
+      else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); p.textContent = det.lines[i].text; commitOpenLine(); }
+    };
+    p.onblur = commitOpenLine;
+  }
+  function commitOpenLine() {                              // Return, Esc, a click elsewhere, 편집 완료, leaving the recording
+    const o = det.open;
+    if (!o) return;
+    det.open = null;
+    const had = document.activeElement === o.p;
+    finishEdit(o.p, o.i);
+    if (had && o.p.isConnected) o.p.blur();
+  }
+  function finishEdit(p, i) {
+    p.onblur = p.onkeydown = null;
+    p.removeAttribute("contenteditable");
+    const text = p.textContent.replace(/\s+/g, " ").trim(), line = det.lines[i];
+    if (!line || text === line.text) { if (find.q) runFind(true); else paintLine(i); return; }
+    const before = det.lines.map((l) => ({ ...l }));
+    if (text) line.text = text; else det.lines.splice(i, 1);
+    renderLines();
+    $("detCopy").disabled = !det.lines.length;
+    saveLines(det.id, det.lines, text ? "문장을 고쳤습니다." : "문장을 삭제했습니다.", before);
+  }
+  // Every save names its recording, so 되돌리기 goes back to that one — even after another recording was opened.
+  const edits = { pending: null };
+  function saveLines(id, lines, msg, undo) {
+    edits.pending = { id, msg, undo };
+    send("saveLines", { id, lines: lines.map((l) => [l.t, l.text]) });
+  }
+  $("detEdit").onclick = () => setEditing(!det.editing);
 
   function renderDetailCues() {
     const box = $("detCues");
@@ -1441,12 +1910,41 @@
     body.classList.remove("has-undo");
   }
 
+  // A dialog (the confirmation, 이름 변경) takes the keyboard: the rest of the page is inert until it closes, and focus
+  // goes back to where it was (renderLibrary carries it over to the redrawn row, or the next one after a delete).
+  const dialog = { saved: null, back: null };
+  function showDialog(id) {
+    if (!dialog.saved) {
+      dialog.back = document.activeElement;
+      dialog.saved = [...body.children].map((el) => [el, el.inert]);
+    }
+    for (const el of body.children) if (el.id !== id && el.tagName !== "SCRIPT") el.inert = true;
+    $(id).inert = false;
+    $(id).classList.add("show");
+  }
+  function hideDialog(id) {
+    if (!isOpen(id)) return;
+    $(id).classList.remove("show");
+    for (const [el, was] of dialog.saved || []) el.inert = was;
+    const back = dialog.back;
+    dialog.saved = null; dialog.back = null;
+    if (back && back !== body && back.isConnected) back.focus({ preventScroll: true });
+    if ($(id).contains(document.activeElement)) document.activeElement.blur();   // WebKit may keep it on the hidden field
+  }
+  function closeTransient() {        // before something opens on top (the notice, 설정): no menu or dialog left under it
+    closeRowMenu();
+    if (isOpen("renamePanel")) closeRename();
+    hideDialog("confirm");
+  }
+
   function askConfirm(title, text, yes, fn) {
     $("cfTitle").textContent = title;
     $("cfText").textContent = text;
     $("cfYes").textContent = yes;
-    $("cfYes").onclick = () => { $("confirm").classList.remove("show"); fn(); };
-    $("confirm").classList.add("show");
+    $("cfYes").onclick = () => { hideDialog("confirm"); fn(); };
+    closeRowMenu();
+    showDialog("confirm");
+    $("cfNo").focus({ preventScroll: true });         // Return cancels: a destructive action is never the default
   }
 
   function commitRename() {
@@ -1578,8 +2076,11 @@
   }
 
   function openSettings() {
+    if (dialog.saved) return;                         // a dialog is waiting for an answer
+    closeRowMenu();
     renderSettings();
     $("settings").classList.add("show");
+    $("setBack").focus({ preventScroll: true });      // the keyboard goes with it (not left in a title being edited behind)
     send("storage");
   }
   function closeSettings() { $("settings").classList.remove("show"); }
@@ -1778,16 +2279,22 @@
         state.started = ev.started || Date.now() / 1000;
         state.follow = true;
         slideCount = 0;
+        if (!ev.replay) Object.assign(state, { paused: false, pausedTotal: 0, pausedSince: 0 });   // a reload: "paused" follows
+        campv.hide();
         $("notice").classList.remove("show");
-        setStatus(state.mode === "file" ? "파일 받아 적는 중" : "받아 적는 중");
+        setStatus(recStatus());
         $("timer").textContent = state.mode === "file" ? "0%" : "00:00";
         clearInterval(state.timer);
         state.timer = setInterval(tick, 500);
       } else if (ev.state === "finishing") {
         setStatus("마무리 중");
         clearInterval(state.timer);
+        campv.hide();
+        state.paused = false;
       } else {
         clearInterval(state.timer);
+        campv.hide();
+        state.paused = false;
         $("timer").textContent = "";
         $("meter").style.transform = "scaleX(0)";
         setStatus(state.engine === "ready" ? readyText() : "엔진 준비 중");
@@ -1797,7 +2304,39 @@
     level(ev) { $("meter").style.transform = `scaleX(${Math.min(1, ev.v * 1.25).toFixed(3)})`; },
     slides(ev) {
       slideCount = ev.count || 0;
-      if (state.rec === "recording") setStatus(`${state.mode === "file" ? "파일 받아 적는 중" : "받아 적는 중"} · 슬라이드 ${slideCount}장`);
+      if (state.rec === "recording") setStatus(recStatus());
+    },
+    paused(ev) {                                       // 일시정지 / 계속 (also replayed after a reload)
+      const was = state.paused;
+      state.paused = !!ev.on;
+      state.pausedTotal = ev.total || 0;
+      state.pausedSince = ev.on ? (ev.since || Date.now() / 1000) : 0;
+      if (was && !ev.on && state.rec === "recording") {
+        const d = document.createElement("div");
+        d.className = "divider";
+        d.textContent = "일시정지 후 이어서 받아 적습니다";
+        $("transcript").appendChild(d);
+        if (state.follow) scrollToEnd();
+      }
+      if (state.rec === "recording") setStatus(recStatus());
+      refreshControls();
+      tick();
+    },
+    command(ev) { runCommand(ev.name); },             // the Mac's 녹음 / 편집 menus
+    linesSaved(ev) {
+      const p = edits.pending && edits.pending.id === ev.id ? edits.pending : null;
+      if (p) edits.pending = null;
+      if (ev.failed) { if (ev.id === det.id) send("session", { id: det.id }); return; }   // show what is on disk again
+      if (ev.id === det.id && det.s) $("detMeta").textContent = `${fullDate(det.s.date)} · ${durLabel(det.s.seconds)} · ${det.lines.length}문장`;
+      if (!p) return;
+      toast(p.msg, 5000, p.undo ? ["되돌리기", () => {
+        const back = p.undo.map((l) => ({ ...l }));
+        if (det.id === p.id) { det.lines = back; renderLines(); $("detCopy").disabled = !det.lines.length; }
+        saveLines(p.id, back, "되돌렸습니다.", null);
+      }] : null);
+    },
+    slidePreview(ev) {
+      if (state.rec === "recording" && $("sl").checked && ev.img) campv.show(ev.img, ev.camera);
     },
     seg: upsertSeg,
     progress(ev) {
@@ -1831,6 +2370,7 @@
       updatePlayer(ev);
     },
     renamed(ev) {
+      lib.moved = { from: ev.from, to: ev.to };               // the list keeps focus on the renamed row
       if (state.saved && state.saved.id === ev.from) state.saved.id = ev.to;
       if (det.id === ev.from) {
         det.id = ev.to;
@@ -1936,6 +2476,22 @@
     else if (state.rec === "recording") send("stop");
     else if (state.rec === "idle") send("start");
   };
+  function togglePause() {
+    if (state.rec !== "recording" || state.mode !== "live") return;
+    send(state.paused ? "resumeRec" : "pauseRec");
+  }
+  $("pauseBtn").onclick = togglePause;
+  // Keyboard shortcuts — on the Mac they come from the 녹음 and 편집 menus, in the browser demo from the keys
+  function runCommand(name) {
+    if (legalPending() || dialog.saved) return;
+    if (name === "toggleRec") {
+      if (state.rec === "idle" && !$("rec").disabled) { closeSettings(); closeDetail(); closeLibrary(); }   // show what starts
+      $("rec").click();
+    } else if (name === "togglePause") togglePause();
+    else if (name === "pickFile") $("file").click();
+    else if (name === "copyAll") copyAll();
+    else if (name === "find") openFind();
+  }
   $("copy").onclick = copyAll;
   $("folder").onclick = () => HAS_LIBRARY ? openLibrary() : send("openFolder");
   if (!HAS_LIBRARY) $("folder").textContent = "기록 폴더";
@@ -1968,7 +2524,7 @@
   $("detSlides").onclick = () => send("openSlides", { id: det.id });
   $("sl").onchange = () => {
     send("settings", { slides: $("sl").checked });
-    if (!$("sl").checked) return;
+    if (!$("sl").checked) { campv.hide(); return; }
     let seen = false;                                                  // a new key: 2.0's "seenSlidesDemo" doesn't count
     try { seen = localStorage.getItem("slidesDemoPlayed") === "1"; localStorage.setItem("slidesDemoPlayed", "1"); } catch (e) {}
     if (!seen) openSlideDemo();                                        // the first time it's turned on, it plays by itself
@@ -1980,6 +2536,7 @@
   const LEGAL_VERSION = "1";
   function legalPending() { return isOpen("legal") && !!$("legal").dataset.first; }
   function openLegal(first) {
+    closeTransient();
     $("legal").dataset.first = first ? "1" : "";
     $("legalOk").textContent = first ? "동의하고 시작" : "확인";
     $("legal").classList.add("show");
@@ -2022,20 +2579,25 @@
   };
   $("demoOk").onclick = closeSlideDemo;
   $("slwrap").title = IOS ? "영상 파일의 슬라이드를 PDF로" : "강의 창의 슬라이드를 PDF로";
-  $("detDelete").onclick = () => askConfirm("기록 삭제", `‘${$("detName").value}’의 받아 적은 글과 녹음을 함께 삭제하시겠습니까?`, "삭제",
-                                            () => send("delete", { id: det.id }));
-  $("cfNo").onclick = () => $("confirm").classList.remove("show");
+  function askDelete(id, name) {
+    askConfirm("기록 삭제", `‘${name}’의 받아 적은 글과 녹음을 함께 삭제하시겠습니까?`, "삭제", () => send("delete", { id }));
+  }
+  $("detDelete").onclick = () => askDelete(det.id, $("detName").value);
+  $("detRename").onclick = () => $("detName").focus();                       // the focus handler selects the title
+  $("cfNo").onclick = () => hideDialog("confirm");
   $("undoBtn").onclick = () => { const ids = undo.ids.slice(); hideUndo(); ids.forEach((id) => send("undoDelete", { id })); };
   $("detName").addEventListener("focus", () => setTimeout(() => $("detName").select(), 0));
   $("detName").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); $("detName").blur(); }
+    if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); $("detName").blur(); }   // not the Enter that ends Hangul composition
     if (e.key === "Escape") { e.stopPropagation(); if (det.s) $("detName").value = displayName(det.s); $("detName").blur(); }
   });
   $("detName").addEventListener("blur", commitRename);
   $("detLines").addEventListener("click", (e) => {
     const seg = e.target.closest(".seg");
+    if (!seg || !det.s || e.target.closest("[contenteditable]")) return;    // moving the caret in the line being fixed
+    if (det.editing) { editLine(seg, e.clientX, e.clientY); return; }
     const sel = window.getSelection();
-    if (!seg || !det.s || !det.s.audio || (sel && !sel.isCollapsed)) return;
+    if (!det.s.audio || (sel && !sel.isCollapsed)) return;
     send("play", { id: det.id, t: det.lines[+seg.dataset.i].t });
   });
   for (const ev of ["wheel", "touchmove"]) $("detBody").addEventListener(ev, () => { det.userScrollAt = Date.now(); }, { passive: true });
@@ -2081,24 +2643,37 @@
     $("kwpanel").classList.remove("show");
   };
   document.addEventListener("keydown", (e) => {
-    const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement && document.activeElement.tagName);
-    if (e.key === "Escape") {
+    const a = document.activeElement;
+    const typing = !!a && (/^(INPUT|TEXTAREA)$/.test(a.tagName) || a.isContentEditable);   // a field, or a line being fixed
+    if (e.key === "Escape") {                        // the topmost layer first
       if (isOpen("legal")) { if (!$("legal").dataset.first) closeLegal(); }
+      else if (isOpen("rowMenu")) closeRowMenu(true);
+      else if (isOpen("renamePanel")) closeRename();
+      else if (isOpen("confirm")) hideDialog("confirm");
       else if (isOpen("slidedemo")) closeSlideDemo();
-      else if (isOpen("settings") && !isOpen("kwpanel")) closeSettings();
       else if (isOpen("kwpanel")) $("kwpanel").classList.remove("show");
-      else if (isOpen("confirm")) $("confirm").classList.remove("show");
+      else if (isOpen("settings")) closeSettings();
       else if (isOpen("detail")) closeDetail();
       else if (isOpen("library")) closeLibrary();
-    } else if (e.key === " " && !typing && isOpen("detail") && !isOpen("confirm") && !isOpen("kwpanel") && det.s && det.s.audio) {
+    } else if (e.key === " " && !typing && isOpen("detail") && !dialog.saved && !isOpen("kwpanel") && det.s && det.s.audio) {
       e.preventDefault();
       $("plPlay").click();
+    } else if ((e.metaKey || e.ctrlKey) && (e.key === "Backspace" || e.key === "Delete") && !typing && isOpen("detail")
+               && !dialog.saved && det.s && !$("detDelete").disabled) {
+      e.preventDefault();
+      $("detDelete").click();
     }
   });
   $("scroller").addEventListener("scroll", () => { if (nearBottom()) $("latest").classList.remove("show"); });
   document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") { e.preventDefault(); copyAll(); }
-    if ((e.metaKey || e.ctrlKey) && e.key === ",") { e.preventDefault(); if (!legalPending()) openSettings(); }
+    const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+    if (mod && e.shiftKey && k === "c") { e.preventDefault(); copyAll(); }
+    if (mod && e.key === ",") { e.preventDefault(); if (!legalPending()) openSettings(); }
+    // the same as the Mac menus (which take these keys first): ⌘R start/stop, ⌘P pause, ⌘O open a file, ⌘F find
+    if (mod && !e.shiftKey && !e.altKey) {
+      const name = { r: "toggleRec", p: "togglePause", o: "pickFile", f: "find" }[k];
+      if (name) { e.preventDefault(); runCommand(name); }
+    }
   });
   // Let file drops fall through to the app (it transcribes dropped audio/video files).
   document.addEventListener("dragover", (e) => { if (!native || legalPending()) e.preventDefault(); });
@@ -2123,8 +2698,10 @@
       if (cmd === "start") {
         emit({ ev: "rec", state: "recording", mode: "live", started: Date.now() / 1000, title: "2026-10-04 16시30분 강의" });
         let t = 0, id = 1;
-        this.timers.push(setInterval(() => emit({ ev: "level", v: 0.35 + Math.random() * 0.5 }), 120));
+        Object.assign(this, { paused: false, pausedTotal: 0, pausedAt: 0 });
+        this.timers.push(setInterval(() => emit({ ev: "level", v: this.paused ? 0 : 0.35 + Math.random() * 0.5 }), 120));
         const next = () => {
+          if (this.paused) return;
           const line = this.lines[(id - 1) % this.lines.length];
           const half = line.slice(0, Math.ceil(line.length * 0.55));
           const myId = id++, t0 = t;
@@ -2134,8 +2711,23 @@
         };
         next();
         this.timers.push(setInterval(next, 2600));
+        if ($("sl").checked) {                                            // the lecture window, its camera found after a few seconds
+          let k = 0;
+          const shot = () => { if (this.paused) return; k++; emit({ ev: "slidePreview", img: this.frame(k), camera: k >= 4 ? this.cam : null }); };
+          shot();
+          this.timers.push(setInterval(shot, 1000));
+        }
+      }
+      if (cmd === "pauseRec" && !this.paused) {
+        this.paused = true; this.pausedAt = Date.now() / 1000;
+        emit({ ev: "paused", on: true, total: this.pausedTotal, since: this.pausedAt });
+      }
+      if (cmd === "resumeRec" && this.paused) {
+        this.paused = false; this.pausedTotal += Date.now() / 1000 - this.pausedAt;
+        emit({ ev: "paused", on: false, total: this.pausedTotal, since: 0 });
       }
       if (cmd === "stop") {
+        this.paused = false;
         this.timers.forEach((x) => { clearInterval(x); clearTimeout(x); });
         this.timers = [];
         emit({ ev: "rec", state: "finishing" });
@@ -2286,6 +2878,12 @@
           if (P.id === x.id) { stopTimer(); P.playing = false; P.id = ""; }
           emit({ ev: "deleted", id: x.id }); list(); return true;
         }
+        case "saveLines": {                                 // 글 편집
+          const s = find(x.id); if (!s) return true;
+          s.lines = (x.lines || []).filter((l) => l[1]);
+          setTimeout(() => { emit({ ev: "linesSaved", id: s.id, count: s.lines.length }); list(); }, 60);
+          return true;
+        }
         case "undoDelete": {
           const d = this.deletedData[x.id]; if (!d) return true;
           all.splice(d.i, 0, d.s); delete this.deletedData[x.id];
@@ -2296,6 +2894,33 @@
         case "appearance": return true;
       }
       return false;
+    },
+    // a made-up lecture window for the 슬라이드 PDF preview: a slide, and the lecturer's camera at the top right
+    cam: [0.795, 0.045, 0.18, 0.24],
+    frame(k) {
+      const W = 480, H = 270, c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      const g = c.getContext("2d"), font = (w, s) => `${w} ${s}px "Apple SD Gothic Neo", "Pretendard", sans-serif`;
+      g.fillStyle = "#f6f4ef"; g.fillRect(0, 0, W, H);
+      g.fillStyle = "#1f2a44"; g.fillRect(0, 0, W, 50);
+      g.fillStyle = "#f6f4ef"; g.font = font(600, 19);
+      g.fillText(["수요와 공급", "시장 균형", "기회비용"][Math.floor(k / 12) % 3], 24, 32);
+      [[0.62, 84], [0.5, 112], [0.56, 140], [0.38, 168]].forEach(([w, y]) => {
+        g.fillStyle = "#1f2a44"; g.beginPath(); g.arc(30, y - 4, 3, 0, 7); g.fill();
+        g.fillStyle = "#c3c7cf"; g.fillRect(42, y - 8, w * 300, 8);
+      });
+      g.strokeStyle = "#1f2a44"; g.lineWidth = 2;                       // a supply-and-demand cross
+      g.beginPath(); g.moveTo(320, 140); g.lineTo(320, 250); g.lineTo(450, 250); g.stroke();
+      g.strokeStyle = "#a8743a"; g.beginPath(); g.moveTo(330, 160); g.lineTo(440, 240); g.stroke();
+      g.strokeStyle = "#3d6a9e"; g.beginPath(); g.moveTo(330, 240); g.lineTo(440, 160); g.stroke();
+      const [cx, cy, cw, ch] = this.cam.map((v, i) => v * (i % 2 ? H : W));
+      g.fillStyle = "#2a3040"; g.fillRect(cx, cy, cw, ch);
+      g.save(); g.beginPath(); g.rect(cx, cy, cw, ch); g.clip();
+      const sway = 5 * Math.sin(k * 1.3);
+      g.fillStyle = "#4f5872"; g.beginPath(); g.ellipse(cx + cw / 2 + sway * 0.4, cy + ch + 6, cw * 0.36, ch * 0.42, 0, 0, 7); g.fill();
+      g.fillStyle = "#b8a596"; g.beginPath(); g.arc(cx + cw / 2 + sway, cy + ch * 0.44, ch * 0.19, 0, 7); g.fill();
+      g.restore();
+      return c.toDataURL("image/jpeg", 0.8);
     },
     still() {   // ?shot — a frozen, populated frame for the README screenshot
       const emit = (ev) => window.app.receive(ev);
@@ -2344,6 +2969,14 @@
     const kind = new URLSearchParams(location.search).get("shot");
     if (kind !== "start") demo.still();     // start: the start screen as it first appears
     if (kind === "settings") setTimeout(openSettings, 120);
+    if (kind === "slides") setTimeout(() => {                            // recording with 슬라이드 PDF: the camera found
+      $("sl").checked = true;
+      setStatus("받아 적는 중 · 슬라이드 9장");
+      window.app.receive({ ev: "slidePreview", img: demo.frame(30), camera: demo.cam });
+      clearTimeout(campv.timer);
+      $("scroller").style.scrollBehavior = "auto";
+      scrollToEnd();
+    }, 120);
     if (kind === "saved") setTimeout(() => {
       window.app.receive({ ev: "rec", state: "finishing" });
       window.app.receive({ ev: "saved", id: demo.sessions()[0].id, txt: "/demo.txt", audio: "/demo.m4a", seconds: 2952, count: 318 });
@@ -2363,7 +2996,7 @@
       renderDemo(parseFloat(new URLSearchParams(location.search).get("t") || "7.4"));
       window.__renderDemo = renderDemo;                                   // tools/frames.swift draws the GIF frame by frame
     }
-    if (kind === "library" || kind === "detail" || kind === "playing") {   // detail: the top; playing: at the 중요 문장
+    if (kind === "library" || kind === "detail" || kind === "playing" || kind === "find") {   // detail: the top; playing: at the 중요 문장
       body.classList.add("noanim");
       setTimeout(() => {
         clearInterval(state.timer);
@@ -2377,6 +3010,12 @@
             window.app.receive({ ev: "player", id: demo.sessions()[0].id, t: 2706, dur: 2876, playing: true, rate: 1 });
             if (kind === "playing" && det.els[det.now]) det.els[det.now].scrollIntoView({ block: "center" });
             if (kind === "detail") $("detBody").scrollTop = 0;
+            if (kind === "find") {                                    // ⌘F with the matches marked
+              $("detFind").value = new URLSearchParams(location.search).get("q") || "공급";
+              runFind(true);
+              const top = $("detFindBar").getBoundingClientRect().top - $("detBody").getBoundingClientRect().top;
+              $("detBody").scrollTop += top - 96;                     // the find bar just under the header
+            }
           }, 200);
         }, 150);
       }, 120);

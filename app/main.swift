@@ -1,7 +1,8 @@
 // 강의 받아쓰기 v2 — a single native app: AppKit window + WKWebView UI (ui/index.html) + the
 // in-process engine (Engine.swift) using Apple's on-device speech recognition.
 //
-// Test mode (no window): LectureScribe --transcribe FILE   |   LectureScribe --live SECONDS   |   LectureScribe --download-engine ID
+// Test mode (no window): LectureScribe --transcribe FILE   |   LectureScribe --live SECONDS [--pause-at S --pause-for D]   |
+// LectureScribe --download-engine ID
 // (with LECTURE_FAKE_INPUT=FILE to play a file as if it were the Mac's sound; LECTURE_MODEL_URL to download from a local
 // server). Events print as JSON lines.
 
@@ -38,6 +39,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         buildWindow()
         NSApp.activate()
         log("app started \(appVersion)")
+        if let s = Double(env["LECTURE_TEST_QUIT"] ?? "") {     // tests: the 녹음 menu as it reads mid-recording, then ⌘Q
+            Timer.scheduledTimer(withTimeInterval: s, repeats: false) { [weak self] _ in   // a run-loop timer, like a key press
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    for item in NSApp.mainMenu?.items.first(where: { $0.submenu?.title == "녹음" })?.submenu?.items ?? [] where !item.isSeparatorItem {
+                        let on = self.validateMenuItem(item)
+                        log("test menu: \(item.title) [\(on ? "on" : "off")] \(item.keyEquivalentModifierMask.contains(.shift) ? "⇧" : "")⌘\(item.keyEquivalent.uppercased())")
+                    }
+                    NSApp.terminate(nil)
+                }
+            }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
@@ -55,16 +68,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     }
 
     func applicationShouldTerminate(_ s: NSApplication) -> NSApplication.TerminateReply {
-        bridge?.finalizeDeletes()
-        guard let bridge, bridge.engine.busy else { return .terminateNow }
-        if quitting { return .terminateLater }
+        guard !savedForQuit, let bridge, bridge.engine.busy else {          // saved: the bookkeeping may lag
+            bridge?.finalizeDeletes()
+            return .terminateNow
+        }
+        if let session = bridge.engine.session, !quitConfirmed, !quitting {   // ⌘Q or closing the window mid-lecture: ask first
+            confirmQuit(live: session.mode == .live)                         // (deletes stay undoable if they say 취소)
+            return .terminateCancel
+        }
+        bridge.finalizeDeletes()
+        // Saving (after 정지, or the recording just confirmed): quit once it is done. macOS waits for the answer — a logout
+        // too — while the run loop keeps the save going.
+        replyPending = true
+        if !quitting { saveThenQuit() }
+        return .terminateLater
+    }
+
+    private var quitConfirmed = false, askingQuit = false, replyPending = false, savedForQuit = false
+
+    /// Stops what is running, waits for every save, then quits: answering a pending ⌘Q, or quitting anew (after the sheet).
+    func saveThenQuit() {
         quitting = true
         toPage(["ev": "quitting"])
         Task { @MainActor in
+            log("quitting: saving first")
             await engine.shutdown()
-            NSApp.reply(toApplicationShouldTerminate: true)
+            log("quitting: saved")
+            savedForQuit = true
+            if replyPending { NSApp.reply(toApplicationShouldTerminate: true) } else { NSApp.terminate(nil) }
         }
-        return .terminateLater
+    }
+
+    /// Recording or transcribing: quitting ends it (what was taken down is saved). 취소 is the default button, so a stray
+    /// ⌘Q followed by Return keeps the lecture going.
+    func confirmQuit(live: Bool) {
+        guard !askingQuit, let window else { return }
+        askingQuit = true
+        let a = NSAlert()
+        a.messageText = live ? "녹음 중입니다" : "파일을 받아 적는 중입니다"
+        a.informativeText = live ? "지금 종료하면 녹음과 받아쓰기가 여기서 끝납니다. 지금까지 녹음하고 받아 적은 내용은 저장됩니다."
+                                 : "지금 종료하면 받아쓰기가 여기서 끝납니다. 지금까지 받아 적은 내용은 저장됩니다."
+        a.addButton(withTitle: "취소")
+        let quitButton = a.addButton(withTitle: "종료")
+        quitButton.hasDestructiveAction = true
+        NSApp.unhide(nil)                   // Dock › 종료 while hidden: the question has to be seen
+        NSApp.activate()
+        window.deminiaturize(nil)
+        window.makeKeyAndOrderFront(nil)
+        log("quit asked (\(live ? "recording" : "file"))")
+        a.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            self.askingQuit = false
+            guard response == .alertSecondButtonReturn else { log("quit cancelled"); return }
+            log("quit confirmed")
+            self.quitConfirmed = true
+            // Save first, then quit with nothing left running. (Not a ⌘Q from here: answered later, it would wait for a
+            // save that can't run until this handler returns.)
+            self.saveThenQuit()
+        }
+        if let answer = env["LECTURE_TEST_QUIT_ANSWER"] {         // tests: answer the sheet as a person would
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                window.endSheet(a.window, returnCode: answer == "quit" ? .alertSecondButtonReturn : .alertFirstButtonReturn)
+            }
+        }
     }
 
     /// After "Open Anyway" on a browser-downloaded copy, files inside the app keep the download flag.
@@ -262,11 +328,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             it("기타 가리기", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]), .separator(),
             it("강의 받아쓰기 종료", #selector(NSApplication.terminate(_:)), "q"),
         ])
-        _ = sub("편집", [
+        let edit = sub("편집", [
             it("실행 취소", Selector(("undo:")), "z"), it("실행 복귀", Selector(("redo:")), "z", [.command, .shift]), .separator(),
             it("잘라내기", #selector(NSText.cut(_:)), "x"), it("복사하기", #selector(NSText.copy(_:)), "c"),
-            it("붙여넣기", #selector(NSText.paste(_:)), "v"), it("전체 선택", #selector(NSText.selectAll(_:)), "a"),
+            it("붙여넣기", #selector(NSText.paste(_:)), "v"), it("전체 선택", #selector(NSText.selectAll(_:)), "a"), .separator(),
+            it("찾기", #selector(findInPage), "f"),
         ])
+        // 녹음: the page decides what each does (the start button's own rules: the notice first, the engine ready…)
+        let record = sub("녹음", [
+            it("받아쓰기 시작", #selector(toggleRecording), "r"),
+            it("일시정지", #selector(togglePause), "p"), .separator(),
+            it("파일 불러오기…", #selector(openFile), "o"), .separator(),
+            it("전체 복사", #selector(copyAll), "c", [.command, .shift]),
+        ])
+        edit.submenu?.items.last?.target = self
+        record.submenu?.items.forEach { $0.target = self }
         let win = sub("윈도우", [
             it("최소화", #selector(NSWindow.performMiniaturize(_:)), "m"), it("확대/축소", #selector(NSWindow.performZoom(_:)), ""),
             .separator(), it("닫기", #selector(NSWindow.performClose(_:)), "w"),
@@ -287,6 +363,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     @objc func openSettings() { toPage(["ev": "openSettings"]) }
     @objc func openLegal() { toPage(["ev": "openLegal"]) }
     @objc func openLogs() { NSWorkspace.shared.open(logURL.deletingLastPathComponent()) }
+    @objc func toggleRecording() { toPage(["ev": "command", "name": "toggleRec"]) }
+    @objc func togglePause() { toPage(["ev": "command", "name": "togglePause"]) }
+    @objc func openFile() { toPage(["ev": "command", "name": "pickFile"]) }
+    @objc func copyAll() { toPage(["ev": "command", "name": "copyAll"]) }
+    @objc func findInPage() { toPage(["ev": "command", "name": "find"]) }
+}
+
+extension AppDelegate: NSMenuItemValidation {
+    /// The 녹음 menu says what it will do now: 시작 or 정지, 일시정지 or 계속 (live recordings only).
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        let session = bridge?.engine.session
+        switch item.action {
+        case #selector(toggleRecording):
+            item.title = session == nil ? "받아쓰기 시작" : session?.mode == .file ? "받아쓰기 중지" : "받아쓰기 정지"
+            return true
+        case #selector(togglePause):
+            item.title = session?.paused == true ? "계속" : "일시정지"
+            return session?.mode == .live
+        case #selector(openFile): return session == nil
+        default: return true
+        }
+    }
 }
 
 /// A Swift string as a JavaScript string literal.
@@ -348,6 +446,12 @@ if flag("--transcribe") != nil || flag("--live") != nil || downloadID != nil {
                 if let f = flag("--transcribe") { engine.start(.file, file: URL(fileURLWithPath: f)) }
                 else if let secs = Double(flag("--live") ?? "") {
                     engine.start(.live)
+                    if let at = Double(flag("--pause-at") ?? ""), let len = Double(flag("--pause-for") ?? "") {   // 일시정지, then 계속
+                        Task {
+                            try? await Task.sleep(for: .seconds(at)); engine.session?.setPaused(true)
+                            try? await Task.sleep(for: .seconds(len)); engine.session?.setPaused(false)
+                        }
+                    }
                     Task { try? await Task.sleep(for: .seconds(secs)); engine.stop() }
                 }
             case ("engine", "error"): quit(1)

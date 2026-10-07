@@ -9,9 +9,9 @@
 **A Mac app that transcribes online lectures in real time**<br>
 Apple on-device speech recognition · free · open source · everything stays on your Mac
 
-<img src="docs/appstore/screenshots/02-live.png" width="760" alt="Lecture Transcriber — live transcription">
+<img src="docs/appstore/screenshots/2.3/02-live.png" width="760" alt="Lecture Transcriber — live transcription">
 
-<img src="docs/appstore/screenshots/03-library.png" width="760" alt="Library — each lecture's transcript and recording together">
+<img src="docs/appstore/screenshots/2.3/03-library.png" width="760" alt="Library — each lecture's transcript and recording together">
 
 <sub>The app's interface is in Korean.</sub>
 
@@ -26,7 +26,9 @@ Apple on-device speech recognition · free · open source · everything stays on
   - **Parakeet** (NVIDIA's open model, about 540 MB) — for English lectures only. Korean speech is dropped or comes out as made-up English. The fastest and lightest of the downloadable engines.
 - **Transcribes whatever your Mac is playing.** LearnUs, YouTube, Zoom — just play it. It never uses the microphone, so you can wear earphones and background noise doesn't matter.
 - **Words appear as they are spoken.** When you stop, a text file (`.txt`) and a recording (`.m4a`) are saved automatically to `Downloads/강의기록`.
-- **Library (기록)** — each lecture's recording and transcript in one place inside the app. Click a sentence to play from there; important sentences are collected at the top. Rename, search and share sessions.
+- **Library (기록)** — each lecture's recording and transcript in one place inside the app. Click a sentence to play from there; important sentences are collected at the top. Every session shows rename and delete buttons right on it; its ⋯ button (or a right-click) has share too, and you can search them all. Inside a session, ⌘F finds words, and **[글 편집] (Edit text)** fixes a misheard word in place (the recording is left as it is).
+- **Pause.** In a break, click **[일시정지] (Pause)** under the start button. Nothing is recorded or transcribed meanwhile; **[계속] (Resume)** carries on in the same session.
+- **Safe from a stray ⌘Q.** Quitting or closing the window mid-lecture asks first, and whatever was recorded and transcribed until then is saved either way.
 - **Playback speed.** It keeps up with lectures played at 1.5× or 2×.
 - **[전체 복사] (Copy all)** copies the whole transcript in one click, ready to paste into an AI such as ChatGPT or Claude for a summary.
 - **English lectures.** Choose the lecture language under the start button: **한국어 / English**. An English lecture is transcribed in English, and Korean said in between is written in Korean where possible. Apple's recognizer can miss Korean remarks in an English lecture (short ones most often); Qwen3-ASR catches more of them.
@@ -34,9 +36,17 @@ Apple on-device speech recognition · free · open source · everything stays on
 - **English stays English.** Nothing is translated on purpose. (A very short English reply such as "Good question." can occasionally come out in Korean.) Apple's recognizer can miss a short English quote between Korean sentences entirely; if English quotes matter (exam phrases, for example), use Qwen3-ASR.
 - **Important sentences** — sentences containing words such as 출석 (attendance), 시험 (exam) or 과제 (assignment) are underlined and collected at the end of the saved file. You choose the words.
 - **File transcription** — drop an audio or video file onto the window to transcribe it much faster than real time. (For a one-hour lecture: about 1–2 minutes with Apple or Parakeet, 15–30 minutes with Whisper or Qwen3-ASR; longer when English is mixed in or the speech pauses often.)
-- **Slide PDF (슬라이드 PDF)** — for classes that don't share their slides, check 슬라이드 PDF. Each time the slide changes, it is captured and put into a PDF together with what was said while it was on screen. A slide that fills in line by line is kept once, fully filled in, and the lecturer's camera is ignored. (Mac: pick the lecture window · iPhone/Mac: also from video files)
+- **Slide PDF (슬라이드 PDF)** — for classes that don't share their slides, check 슬라이드 PDF. Each time the slide changes, it is captured and put into a PDF together with what was said while it was on screen. A slide that fills in line by line is kept once, fully filled in, and the lecturer's camera is ignored: the app finds it by itself and outlines it on the live screen. (Mac: pick the lecture window · iPhone/Mac: also from video files)
 
 <p align="center"><img src="docs/slides-demo.gif" width="600" alt="How the slide PDF works"></p>
+
+## Screenshots
+
+<table>
+<tr><td><img src="docs/appstore/marketing/en/01-live.jpg" alt="Live transcription"></td><td><img src="docs/appstore/marketing/en/02-key-sentences.jpg" alt="Key sentences highlighted"></td></tr>
+<tr><td><img src="docs/appstore/marketing/en/03-slides.jpg" alt="Slide PDF and the lecturer's camera"></td><td><img src="docs/appstore/marketing/en/04-library.jpg" alt="Library"></td></tr>
+<tr><td><img src="docs/appstore/marketing/en/05-find.jpg" alt="Find, replay, edit"></td><td><img src="docs/appstore/marketing/en/06-privacy.jpg" alt="Privacy: everything stays on your Mac"></td></tr>
+</table>
 
 ## Requirements
 
@@ -71,7 +81,7 @@ On first launch the app shows a **usage notice and disclaimer** (이용 안내 �
 
 - **Transcribe a file:** drop an audio or video file onto the window, or use [파일 불러오기] (Open file)
 - **Change the important words:** [중요 단어] at the bottom
-- **Shortcut:** ⌘⇧C copies everything
+- **Shortcuts:** ⌘R start/stop · ⌘P pause/resume · ⌘F find in a session · ⌘O open a file · ⌘⇧C copy everything (also in the menu bar: 녹음 (Record), and 편집 › 찾기 (Edit › Find))
 
 ## Good to know
 

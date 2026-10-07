@@ -9,8 +9,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "2.2.0"
-    CURRENT_PROJECT_VERSION: "220"
+    MARKETING_VERSION: "2.3.0"
+    CURRENT_PROJECT_VERSION: "230"
     CODE_SIGN_STYLE: Automatic
     ENABLE_HARDENED_RUNTIME: YES
     DEAD_CODE_STRIPPING: YES
@@ -93,6 +93,7 @@ targets:
       - path: app/Player.swift
       - path: app/Bridge.swift
       - path: app/Slides.swift
+      - path: app/CameraFinder.swift
       - path: app/ios
         excludes: ["Info.plist", "PrivacyInfo.xcprivacy"]
       - path: app/ios/PrivacyInfo.xcprivacy

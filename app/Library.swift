@@ -126,6 +126,16 @@ enum Library {
         return s
     }
 
+    /// 글 편집: the transcript with its lines as given. The header stays and the 중요 문장 tail is made again from the new
+    /// lines; the recording is untouched, and a slide PDF keeps the text it was made with.
+    static func writeLines(_ dir: URL, id: String, lines: [Line], keywords: NSRegularExpression?) throws {
+        guard let p = load(dir, id) else { throw Problem.missing }
+        var text = p.header + "\n\n" + lines.map { "[\(fmtTime($0.t))] \($0.text)\n" }.joined()
+        let hits = cues(lines, keywords)
+        if !hits.isEmpty { text += "\n── 중요 문장 ──\n" + hits.map { "[\(fmtTime($0.t))] \($0.text)\n" }.joined() }
+        try Data(text.utf8).write(to: p.txt, options: .atomic)
+    }
+
     static func files(_ dir: URL, _ id: String) -> [URL] {
         ["txt", "m4a", "wav", "pdf"].map { dir.appendingPathComponent("\(id).\($0)") }
             .filter { FileManager.default.fileExists(atPath: $0.path) }

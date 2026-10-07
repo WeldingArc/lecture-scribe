@@ -29,6 +29,8 @@ app/Player.swift         plays a session's recording (seek, ±15 s, speed; iOS l
 app/Bridge.swift         page ↔ app commands shared by both apps; `Platform` = what each app does differently
 app/Slides.swift         슬라이드 PDF: frame signatures, the slide detector, the per-session collector, video-file
                          extraction, the PDF (slide + what was said per page)
+app/CameraFinder.swift   슬라이드 PDF: finds the lecturer's camera (where pixels keep changing while the rest holds
+                         still) — left out of slide comparisons and outlined on the live preview
 app/ScreenSlides.swift   Mac: the lecture window via SCContentSharingPicker + SCStream (2 fps)
 app/main.swift           Mac: AppKit window + WKWebView, menus, CLI test modes
 app/ios/App.swift        iPhone/iPad: SwiftUI scene + WKWebView, share sheet, document picker, mic permission
@@ -45,6 +47,7 @@ project.yml              XcodeGen spec → LectureScribe.xcodeproj (gitignored):
 docs/appstore/           App Store screenshots and listing text
 tools/shot.swift         renders the UI offscreen with WebKit → PNG (App Store screenshots)
 tools/frames.swift       renders an animation frame by frame (the 슬라이드 PDF demo); tools/make_gif.py → GIF
+tools/make_marketing.sh  marketing screenshots (tools/marketing.html: label + headline + pitch over each screen, KO/EN)
 scripts/build_whisper.sh builds whisper.cpp (pinned tag) as portable static libraries → vendor/whisper/ (not committed)
 scripts/build_transcribe.sh  builds transcribe.cpp (pinned tag) into one self-contained dylib, its ggml private →
                          vendor/transcribe/ (not committed); build_v2.sh puts it in Contents/Frameworks
@@ -87,13 +90,17 @@ Hooks (environment variables): `LECTURE_OUT_DIR`, `LECTURE_AUTOSTART=1`, `LECTUR
 `LECTURE_FAKE_INPUT=<file>` (the file streamed in real time instead of system audio — silent),
 `LECTURE_DEV_DIR=<checkout>` (UI from the checkout), `LECTURE_DEBUG=1` (English-phrase decisions on
 stderr), `LECTURE_TEST_OPEN=library|<session>|trash:<session>|delete:<session>` (the page opens 기록 or a
-session; `trash:` deletes and undoes it, `delete:` deletes it — the page logs what it rendered).
+session; `trash:` deletes and undoes it, `delete:` deletes it — the page logs what it rendered),
+`LECTURE_TEST_QUIT=<sec>` (logs the 녹음 menu as it reads then, then ⌘Q) with `LECTURE_TEST_QUIT_ANSWER=quit|cancel`
+(answers the warning 3 s later). CLI: `--live <sec> --pause-at <sec> --pause-for <sec>` pauses a test recording.
 
-The UI runs in a normal browser as a demo (no sound): `ui/index.html?shot`, `?shot=saved|keywords|library|detail|playing`
-for still frames, `&ios` for the iPhone wording. Screenshots: `swiftc -O tools/shot.swift -o /tmp/shot`, then
+The UI runs in a normal browser as a demo (no sound): `ui/index.html?shot`, `?shot=saved|keywords|library|detail|playing|slides|find`
+for still frames (`slides`: recording with 슬라이드 PDF, the camera outlined; `find`: ⌘F in a session, `&q=` the word), `&ios` for the iPhone wording. Screenshots: `swiftc -O tools/shot.swift -o /tmp/shot`, then
 `/tmp/shot "file://$PWD/ui/index.html?shot=library" library.png 1440 900`. The 슬라이드 PDF demo GIF: `swiftc -O tools/frames.swift -o /tmp/frames`,
 `/tmp/frames "file://$PWD/ui/index.html?shot=slidesdemo" /tmp/f 720 660 22 10 __renderDemo`, then
-`python3 tools/make_gif.py /tmp/f docs/slides-demo.gif 600 1.75` (1.75 = the page's `DEMO_SPEED`). Logs: `~/Library/Containers/io.github.joshichoi.lecture-scribe/Data/Library/Application Support/LectureScribe/logs/app.log`.
+`python3 tools/make_gif.py /tmp/f docs/slides-demo.gif 600 1.75` (1.75 = the page's `DEMO_SPEED`). Marketing screenshots
+(App Store and README; a feature label, a headline and a line of pitch over each screen, Korean and English):
+`tools/make_marketing.sh` → `docs/appstore/marketing/{ko,en}/*.jpg` (template `tools/marketing.html`; the captions are in the script). Logs: `~/Library/Containers/io.github.joshichoi.lecture-scribe/Data/Library/Application Support/LectureScribe/logs/app.log`.
 
 ### Speech engines (설정 › 음성 인식)
 
@@ -259,6 +266,22 @@ with its text normalization on it stops after the first sentence.
 - WKWebView in the sandbox needs `com.apple.security.network.client`, even for local pages.
 - Ad-hoc signatures change with every build, and macOS then asks for System Audio Recording again;
   certificate-signed builds keep the permission.
+- Recordings: a 16 kHz WAV while recording, then AAC (32 kbit/s) in MPEG-4 — written to a hidden `.NAME.part.m4a` and
+  checked against the WAV's length before it replaces it. AVAudioFile takes the container from the file name: 2.0–2.2
+  wrote to `.NAME.m4a.part` and so made CAF files named .m4a (they play on a Mac, not everywhere).
+- 기록 rows show 이름 변경 and 삭제 buttons (and ⋯ / right-click: 열기 · 이름 변경 · 공유 · Finder에서 보기 · 삭제); ⌘⌫ deletes.
+  Dialogs make the rest of the page inert, focus 취소 first and give focus back (to the redrawn row, or the next one).
+- 일시정지 (live only, `pauseRec`/`resumeRec`, event `paused` with the paused total): the sound is dropped — not recognized,
+  not recorded, not on the clock — and the first buffer after pausing becomes 1.5 s of silence for both the recognizer
+  and the recording, so the sentence before the break ends there and the transcript's times stay the recording's
+  times. Slide frames are ignored meanwhile. The page's clock leaves the paused time out.
+- 글 편집 (`saveLines`: the page sends every line; `linesSaved`): the transcript is written again — header, lines, the
+  중요 문장 tail made again — and the recording is untouched; a slide PDF keeps its text. An emptied line is removed.
+  ⌘F in a session marks every match (`find`), Return / ⇧Return step through them.
+- Quitting (Mac) while recording or transcribing asks first (취소 is the default); on 종료 the session is saved, then the
+  app quits. ⌘Q while only saving waits for the save (`.terminateLater`). Never answer a pending ⌘Q from inside a
+  `DispatchQueue.main` block: the save it waits for runs on the main queue too (that deadlocked).
+  The 녹음 menu (⌘R start/stop, ⌘P pause, ⌘O file, ⇧⌘C copy) and 편집 › 찾기 (⌘F) send `command` events to the page.
 - 기록 deletes are undoable: a deleted session waits in Application Support/LectureScribe/Deleted, then
   (Mac) moves to the Trash after 15 s — a sandboxed app can put files in the Trash but not take them out —
   or (iPhone/iPad, no Trash) is removed after 3 days.
@@ -302,6 +325,18 @@ with its text normalization on it stops after the first sentence.
   Harnesses: verify7 (138 scenarios: 124 pass; v3 115, v2 79), verify6 (40-slide mixed and 60-slide real decks, all
   caught; 14 misses+dups over 45 scenarios), the verify8 adversarial set (64: 49 pass; v3 28), and end-to-end on
   lecture videos with `LECTURE_SLIDES=1` (`build/v2/LectureScribe --transcribe lecture.mp4`).
+- The lecturer's camera (`app/CameraFinder.swift`, fed the detector's 320×180 signature): a \~96-column cell grid in
+  which each cell keeps a score of how often it changed lately (fading over 20 s); a frame in which most of the
+  picture changed at once teaches nothing. A patch that keeps changing, stays compact and lasts — near an edge, or still
+  going across a slide change (a GIF in a slide stops with its slide) — is the camera; its box is snapped out to the
+  inset's straight edges and kept 45 s while the lecturer sits still. With no camera nothing is marked. Its tiles (5 % of
+  a tile inside the box plus a small margin: the edge bleeds into the next tile when the frame is shrunk) are left out
+  of every comparison, and stay out 6 s after the camera leaves them (it may have jumped to another corner). While
+  recording with 슬라이드 PDF the page shows the frame (a 480 px JPEG about once a second, `slidePreview`) with the camera
+  outlined, at the bottom left; hidden under 760 px wide. Against 2.2.0: the W scenes 9 → 12 of 36 (a camera at the top
+  right while bullets build: 8 pages → the right 4), the corner-camera scenes 1–2 fewer extra pages each, verify9 one
+  wrong final picture fewer; verify7, verify6 and verify8 unchanged. One W scene (a cursor wandering around each
+  change, live) gets a duplicate page — the same scene already did from a file.
 - iPhone/iPad: the microphone session is `.playAndRecord` + `.mixWithOthers`, recording continues with the
   screen locked (background audio) and resumes after calls; the page is reloaded and the state replayed if
   iOS reclaims the web view in the background.
