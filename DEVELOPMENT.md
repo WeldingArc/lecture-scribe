@@ -19,9 +19,10 @@ app/Audio.swift          audio sources → 16 kHz mono Int16: Core Audio process
                          microphone (iPhone/iPad), media files
 app/Recognizer.swift     SpeechAnalyzer with two SpeechTranscribers (ko-KR + en-US) and the English-quote rescue;
                          `SpeechRecognizer`, the interface every speech engine implements
-app/Whisper.swift        Mac: the optional Whisper engine (whisper.cpp, large-v3 turbo) — model download/check/remove
-                         and the recognizer (Silero VAD segmenter, v1's language and hallucination rules)
-app/WhisperBridge.h      whisper.cpp's C API for Swift (headers from scripts/build_whisper.sh)
+app/Whisper.swift        Mac: the optional engines — Whisper (whisper.cpp, large-v3 turbo), Qwen3-ASR and Parakeet
+                         (transcribe.cpp): the engine table, model download/check/remove (`ModelStore`) and the
+                         recognizer (Silero VAD segmenter, v1's language and hallucination rules, Qwen3's re-reads)
+app/WhisperBridge.h      whisper.cpp's and transcribe.cpp's C APIs for Swift (headers from the build scripts below)
 app/Engine.swift         sessions, files (.txt, .wav → .m4a), keywords, settings, crash recovery, log
 app/Library.swift        기록: lists/opens/renames/deletes sessions (a .txt + its .m4a = one session)
 app/Player.swift         plays a session's recording (seek, ±15 s, speed; iOS lock-screen controls)
@@ -36,7 +37,7 @@ app/ios/Info.plist, Assets.xcassets, PrivacyInfo.xcprivacy
 app/Info.plist           usage descriptions, macOS 26 minimum (build settings fill in the $(…) variables)
 app/LectureScribe.entitlements
                          App Sandbox: Downloads read-write, user-selected read-only,
-                         network.client (WKWebView; the optional Whisper model download),
+                         network.client (WKWebView; the optional model downloads),
                          device.audio-input (the process tap)
 app/make_icon.swift      renders the app icon (`swift app/make_icon.swift out` → out.png)
 project.yml              XcodeGen spec → LectureScribe.xcodeproj (gitignored): targets LectureScribe (Mac) and
@@ -45,6 +46,8 @@ docs/appstore/           App Store screenshots and listing text
 tools/shot.swift         renders the UI offscreen with WebKit → PNG (App Store screenshots)
 tools/frames.swift       renders an animation frame by frame (the 슬라이드 PDF demo); tools/make_gif.py → GIF
 scripts/build_whisper.sh builds whisper.cpp (pinned tag) as portable static libraries → vendor/whisper/ (not committed)
+scripts/build_transcribe.sh  builds transcribe.cpp (pinned tag) into one self-contained dylib, its ggml private →
+                         vendor/transcribe/ (not committed); build_v2.sh puts it in Contents/Frameworks
 ```
 
 ### Build
@@ -74,10 +77,11 @@ build/v2/LectureScribe --transcribe some-lecture.m4a      # JSON lines on stdout
 build/v2/LectureScribe --live 30                          # 30 s of system audio
 ```
 
-Whisper: `LECTURE_ENGINE=whisper` (instead of the saved choice), `LECTURE_MODEL_DIR=<dir>` (where the model is, e.g.
-`models/` of a v1 checkout), `LECTURE_MODEL_URL=<url>` + `build/v2/LectureScribe --download-whisper` (the in-app
-download from a local server: `python3 -m http.server 8977 --directory models`), `LECTURE_DEBUG=1` (whisper.cpp's log
-and per-piece timings in app.log).
+Downloaded engines: `LECTURE_ENGINE=whisper|qwen3|parakeet` (instead of the saved choice), `LECTURE_LANGUAGE=ko|en`,
+`LECTURE_MODEL_DIR=<dir>` (the model files plus `ggml-silero-v5.1.2.bin` — make it of hard links: the app deletes files
+that fail their checksum), `LECTURE_MODEL_URL=<url>` + `build/v2/LectureScribe --download-engine ID` (the in-app
+download from a local server: `python3 -m http.server 8977 --directory models`; `--download-whisper` still works),
+`LECTURE_DEBUG=1` (the runtimes' logs, per-piece timings and Qwen3's re-reads in app.log).
 
 Hooks (environment variables): `LECTURE_OUT_DIR`, `LECTURE_AUTOSTART=1`, `LECTURE_AUTOSTOP=<sec>`,
 `LECTURE_FAKE_INPUT=<file>` (the file streamed in real time instead of system audio — silent),
@@ -89,15 +93,64 @@ The UI runs in a normal browser as a demo (no sound): `ui/index.html?shot`, `?sh
 for still frames, `&ios` for the iPhone wording. Screenshots: `swiftc -O tools/shot.swift -o /tmp/shot`, then
 `/tmp/shot "file://$PWD/ui/index.html?shot=library" library.png 1440 900`. The 슬라이드 PDF demo GIF: `swiftc -O tools/frames.swift -o /tmp/frames`,
 `/tmp/frames "file://$PWD/ui/index.html?shot=slidesdemo" /tmp/f 720 660 22 10 __renderDemo`, then
-`python3 tools/make_gif.py /tmp/f docs/slides-demo.gif 600`. Logs: `~/Library/Containers/io.github.joshichoi.lecture-scribe/Data/Library/Application Support/LectureScribe/logs/app.log`.
+`python3 tools/make_gif.py /tmp/f docs/slides-demo.gif 600 1.75` (1.75 = the page's `DEMO_SPEED`). Logs: `~/Library/Containers/io.github.joshichoi.lecture-scribe/Data/Library/Application Support/LectureScribe/logs/app.log`.
 
 ### Speech engines (설정 › 음성 인식)
 
 The page draws whatever engines the app lists, so another platform (a Windows build with WebView2, say) can offer
 its own through the same messages:
 
-- app → page `{"ev":"engines","current":"apple","busy":false,"list":[{"id","name","model","desc","state":"absent|downloading|ready|failed","progress","verifying","bytes","removable","error"}]}`
+- app → page `{"ev":"engines","current":"apple","busy":false,"list":[{"id","name","model","desc","state":"absent|downloading|ready|failed","progress","verifying","bytes","removable","error","languages"}]}`
+  (`languages`: the lecture languages an engine writes — Parakeet only "en"; for a Korean lecture the status line and
+  설정's footer show Apple as in use, and the chosen Parakeet row says Apple writes the Korean lecture)
 - page → app `engineSelect` / `engineDownload` / `engineCancel` / `engineRemove` with `{"engine": id}`
+- 강의 언어 (`settings.language`: ko | en, main screen): the lecture's main language. Apple: the main language's
+  transcriber writes the transcript and the previews; for an English lecture a Korean aside (a run of Hangul tokens
+  from the Korean transcriber, mean confidence ≥ 0.6) replaces the English model's words only where those were unsure
+  (mean < 0.5) or absent. Whisper: the main language replaces "ko" in every rule (short pieces, rescue, language ID).
+- Apple, Korean lecture: the Korean model writes English speech as Latin words, often confidently — an accented English
+  lecture recorded in Korean mode doubled every word ("welcome welcome back. back."). Under an accepted English phrase
+  its Latin guesses go: tokens without Hangul overlapping the phrase ±0.15 s by more than half or ending inside it (a
+  line's first token often starts in the silence before it), and any run of them that touches the phrase, within 1.5 s
+  of it (the two models' word times drift by up to ~1.2 s at a quote's edges) — also on the neighbouring line. A Korean
+  word is never dropped, however unsure (unsure Hangul at a quote's edges was real speech: "꼭", "라는", "보세요.").
+  A phrase doesn't start with punctuation or with an unsure word stretched over the Korean before it ("Tell,(0.35)"
+  0.36–2.64). A Korean word far longer than its letters take to say (> 0.5 s + 0.5 s per syllable) was stretched over
+  speech it didn't write: a phrase only such words cover is still accepted — but only if the English model heard every
+  word of it surely (≥ 0.5). Its unsure words there are as often its guesses at the Korean around the quote ("Only(0.58)
+  to(0.22) result(0.09)…") as real words ("Stay(0.21)", "All(0.29)"), and Apple's confidences vary run to run: every
+  threshold tried for trimming them flipped between splicing invented English in and cutting real words off (rounds
+  11–12), so such a quote stays lost, as before. Words that Korean speech covers split a phrase into separate quotes.
+  The stretched word goes to the side of the quote with time enough to say it (0.15 s a syllable); if both (or neither)
+  have, after it — Apple stretches the word after a quote back far more often. (Guessing from the English model's
+  unsure words put "바나나입니다." before "All models are wrong…" every time: they are often its guesses at Korean words
+  Apple dropped, and they arrive in later results.) Two words glued across a quote — after the last full stop that has
+  more of the token after it ("뜻입니다.마셜", "말입니다.베이죠.") or before a copula after 은/는 ("문장은입니다.", not
+  "고양이입니다") — are split when each part fits on its side. A quote stays in
+  one piece: a Korean word whose place falls inside it goes to the nearer edge, in order. Lines keep Apple's spacing
+  between words that still follow each other and never start with punctuation. Measured against the previous build
+  (same clips, Apple varies run to run): the 5-accent English clip in Korean mode lost all doubling; quotes come back in
+  place on quotes, quotes_live, t3, t2, t6, k13, k15, n1, mixB/mixE (CER t3 18% → 2.5%, t6 50% → 23%, k13 74% → 0%, k15
+  66% → 0%, n1 57% → 2%); z5, k5, k10, k11, n4 are unchanged (their quotes have unsure words and stay lost); lecture,
+  long1, long2, short, t4, t5, t5b unchanged within Apple's spread. A mechanical check (every Hangul word Apple wrote
+  appears, in order, in the line; no doubled words; no leading punctuation) passed on 126 lines of 66 runs, and 476
+  recorded Apple outputs (both modes) replayed through this logic and the previous release's (round 13's replay
+  harness: identical input, no run-to-run noise) lost no Hangul word; every other difference is a rescued quote, a
+  removed duplicate or Korean-model Latin garbage, or (English lecture) an unsure English guess next to an accepted
+  aside. Known limits:
+  besides those unsure quotes, Apple loses a quote the English model splits into two-word pieces, one whose first word
+  is stretched over Korean with no other cue, one glued into a long Korean token ("말해볼게요.거북이에요."); a token that
+  merges the words before and after a quote is placed whole ("알고양입니다.").
+- Apple, English lecture: a Korean aside replaces the English model's words where those were unsure (unchanged from the
+  previous build — refusing long runs without a sentence ending, to stop English spelled out in Hangul, dropped casual
+  asides like "자 다들 잘 들어 오늘 출석 단어 바나나 우유 꼭 적어 둬" and was taken out). On the aside's own line the
+  English words mostly under it go, as before; on a neighbouring line only unsure ones (< 0.5) — an aside the Korean
+  model ended with "…굿 땡큐." must not take "Good question." and "Thank you." with it — and barely heard words (< 0.3)
+  touching an aside go anywhere ("Yeah(0.09)" before "자 여기까지 이해되셨나요?"). Known
+  limits (as before): Apple's Korean model often doesn't produce a Korean remark in an English lecture at all (short ones
+  most often: "오늘 출석 단어는 무지개예요." → nothing), an aside whose first word Apple stretches back over confident
+  English is dropped, and heavily Korean-accented English can come out in Hangul in either mode — the 강의 언어 "?"
+  says so and points to Qwen3-ASR.
 - an engine implements `SpeechRecognizer` (16 kHz mono Int16 in; `Line`s out — previews replaced by finals with the
   same id, an empty final withdraws a preview) and `Engine.makeRecognizer` picks it.
 
@@ -127,6 +180,68 @@ every short piece's language would cost a GPU pass each. After a model fails to 
 (ggml's teardown would abort on the half-made Metal state). If the model can't be
 loaded at all, Apple's recognizer takes over the session with all the audio buffered so far, and the files are checked
 against their SHA-256 — damaged ones are removed, so 설정 offers 다시 시도.
+
+Qwen3-ASR 1.7B and Parakeet 0.6B (Mac) run through [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp)
+v0.3.1 (MIT), built into one dylib in Contents/Frameworks that exports only `transcribe_*`: it carries its own ggml,
+which linked statically next to whisper.cpp's would collide. Models: Q5_K_M GGUFs from handy-computer's Hugging Face
+repos (1517 MB, 541 MB), pinned by commit and SHA-256 like Whisper's. Licenses: Qwen3-ASR Apache-2.0; Parakeet the
+NVIDIA Open Model License (the GGUF repo's "cc-by-4.0" label is wrong — the model card and the GGUF's own metadata say
+nvidia-open-model-license), shipped in Contents/Resources/licenses with NVIDIA's notice. The voice detector file is
+shared (one copy; removing an engine keeps it while another engine has it — a ready engine's size shows what 삭제 frees),
+one download runs at a time, progress counts only what is missing, and the checksum frees each 8 MB chunk as it goes (it used to hold a 1.5 GB model in memory: 1.57 GB
+peak → 53 MB). Same pipeline as Whisper (VAD pieces, previews, Apple takeover and checksum check when a model can't
+load); the first load compiles Metal shaders (up to a minute: Qwen3/Parakeet ~40 s, Whisper ~20 s on an M2), hence the
+same warm-up. An English-only engine
+downloaded while 강의 언어 is 한국어 doesn't push aside an engine that writes Korean (Qwen3-ASR stays chosen, a notice
+says how to pick Parakeet for English lectures); chosen anyway, its row says Apple's recognizer writes the Korean lecture.
+
+Qwen3 identifies each piece's language itself and writes both languages as spoken. Told the language, it drops or spells
+out in Hangul the English words of a Korean piece, and can even translate ("Time is money." → "타임은 돈이다"; told
+English, an English lecture's Korean aside it had taken for Japanese came out "Then, we will continue."), so a reading
+with a language hint is kept only for a piece it took for a third language (or wrote with kana or Chinese
+characters): read again in the lecture's language — noise and accents make it name any language (kept as it was, noisy
+English came out in Thai script, a French reading dropped "Let's review."); a real quote in a third language may then
+come out in the lecture's language, rare in these lectures. In an English lecture, a piece Qwen3 itself took for
+Japanese or Chinese (a tag other than ko/en, written with kana or Chinese characters) is read as Korean and that reading
+kept — in these lectures it is almost always a Korean aside ("クラン継続かけます。" for "그럼 계속하겠습니다.", "苏哲，内伊卡金内。"
+for "숙제 내일까지 내."; read as English they came out translated or invented) — unless it is katakana alone, English the
+way Japanese writes loanwords ("ハッピーバースデー。", which read as Korean became "하피 버스 데이"). A piece Qwen3 took for
+English that contains a Chinese term ("rely on 关系") is read again as English, which leaves it as it was. Its failure modes — measured, all on pieces holding two utterances, all depending on where the
+piece was cut (shifting a cut by 0.2 s flips them): a piece taken for the other language comes out translated
+("다음 표현을 들어보세요. Actions speak…" → "Next, listen to the following. Actions…"), or its other-language utterance is
+left out (the Korean intro before an English quote, Korean asides in an English lecture, an English term inside a Korean
+sentence: "말씀하신 는 공유지의 비극"). So a final written in one script whose re-read in the other language finds a
+sentence of it (a Korean sentence ending or two Korean words — "출석 단어는 사과." has no ending —, or three English
+words), or a Korean final with a particle standing alone (는,
+을, 를, 라는, 이라는 — not 이란: "미국과 이란 사이" is Iran), is read again in two halves split at its longest pause
+(≥ 0.16 s with ≥ 0.5 s of speech on either side; for a stranded particle its quietest moment), at most twice — and the
+halves are kept only if they bring back words of the missing language. Korean: added with no English word lost (casual
+endings too: "수박 주스 꼭 메모해 둬"), or in place of English — often the first reading's translation of the aside ("This
+is what comes up in the exam" → "이건 시험에 나옵니다.") — only as a clear Korean sentence: a formal ending (니다 요 죠 까)
+or two words with particles (은 는 을 를 에 에서 에게 께 한테 야); told Korean, Qwen3 spells English out ("룩 에터 판다.",
+"굿모닝 에브리원", and "파파야" ends like "사과야"). English: added, or in place of Hangul — in a Korean lecture about as many
+words (a quote first spelled out: "프레티스 메이스 퍼펙트" → "Practice makes perfect"), in an English lecture any number
+(that Korean was a reading of English speech). Otherwise the first reading stays (cut in a word, a correct reading can
+come out worse: "높아 파지고"). A re-read can still lose a word next to the cut (t7: "네," before "Time is money" went). Cost: about 1.6–2× decode time (lecture.aiff: 17 s for 65 s of audio on an M2; the 5-accent
+English clip: 30 s for 124 s); live, the re-reads are skipped while ≥ 3 s behind. Measured (CER): lecture 1.0%, long1
+2.4%, long2 1.3%, t3 3.7%, t4 5.8%, t5b 18.6%; quotes_live: all 7 quotes and the 8 Korean intros; mixed_lang, the mix
+clips, longq, quotes, t6, t7 and the verifier's n1–n4, q1, q3, q5 verbatim or nearly (names may come out in Latin
+letters: "Steve Jobs의"); the 5-accent English clip near-verbatim, even the Korean-accented voice; English mode keeps the
+Korean asides (en_lecture_ko_asides 3/3, an attendance sentence Apple loses; the round-11 casual asides e2/e4/e5 0% CER). Known limits: very noisy short Korean
+pieces can come out as invented English (t5: "The area is just a bit.", "On now." for 없나요?; CER 74% vs Apple 56%) —
+Qwen3 reports no confidence, and its reading told Korean can't be trusted instead (see "Time is money."); likewise a
+short Korean aside in an unclear (robotic) voice in an English lecture, heard as English as a whole ("다음 문제로
+넘어갈게요." → "So one zero number, okay?") or dropped (an attendance sentence in tr2, in every build); in an English
+lecture, Japanese speech itself — a Japanese quote, Japanese fillers in accented English — comes out as Korean (the
+Japanese-or-Chinese rule above; rare in these lectures); a casual Korean aside that the first reading translated stays
+translated unless its re-read is a clear Korean sentence; a Latin phrase
+("Carpe diem") can be left out; a short English line in a Korean voice can come out in Hangul ("Any questions so far?" →
+"N E Q S 천슬소파"); a one-word Korean aside in an English lecture comes out romanized ("muzikae"). Parakeet writes
+English only: Korean speech is left out or comes out as made-up English ("자, 질문 있는 사람 있나요?" → "I'm not sure if
+I can do"), so a Korean lecture uses Apple's recognizer with a notice; ~0.02–0.03 × real time on an M2, weaker than
+Qwen3 on strong accents (v9g_english CER 22% vs 6.9%). Fun-ASR-MLT-Nano (also transcribe.cpp) was tried and left out:
+it keeps one language per piece — a Korean passage's English quotes and an English one's Korean asides vanish — and
+with its text normalization on it stops after the first sentence.
 
 ### Engine notes (measured on an M2 MacBook Air)
 

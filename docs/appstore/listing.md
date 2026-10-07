@@ -40,7 +40,7 @@
 • 1.5배·2배속 재생도 따라가요
 • [전체 복사] 한 번이면 ChatGPT·Claude 같은 AI에 붙여 넣어 요약·정리
 • 영어로 말하는 부분은 영어 그대로 적어요 (일부러 번역하지 않아요)
-• 음성 인식 엔진 선택 — 기본은 Apple, 원하면 OpenAI의 공개 모델 Whisper(약 575MB)를 한 번 내려받아 Mac 안에서 써요
+• 음성 인식 엔진 선택 — 기본은 Apple, 원하면 공개 모델 Qwen3-ASR(약 1.5GB, 한국어·영어가 섞인 강의에 강해요)·Whisper(약 575MB)·Parakeet(약 540MB, 영어 강의 전용)를 한 번 내려받아 Mac 안에서 써요
 • 중요 문장 표시 — ‘출석’, ‘시험’, ‘과제’ 같은 단어가 나온 문장에 밑줄을 긋고 파일 끝에 따로 모아 줘요. 단어는 직접 바꿀 수 있어요
 • 녹음·영상 파일을 끌어다 놓아도 받아 적어요 (재생 시간보다 훨씬 빨리)
 • 슬라이드 PDF — 강의 자료가 없을 때, 슬라이드가 바뀔 때마다 한 장씩 모아 그동안 한 말과 함께 PDF로 만들어요 (보여 줄 강의 창은 직접 골라요)
@@ -55,6 +55,14 @@
 
 오픈소스(MIT)예요: https://github.com/WeldingArc/lecture-transcriber
 
+## What's New (2.1)
+• 강의 언어를 고를 수 있어요 — 한국어 / English (시작 버튼 아래)
+• 새 음성 인식 엔진(선택, 내려받기): Qwen3-ASR — 한국어와 영어가 섞인 강의, 억양이 강한 영어에 가장 정확해요 · Parakeet — 영어 강의 전용, 빠르고 가벼워요
+• 영어로 말하는 강의를 한국어 강의로 받아 적을 때 단어가 두 번씩 적히던 문제를 고쳤어요
+• 한국어 문장 사이의 영어 인용을 더 많이, 제자리에 받아 적어요
+• 슬라이드 PDF 설명 애니메이션이 더 빨라졌어요
+• 첫 화면이 앱이 하는 일을 그림으로 보여 줘요
+
 ## What's New (2.0)
 • Apple 온디바이스 음성 인식으로 새로 만들었어요 — AI 모델을 따로 내려받을 필요가 없어요
 • 새로운 ‘기록’ — 강의마다 녹음과 받아 적은 글을 한곳에서 보고 들을 수 있어요
@@ -63,7 +71,7 @@
 • 영어 구간은 영어 그대로 받아 적어요
 
 ## Notes for App Review (English)
-Lecture Transcriber transcribes the audio that is playing on the Mac (e.g. an online lecture in a browser) in real time, entirely on-device, using Apple's SpeechAnalyzer/SpeechTranscriber (ko-KR, plus en-US to keep English quotes in English). Optionally (Settings › 음성 인식) the user can download the open Whisper large-v3-turbo model (~575 MB, from huggingface.co) and transcribe with it instead — also entirely on-device. No account, no server, no network use for content.
+Lecture Transcriber transcribes the audio that is playing on the Mac (e.g. an online lecture in a browser) in real time, entirely on-device, using Apple's SpeechAnalyzer/SpeechTranscriber (ko-KR, plus en-US to keep English quotes in English). Optionally (Settings › 음성 인식) the user can download an open speech model — Whisper large-v3-turbo (~575 MB), Qwen3-ASR 1.7B (~1.5 GB) or Parakeet 0.6B (English only, ~540 MB), from huggingface.co — and transcribe with it instead, also entirely on-device. The main screen's 강의 언어 switch (한국어 / English) sets the lecture's main language. No account, no server, no network use for content.
 
 How to test:
 1. Launch the app and wait for "준비됨" (Ready).
@@ -72,11 +80,11 @@ How to test:
 4. Text appears live. Click it again (정지 / Stop): a .txt transcript and .m4a recording are saved to ~/Downloads/강의기록. "전체 복사" copies the whole transcript.
 5. "기록" (Library) lists every session; open one to see its transcript with the recording — click any sentence to play from there.
 6. You can also drag an audio/video file onto the window (or use 파일 불러오기) to transcribe it.
-7. Optional: Settings (⌘,) › 음성 인식 › Whisper › "내려받기 · 575MB" downloads the model (checked against its SHA-256); it is then selected, and the next recording uses it. "삭제" removes it again.
+7. Optional: Settings (⌘,) › 음성 인식 › Whisper, Qwen3-ASR or Parakeet › "내려받기 · …MB" downloads that model (checked against its SHA-256); it is then selected, and the next recording uses it. "삭제" removes it again. (Parakeet transcribes English only: with 강의 언어 set to 한국어 the app uses Apple's recognizer and says so, and a Parakeet download then doesn't replace an already chosen engine that writes Korean.)
 8. Optional "슬라이드 PDF" checkbox: when recording starts, macOS's own content-sharing picker (SCContentSharingPicker) asks which window to watch; the app captures only that window, about twice a second, to detect slide changes and builds a PDF of the slides with the transcript. Nothing leaves the Mac, and no Screen Recording permission is requested.
 
 Entitlements:
 - com.apple.security.device.audio-input: required to read the Core Audio process tap (AudioHardwareCreateProcessTap) that captures the system's audio output. The app never opens the microphone.
 - com.apple.security.files.downloads.read-write: saves transcripts and recordings to ~/Downloads/강의기록.
 - com.apple.security.files.user-selected.read-only: reads a file the user picks or drops to transcribe it.
-- com.apple.security.network.client: needed by the WKWebView that renders the app's local interface, and for the optional, user-initiated download of the Whisper model files from huggingface.co (plain HTTPS GET requests). No user data is ever sent.
+- com.apple.security.network.client: needed by the WKWebView that renders the app's local interface, and for the optional, user-initiated download of speech model files (Whisper, Qwen3-ASR, Parakeet) from huggingface.co (plain HTTPS GET requests). No user data is ever sent.

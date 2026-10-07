@@ -44,7 +44,8 @@ struct Settings {
     var accent: String                     // brass | sage | rose | blue | lavender
     var size: String                       // text size: s | m | l | xl
     var icon: String                       // app icon: navy | ivory | brass | charcoal | sage
-    var engine: String                     // 설정 › 음성 인식: apple | whisper (Mac, once its model is downloaded)
+    var engine: String                     // 설정 › 음성 인식: apple | whisper | qwen3 | parakeet (Mac, once downloaded)
+    var language: String                   // 강의 언어 (main screen): ko | en — the lecture's main language
     static func load() -> Settings {
         let d = UserDefaults.standard
         func pick(_ k: String, _ allowed: [String], _ dflt: String) -> String { allowed.contains(d.string(forKey: k) ?? "") ? d.string(forKey: k)! : dflt }
@@ -55,27 +56,28 @@ struct Settings {
                         accent: pick("accent", ["brass", "sage", "rose", "blue", "lavender"], "brass"),
                         size: pick("size", ["s", "m", "l", "xl"], "m"),
                         icon: pick("icon", appIcons, "navy"),
-                        engine: env["LECTURE_ENGINE"] ?? pick("engine", speechEngines, "apple"))
+                        engine: env["LECTURE_ENGINE"] ?? pick("engine", speechEngines, "apple"),
+                        language: env["LECTURE_LANGUAGE"] ?? pick("language", ["ko", "en"], "ko"))
     }
     func save() {
         let d = UserDefaults.standard
         d.set(keywords, forKey: "keywords"); d.set(timestamps, forKey: "timestamps"); d.set(slides, forKey: "slides")
         d.set(theme, forKey: "theme"); d.set(accent, forKey: "accent"); d.set(size, forKey: "size"); d.set(icon, forKey: "icon")
-        d.set(engine, forKey: "engine")
+        d.set(engine, forKey: "engine"); d.set(language, forKey: "language")
     }
     /// What the page needs to show them.
     var event: [String: Any] {
         ["ev": "settings", "keywords": keywords, "timestamps": timestamps, "slides": slides, "theme": theme, "accent": accent,
-         "size": size, "icon": icon, "engine": engine,
+         "size": size, "icon": icon, "engine": engine, "language": language,
          "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"]
     }
 }
 
 let appIcons = ["navy", "ivory", "brass", "charcoal", "sage"]
 
-/// The speech engines this build can offer. Apple's is built in; Whisper (Mac) is an optional download.
+/// The speech engines this build can offer. Apple's is built in; the others (Mac) are optional downloads.
 #if WHISPER
-let speechEngines = ["apple", "whisper"]
+let speechEngines = ["apple"] + engineSpecs.map(\.id)
 #else
 let speechEngines = ["apple"]
 #endif
@@ -208,18 +210,47 @@ final class Engine {
     }
 
     #if WHISPER
-    let whisper = WhisperModel()
+    let models = engineSpecs.map { ModelStore(spec: $0) }
+    func model(_ id: String) -> ModelStore? { models.first { $0.spec.id == id } }
     #endif
 
     init(emit: @escaping ([String: Any]) -> Void) {
         self.emit = emit
         keywords = keywordRegex(settings.keywords)
         #if WHISPER
-        if settings.engine == "whisper", !WhisperModel.installed { settings.engine = "apple"; settings.save() }   // model gone
-        whisper.onChange = { [weak self] in self.map { $0.emit($0.enginesEvent) } }
-        whisper.onReady = { [weak self] in self?.selectEngine("whisper") }            // downloaded on purpose: use it
+        if let m = model(settings.engine), !m.installed { settings.engine = "apple"; settings.save() }   // model gone
+        for m in models {
+            let id = m.spec.id
+            m.onChange = { [weak self] in self?.modelsChanged() }
+            m.onReady = { [weak self] in self?.downloaded(id) }
+        }
         #endif
     }
+
+    #if WHISPER
+    /// Downloaded on purpose: use it — unless it can't write the current lecture's language and another downloaded
+    /// engine already does (Parakeet doesn't push Qwen3-ASR aside for a Korean lecture).
+    private func downloaded(_ id: String) {
+        guard let m = model(id) else { return }
+        let name = m.spec.name
+        if m.spec.languages.contains(settings.language) { selectEngine(id); return }
+        if let current = model(settings.engine), current.state == .ready, current.spec.languages.contains(settings.language) {
+            emit(["ev": "notice", "code": "engine_language",
+                  "msg": "\(name) 모델을 내려받았어요. 영어 강의 전용이라 지금은 \(current.spec.name) 모델을 그대로 써요 — 영어 강의에 쓰려면 설정 › 음성 인식에서 골라 주세요."])
+            emit(enginesEvent)
+            return
+        }
+        selectEngine(id)
+        emit(["ev": "notice", "code": "engine_language",
+              "msg": "\(name) 모델은 영어 강의 전용이에요. 강의 언어를 English로 바꾸면 \(name) 모델로 받아 적어요."])
+    }
+
+    /// A shared file (the voice detector) may have gone with another engine's check.
+    private func modelsChanged() {
+        models.forEach { $0.refresh() }
+        emit(enginesEvent)
+    }
+    #endif
 
     /// 설정 › 음성 인식: every engine this app offers and its state. The page draws whatever is listed, so another
     /// platform (a Windows build, say) can offer its own engines through the same events and commands.
@@ -227,18 +258,25 @@ final class Engine {
         var list: [[String: Any]] = [["id": "apple", "name": "Apple 음성 인식", "desc": "기본 · 추가 다운로드 없이 가볍고 빨라요",
                                       "state": "ready", "bytes": 0]]
         #if WHISPER
-        list.append(whisper.info)
+        for m in models {                                 // a ready engine's size: what 삭제 frees (the shared detector stays
+            var info = m.info                             // while another engine has it)
+            if m.state == .ready {
+                let shared = Set(models.filter { $0 !== m && $0.state != .absent }.flatMap { $0.spec.files.map(\.name) })
+                info["bytes"] = m.spec.files.filter { !shared.contains($0.name) }.reduce(Int64(0)) { $0 + $1.bytes }
+            }
+            list.append(info)
+        }
         #endif
         var current = settings.engine
         #if WHISPER
-        if current == "whisper", whisper.state != .ready { current = "apple" }               // what a recording would use
+        if let m = model(current), m.state != .ready { current = "apple" }                   // what a recording would use
         #endif
         return ["ev": "engines", "list": list, "current": current, "busy": session != nil]
     }
 
     func selectEngine(_ id: String) {
         #if WHISPER
-        guard id == "apple" || (id == "whisper" && whisper.state == .ready) else { return }
+        guard id == "apple" || model(id)?.state == .ready else { return }
         #else
         guard id == "apple" else { return }
         #endif
@@ -251,43 +289,56 @@ final class Engine {
 
     func downloadEngine(_ id: String) {
         #if WHISPER
-        if id == "whisper" { whisper.download() }
+        guard let m = model(id) else { return }
+        if let other = models.first(where: { $0 !== m && ($0.downloading || $0.state == .verifying) }) {   // one at a time
+            emit(["ev": "notice", "code": "engine_downloading",
+                  "msg": "\(other.spec.name) 모델을 내려받는 중이에요. 끝난 뒤에 내려받을 수 있어요."])
+            return
+        }
+        m.download()
         #endif
     }
 
     func cancelEngine(_ id: String) {
         #if WHISPER
-        if id == "whisper" { whisper.cancel() }
+        model(id)?.cancel()
         #endif
     }
 
     func removeEngine(_ id: String) {
         #if WHISPER
-        guard id == "whisper" else { return }
-        if session?.engineID == "whisper" || savingSessions.contains(where: { !$0.done && $0.engineID == "whisper" }) {
-            emit(["ev": "notice", "code": "engine_busy", "msg": "지금 Whisper로 받아 적는 중이에요. 끝난 뒤에 지울 수 있어요."])
+        guard let m = model(id) else { return }
+        if session?.engineID == id || savingSessions.contains(where: { !$0.done && $0.engineID == id }) {
+            emit(["ev": "notice", "code": "engine_busy", "msg": "지금 \(m.spec.name) 모델로 받아 적는 중이에요. 끝난 뒤에 지울 수 있어요."])
             return
         }
-        whisper.remove()
-        if settings.engine == "whisper" { selectEngine("apple") } else { emit(enginesEvent) }
+        // the voice detector stays while another engine has it
+        let shared = Set(models.filter { $0 !== m && $0.state != .absent }.flatMap { $0.spec.files.map(\.name) })
+        m.remove(keeping: shared)
+        if settings.engine == id { selectEngine("apple") } else { emit(enginesEvent) }
         #endif
     }
 
     /// The recognizer for a new session: the chosen engine, or Apple's when the chosen one isn't ready.
     func makeRecognizer(live: Bool) -> (SpeechRecognizer, String) {
         #if WHISPER
-        if settings.engine == "whisper" {
-            if whisper.state == .ready {
-                let r = WhisperRecognizer(live: live)
-                r.onFallback = { [weak self] in self?.whisper.recheck() }
-                return (r, "whisper")
+        if let m = model(settings.engine) {
+            let name = m.spec.name
+            if !m.spec.languages.contains(settings.language) {
+                emit(["ev": "notice", "code": "engine_language",
+                      "msg": "\(name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적어요."])
+            } else if m.state == .ready {
+                let r = WhisperRecognizer(live: live, major: settings.language, spec: m.spec)
+                r.onFallback = { [weak m] in m?.recheck() }
+                return (r, m.spec.id)
+            } else {
+                emit(["ev": "notice", "code": "engine_missing", "msg": m.downloading || m.state == .verifying
+                      ? "\(name) 모델을 아직 준비하는 중이라 이번에는 Apple 음성 인식으로 받아 적어요."
+                      : "\(name) 모델이 없어서 Apple 음성 인식으로 받아 적어요. 설정 › 음성 인식에서 내려받을 수 있어요."])
             }
-            emit(["ev": "notice", "code": "engine_missing", "msg": whisper.downloading || whisper.state == .verifying
-                  ? "Whisper를 아직 준비하는 중이라 이번에는 Apple 음성 인식으로 받아 적어요."
-                  : "Whisper 모델이 없어서 Apple 음성 인식으로 받아 적어요. 설정 › 음성 인식에서 내려받을 수 있어요."])
         }
         #endif
-        return (Recognizer(), "apple")
+        return (Recognizer(main: settings.language), "apple")
     }
 
     var busy: Bool { session != nil || !saving.isEmpty }
@@ -330,7 +381,7 @@ final class Engine {
                 emit(["ev": "engine", "state": "ready", "msg": "준비됨"])
                 log("engine ready")
                 #if WHISPER
-                whisper.warmUpIfUpdated(selected: settings.engine == "whisper")
+                for m in models { m.warmUpIfUpdated(selected: settings.engine == m.spec.id) }
                 #endif
                 let dir = self.outDir
                 Task.detached {
@@ -436,6 +487,15 @@ final class Engine {
         if let v = msg["accent"] as? String, ["brass", "sage", "rose", "blue", "lavender"].contains(v) { settings.accent = v }
         if let v = msg["size"] as? String, ["s", "m", "l", "xl"].contains(v) { settings.size = v }
         if let v = msg["icon"] as? String, appIcons.contains(v) { settings.icon = v }
+        if let v = msg["language"] as? String, ["ko", "en"].contains(v), v != settings.language {
+            settings.language = v
+            #if WHISPER
+            if let m = model(settings.engine), m.state == .ready, !m.spec.languages.contains(v) {   // Parakeet: English only
+                emit(["ev": "notice", "code": "engine_language",
+                      "msg": "\(m.spec.name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적어요."])
+            }
+            #endif
+        }
         settings.save()
         emit(settings.event)
     }
@@ -489,7 +549,7 @@ final class Session {
     private var source: AudioSource?
     private var startTask: Task<Void, Error>?
     private let recognizer: SpeechRecognizer
-    /// Which engine transcribes this session ("apple" | "whisper").
+    /// Which engine transcribes this session ("apple", or a downloaded one's id).
     let engineID: String
     private var slides: SlideCollector?
     private var slideTask: Task<Void, Never>?

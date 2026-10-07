@@ -165,6 +165,43 @@
   body.has-text .empty { opacity: 0; }
   .wave { width: 120px; height: 36px; margin-bottom: 30px; opacity: 0.85; }
   .wave path { fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-linecap: round; }
+  /* start screen: a lecture on screen (the mic on iPhone/iPad) → its sound → transcript lines writing themselves.
+     It starts fully drawn, shows the writing three times (27 s) and rests: an idle window shouldn't keep repainting. */
+  .hero { width: 236px; height: 64px; margin-bottom: 34px; overflow: visible; }
+  .hero * { fill: none; stroke-width: 1.2; stroke-linecap: round; }
+  .hero .h-frame { stroke: rgba(var(--tint-rgb), 0.4); }
+  .hero .h-title { stroke: rgba(var(--tint-rgb), 0.5); stroke-width: 2.2; }
+  .hero .h-soft { stroke: rgba(var(--tint-rgb), 0.26); }
+  .hero .h-track { stroke: rgba(var(--tint-rgb), 0.14); }
+  .hero .h-played, .hero .h-wave, .hero .h-pulse, .hero .h-caret { stroke: var(--accent); }
+  .hero .h-head { fill: var(--accent); stroke: none; }
+  .hero .h-wave { opacity: 0.4; animation: h-wave 0.8s ease 26s forwards; }      /* full strength once the pulse stops */
+  .hero .h-pulse { stroke-width: 1.5; stroke-dasharray: 0.3 2; stroke-dashoffset: -1.03; animation: h-flow 2.6s ease-in-out 10; }
+  .hero .h-tick { stroke: rgba(var(--accent-rgb), 0.6); }
+  .hero .h-mark { fill: rgba(var(--accent-rgb), 0.2); stroke: none; animation: h-mark 9s ease 3; }
+  .hero .h-line { stroke: rgba(var(--tint-rgb), 0.5); stroke-dasharray: 1 1.1; animation: 9s ease-out 3; }
+  .hero .l1 { animation-name: h-l1; } .hero .l2 { animation-name: h-l2; } .hero .l3 { animation-name: h-l3; }
+  .hero .l4 { animation-name: h-l4; } .hero .l5 { animation-name: h-l5; }
+  .hero .h-caret { animation: h-caret 9s steps(1) 3; }
+  .hero.ios { width: 188px; }                 /* the mic is narrower than the laptop: viewBox cropped to stay centred */
+  .hero.ios .mac, .hero:not(.ios) .ios { display: none; }
+  body.has-text .hero * { animation-play-state: paused; }
+  @media (max-height: 700px) { .hero { width: 170px; height: 46px; margin-bottom: 22px; } .hero.ios { width: 135px; } }
+  @media (max-height: 620px) { .hero { display: none; } }          /* a short window keeps the words clear of header and dock */
+  /* one cycle: drawn (0–30%), lines fade (30–38%), write in one by one (42–79%), drawn again (79–100%) */
+  @keyframes h-flow { from { stroke-dashoffset: 0.33; } to { stroke-dashoffset: -1.03; } }
+  @keyframes h-wave { to { opacity: 0.85; } }
+  @keyframes h-l1 { 0%, 30% { stroke-dashoffset: 0; opacity: 1; } 38% { stroke-dashoffset: 0; opacity: 0; } 38.1% { stroke-dashoffset: 1.05; opacity: 0; } 40%, 42% { stroke-dashoffset: 1.05; opacity: 1; } 50%, 100% { stroke-dashoffset: 0; opacity: 1; } }
+  @keyframes h-l2 { 0%, 30% { stroke-dashoffset: 0; opacity: 1; } 38% { stroke-dashoffset: 0; opacity: 0; } 38.1% { stroke-dashoffset: 1.05; opacity: 0; } 40%, 50% { stroke-dashoffset: 1.05; opacity: 1; } 58%, 100% { stroke-dashoffset: 0; opacity: 1; } }
+  @keyframes h-l3 { 0%, 30% { stroke-dashoffset: 0; opacity: 1; } 38% { stroke-dashoffset: 0; opacity: 0; } 38.1% { stroke-dashoffset: 1.05; opacity: 0; } 40%, 58% { stroke-dashoffset: 1.05; opacity: 1; } 66%, 100% { stroke-dashoffset: 0; opacity: 1; } }
+  @keyframes h-l4 { 0%, 30% { stroke-dashoffset: 0; opacity: 1; } 38% { stroke-dashoffset: 0; opacity: 0; } 38.1% { stroke-dashoffset: 1.05; opacity: 0; } 40%, 66% { stroke-dashoffset: 1.05; opacity: 1; } 74%, 100% { stroke-dashoffset: 0; opacity: 1; } }
+  @keyframes h-l5 { 0%, 30% { stroke-dashoffset: 0; opacity: 1; } 38% { stroke-dashoffset: 0; opacity: 0; } 38.1% { stroke-dashoffset: 1.05; opacity: 0; } 40%, 74% { stroke-dashoffset: 1.05; opacity: 1; } 79%, 100% { stroke-dashoffset: 0; opacity: 1; } }
+  @keyframes h-mark { 0%, 30% { opacity: 1; } 38%, 66% { opacity: 0; } 71%, 100% { opacity: 1; } }
+  @keyframes h-caret { 0% { opacity: 1; } 6% { opacity: 0; } 12% { opacity: 1; } 18% { opacity: 0; } 24% { opacity: 1; } 30% { opacity: 0; } 79% { opacity: 1; } 85% { opacity: 0; } 91% { opacity: 1; } 96% { opacity: 0; } 100% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .hero .h-line, .hero .h-mark, .hero .h-caret, .hero .h-pulse, .hero .h-wave { animation: none; }
+    .hero .h-wave { opacity: 0.85; }
+  }
   .empty h1 {
     font-size: clamp(25px, 3.6vw, 33px); font-weight: 200; line-height: 1.5;
     letter-spacing: -0.01em; color: var(--ink);
@@ -270,6 +307,11 @@
   .link:hover:not(:disabled) { color: var(--ink-2); border-color: var(--line-2); }
   .link:disabled { opacity: 0.35; cursor: default; }
   .dotsep { color: var(--faint); }
+  /* 강의 언어: the lecture's main language (the other one is written where it is spoken) */
+  .langseg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line-2); border-radius: 999px; }
+  .langseg button { font-size: 12px; font-weight: 300; color: var(--muted); padding: 3px 10px; border-radius: 999px; transition: background 0.2s, color 0.2s; }
+  .langseg button.on { background: rgba(var(--accent-rgb), 0.22); color: var(--ink); font-weight: 400; }
+  .langseg button:hover:not(.on) { color: var(--ink-2); }
 
   /* ---------- overlays ---------- */
   .latest {
@@ -284,13 +326,13 @@
   .toast {
     position: fixed; left: 50%; bottom: calc(196px + var(--sab)); z-index: 30;
     transform: translate(-50%, 10px); opacity: 0; pointer-events: none;
-    padding: 11px 20px; border-radius: 999px; max-width: calc(100% - 32px);
+    padding: 11px 20px; border-radius: 20px; width: max-content; max-width: min(560px, calc(100% - 32px));
     font-size: 13.5px; font-weight: 300; color: var(--ink); text-align: center;
     background: var(--card-2); border: 1px solid var(--line-2);
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     box-shadow: 0 14px 40px var(--shadow);
     transition: opacity 0.3s, transform 0.3s;
-  }
+   word-break: keep-all;}
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .toast.has-act { pointer-events: auto; display: flex; align-items: center; gap: 14px; padding-right: 10px; }
   .toast.has-act:not(.show) { pointer-events: none; }
@@ -383,7 +425,7 @@
   .dm-badge.ok::before { content: "✓ "; color: var(--accent); }
   #dmDone { left: 50%; top: -5px; transform: translateX(-50%); }
   .dm-dots { display: flex; justify-content: center; gap: 7px; margin-top: 18px; }
-  .dm-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(var(--tint-rgb), 0.18); transition: background 0.4s, width 0.4s; }
+  .dm-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(var(--tint-rgb), 0.18); transition: background 0.23s, width 0.23s; }
   .dm-dots i.on { width: 18px; border-radius: 3px; background: var(--accent); }
   .demo-foot { margin-top: 12px !important; font-size: 12px !important; text-align: center; color: var(--ink-2) !important; }
   .helpdot { width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--line-2); font-size: 10.5px; color: var(--muted); display: inline-grid; place-items: center; }
@@ -665,8 +707,36 @@
 
   <main id="scroller">
     <div class="empty" id="empty">
-      <svg class="wave" viewBox="0 0 120 36" aria-hidden="true">
-        <path d="M2 18 C 12 18, 14 6, 22 6 S 32 30, 40 30 S 50 10, 58 10 S 66 24, 74 24 S 84 14, 92 14 S 104 18, 118 18" />
+      <!-- the lecture's sound becomes text: a lecture on screen (the mic on iPhone/iPad) → wave → transcript -->
+      <svg class="hero" id="hero" viewBox="0 0 236 64" aria-hidden="true">
+        <g class="mac">
+          <rect class="h-frame" x="8" y="1" width="84" height="56" rx="5"/>
+          <path class="h-frame" d="M1 61.5 H99"/>
+          <path class="h-title" d="M17 12 H44"/>
+          <path class="h-soft" d="M17 20.5 H62 M17 27.5 H53"/>
+          <rect class="h-soft" x="63" y="31" width="21" height="15" rx="2"/>
+          <circle class="h-soft" cx="73.5" cy="36.4" r="2.5"/>
+          <path class="h-soft" d="M68.6 44.8 Q73.5 39.8 78.4 44.8"/>
+          <path class="h-track" d="M16 51 H84"/>
+          <path class="h-played" d="M16 51 H38"/>
+          <circle class="h-head" cx="38" cy="51" r="1.7"/>
+        </g>
+        <g class="ios" transform="translate(24 0)">
+          <rect class="h-frame" x="38" y="3" width="24" height="36" rx="12"/>
+          <path class="h-soft" d="M44.5 14 H55.5 M44.5 20.5 H55.5 M44.5 27 H55.5"/>
+          <path class="h-frame" d="M30 28 A20 20 0 0 0 70 28 M50 48 V58 M40 59.5 H60"/>
+        </g>
+        <path class="h-wave" d="M100 30 C104 30 105 22 109 22 S114 38 118 38 S123 25 127 25 S132 34 136 34 S140 30 144 30"/>
+        <path class="h-pulse" pathLength="1" d="M100 30 C104 30 105 22 109 22 S114 38 118 38 S123 25 127 25 S132 34 136 34 S140 30 144 30"/>
+        <rect class="h-frame" x="150" y="1" width="84" height="60" rx="5"/>
+        <rect class="h-mark" x="156" y="27" width="70" height="8" rx="2"/>
+        <path class="h-tick" d="M158 11 H163 M158 21 H163 M158 31 H163 M158 41 H163 M158 51 H163"/>
+        <path class="h-line l1" pathLength="1" d="M168 11 H224"/>
+        <path class="h-line l2" pathLength="1" d="M168 21 H216"/>
+        <path class="h-line l3" pathLength="1" d="M168 31 H222"/>
+        <path class="h-line l4" pathLength="1" d="M168 41 H210"/>
+        <path class="h-line l5" pathLength="1" d="M168 51 H192"/>
+        <path class="h-caret" d="M197 47.5 V54.5"/>
       </svg>
       <h1 id="headline">강의 영상을 재생하고<br>시작을 눌러 주세요</h1>
       <p class="hint" id="hint">이 Mac에서 나오는 소리를 그대로 받아 적어요. 마이크는 쓰지 않아요.<br>녹음과 받아 적은 글은 ‘기록 폴더’에 자동으로 저장돼요.</p>
@@ -854,6 +924,9 @@
       <button class="ghost" id="folder">기록</button>
     </div>
     <div class="row2">
+      <span class="langseg" id="lang" role="radiogroup" aria-label="강의 언어"><button data-lang="ko" class="on" role="radio" aria-checked="true">한국어</button><button data-lang="en" role="radio" aria-checked="false">English</button></span>
+      <button class="helpdot" id="langhelp" aria-label="강의 언어는 언제 바꾸나요?">?</button>
+      <span class="dotsep">·</span>
       <label class="check" id="slwrap"><input type="checkbox" id="sl"><span class="box"></span><span>슬라이드 PDF</span></label>
       <button class="helpdot" id="slhelp" aria-label="슬라이드 PDF가 뭔가요?">?</button>
       <span class="dotsep">·</span>
@@ -1406,12 +1479,15 @@
     $("setSl").checked = $("sl").checked;
     $("setKwInfo").textContent = keywords.length ? `${keywords.slice(0, 3).join(", ")}${keywords.length > 3 ? ` 외 ${keywords.length - 3}개` : ""}` : "없음";
   }
-  // ---------- 설정 › 음성 인식: the engines the app lists (another platform would list its own) — pick one, download Whisper
+  // ---------- 설정 › 음성 인식: the engines the app lists (another platform would list its own) — pick one, download a model
   const eng = { list: [], current: "apple", busy: false };
   const megabytes = (b) => `${Math.round(b / 1e6)}MB`;
-  function readyText() {
-    return eng.current === "whisper" && eng.list.some((e) => e.id === "whisper" && e.state === "ready") ? "준비됨 · Whisper" : "준비됨";
+  /** The downloaded engine a recording would use now (an English-only one sits out a Korean lecture). */
+  function engineInUse() {
+    const e = eng.list.find((x) => x.id === eng.current && x.id !== "apple" && x.state === "ready");
+    return e && (!e.languages || e.languages.includes(state.lang || "ko")) ? e : null;
   }
+  function readyText() { const e = engineInUse(); return e ? `준비됨 · ${e.name}` : "준비됨"; }
   // Rows are kept and updated in place: progress arrives four times a second while a model downloads, and a row
   // rebuilt under the pointer would swallow the click on 취소.
   const engRows = new Map();
@@ -1437,8 +1513,10 @@
       r.name.textContent = e.name;
       if (e.model) r.name.appendChild(el("i", null, e.model));
       r.note.className = e.state === "failed" ? "err" : "";
+      const sitsOut = on && e.languages && !e.languages.includes(state.lang || "ko");   // English-only, Korean lecture
       r.note.textContent = e.state === "failed" ? (e.error || "내려받지 못했어요.")
         : e.state === "downloading" ? (e.verifying ? "내려받은 모델을 확인하고 준비하는 중…" : `내려받는 중 · ${pct}% · ${megabytes((e.progress || 0) * e.bytes)} / ${megabytes(e.bytes)}`)
+        : sitsOut ? "영어 강의일 때 써요 · 지금은 한국어 강의라 Apple 음성 인식으로 받아 적어요"
         : e.desc || "";
       r.bar.style.display = e.state === "downloading" ? "" : "none";
       r.fill.style.width = `${e.verifying ? 100 : pct}%`;
@@ -1471,7 +1549,8 @@
     $("setEngNote").textContent = eng.busy ? "지금 받아 적는 중이에요. 바꾼 엔진은 다음 녹음부터 적용돼요."
       : eng.list.some((e) => e.state === "downloading") ? "내려받는 동안에도 지금 엔진으로 받아 적을 수 있어요."
       : `어느 엔진이든 녹음과 받아쓰기는 이 ${IOS ? DEVICE : "Mac"} 안에서만 처리돼요.`;
-    $("setEngInfo").textContent = eng.current === "whisper" ? "Whisper · 기기 안에서 처리 · 인터넷 전송 없음" : "Apple 온디바이스 · 인터넷 전송 없음";
+    const inUse = engineInUse();
+    $("setEngInfo").textContent = inUse ? `${inUse.name} · 기기 안에서 처리 · 인터넷 전송 없음` : "Apple 온디바이스 · 인터넷 전송 없음";
     if (state.rec === "idle" && state.engine === "ready") setStatus(readyText());
   }
 
@@ -1484,6 +1563,7 @@
 
   // ---------- 슬라이드 PDF demo: a 22-second story drawn from a clock (so it can also be rendered frame by frame)
   const DEMO_LEN = 22;
+  const DEMO_SPEED = 1.75;              // the timeline below is in seconds at 1×; it plays 1.75× faster (one loop ≈ 12.6 s)
   const DEMO = {
     caps: ["강의를 받아 적으면서, 화면도 함께 지켜봐요",
            "슬라이드는 찍어서 PDF 한 장에, 그동안 한 말은 그 아래에",
@@ -1605,7 +1685,7 @@
     $("demoCap").dataset.p = "";
     const t0 = performance.now();
     cancelAnimationFrame(demoRAF);
-    const loop = (now) => { renderDemo((now - t0) / 1000); demoRAF = requestAnimationFrame(loop); };
+    const loop = (now) => { renderDemo((now - t0) / 1000 * DEMO_SPEED); demoRAF = requestAnimationFrame(loop); };
     demoRAF = requestAnimationFrame(loop);
   }
   function closeSlideDemo() { cancelAnimationFrame(demoRAF); $("slidedemo").classList.remove("show"); }
@@ -1780,6 +1860,8 @@
                [["권한 설정 열기", () => send("openPrivacy")]]);
       } else if (ev.code === "tap_error") {
         notice("이 Mac의 소리를 가져오지 못했어요. ‘시스템 오디오 녹음’ 권한을 확인해 주세요.", [["권한 설정 열기", () => send("openPrivacy")]]);
+      } else if (ev.msg && (ev.code === "recognizer" || String(ev.code).startsWith("engine_"))) {
+        toast(ev.msg, 6000);                                       // engine messages are longer: time to read them
       } else if (ev.msg) {
         toast(ev.msg, 3200);
       }
@@ -1795,6 +1877,7 @@
         toast(ev.keywords.length ? `중요 단어 ${ev.keywords.length}개 저장됨` : "중요 단어를 모두 지웠어요");
       }
       if (typeof ev.slides === "boolean") $("sl").checked = ev.slides;
+      if (ev.language === "ko" || ev.language === "en") setLang(ev.language);
       if (typeof ev.timestamps === "boolean") {
         $("ts").checked = ev.timestamps;
         body.classList.toggle("no-ts", !ev.timestamps);
@@ -1862,13 +1945,37 @@
   $("sl").onchange = () => {
     send("settings", { slides: $("sl").checked });
     if (!$("sl").checked) return;
-    let seen = false;
-    try { seen = localStorage.getItem("seenSlidesDemo") === "1"; localStorage.setItem("seenSlidesDemo", "1"); } catch (e) {}
-    if (!seen) openSlideDemo();                                        // the first time: show how it works
+    let seen = false;                                                  // a new key: 2.0's "seenSlidesDemo" doesn't count
+    try { seen = localStorage.getItem("slidesDemoPlayed") === "1"; localStorage.setItem("slidesDemoPlayed", "1"); } catch (e) {}
+    if (!seen) openSlideDemo();                                        // the first time it's turned on, it plays by itself
     else toast(IOS ? "영상 파일을 받아 적을 때 슬라이드를 모아 PDF로 만들어요."
                    : "시작하면 강의 창을 골라 주세요. 슬라이드가 바뀔 때마다 모아 PDF로 만들어요.", 4200);
   };
   $("slhelp").onclick = openSlideDemo;
+  function setLang(v) {
+    for (const b of $("lang").children) { const on = b.dataset.lang === v; b.classList.toggle("on", on); b.setAttribute("aria-checked", String(on)); }
+    state.lang = v;
+    if (state.rec === "idle" && state.engine === "ready") setStatus(readyText());
+    renderEngines();
+  }
+  // Heads-up: a strong accent can make a recognizer hear the other language
+  $("langhelp").onclick = () => toast("말하는 사람의 억양이 강하면 다른 언어로 잘못 들릴 수 있어요. 영어 강의라면 시작 전에 English로 바꿔 주세요."
+    + (eng.list.some((e) => e.id === "qwen3")
+       ? " 억양이 아주 강하면 그래도 Apple 음성 인식은 영어를 한글이나 엉뚱한 단어로 적을 수 있어요 — 설정 › 음성 인식의 Qwen3-ASR이 가장 정확해요." : ""), 7500);
+  $("lang").onclick = (e) => {
+    const b = e.target.closest("button[data-lang]");
+    if (!b || b.classList.contains("on")) return;
+    const en = b.dataset.lang === "en";
+    setLang(b.dataset.lang);
+    send("settings", { language: b.dataset.lang });
+    const only = engineInUse()?.languages?.length === 1 ? engineInUse() : null;      // Parakeet: English only
+    toast(state.rec === "recording" ? `다음 녹음부터 ${en ? "영어" : "한국어"} 강의로 받아 적어요.`
+          : en ? (only ? `영어 강의로 받아 적어요. ${only.name} 모델은 영어만 받아 적어요.`
+                : engineInUse() ? "영어 강의로 받아 적어요. 한국어로 하는 말도 한국어로 적어요(또렷하지 않은 짧은 말은 가끔 틀려요)."
+                : "영어 강의로 받아 적어요. 한국어로 하는 말도 적으려 하지만, Apple 음성 인식은 한국어 말을 놓칠 때가 있어요(짧을수록 자주).")
+          : engineInUse() ? "한국어 강의로 받아 적어요. 영어 문장은 영어 그대로 적어요."
+          : "한국어 강의로 받아 적어요. 영어 문장은 영어 그대로 적어요 — Apple 음성 인식은 짧은 영어 인용을 놓칠 때가 있어요.", 4800);
+  };
   $("demoOk").onclick = closeSlideDemo;
   $("slwrap").title = IOS ? "영상 파일의 슬라이드를 PDF로" : "강의 창의 슬라이드를 PDF로";
   $("detDelete").onclick = () => askConfirm("기록 삭제", `‘${$("detName").value}’의 받아 적은 글과 녹음을 함께 지울까요?`, "삭제",
@@ -1994,32 +2101,50 @@
       if (cmd === "copy") setTimeout(() => window.app.receive({ ev: "copied" }), 50);
       if (cmd === "settings") window.app.receive({ ev: "settings", ...extra });
     },
-    // 음성 인식 demo: Apple plus a pretend Whisper download (nothing is downloaded)
-    eng: { current: "apple", whisper: "absent", progress: 0, timer: 0 },
+    // 음성 인식 demo: Apple plus pretend downloads (nothing is downloaded)
+    eng: { current: "apple", state: { whisper: "absent", qwen3: "absent", parakeet: "absent" }, progress: {}, timer: 0 },
+    engineInfo: {                                  // bytes: the model alone; the shared voice detector (885,098) comes with the first
+      whisper: { name: "Whisper", model: "large-v3 turbo", desc: "OpenAI의 공개 모델을 이 Mac에서 실행해요 · Apple보다 전력을 더 써요", bytes: 574041195, languages: ["ko", "en"] },
+      qwen3: { name: "Qwen3-ASR", model: "1.7B", desc: "Alibaba의 공개 모델 · 한국어와 영어가 섞여도, 억양이 강한 영어도 정확해요", bytes: 1517290464, languages: ["ko", "en"] },
+      parakeet: { name: "Parakeet", model: "0.6B", desc: "NVIDIA의 공개 모델 · 영어 강의 전용 — 한국어로 한 말은 빠지거나 엉뚱한 영어로 적혀요 · 내려받는 엔진 중 가장 빠르고 가벼워요", bytes: 540795264, languages: ["en"] },
+    },
     engines(emit) {
       const w = this.eng;
+      const others = (id) => Object.keys(w.state).some((k) => k !== id && w.state[k] !== "absent");
       emit({ ev: "engines", current: w.current, busy: false, list: [
         { id: "apple", name: "Apple 음성 인식", desc: "기본 · 추가 다운로드 없이 가볍고 빨라요", state: "ready", bytes: 0 },
-        { id: "whisper", name: "Whisper", model: "large-v3 turbo", desc: "OpenAI의 공개 모델을 이 Mac에서 실행해요 · Apple보다 전력을 더 써요",
-          state: w.whisper === "verifying" ? "downloading" : w.whisper, verifying: w.whisper === "verifying", progress: w.progress,
-          bytes: 574926293, removable: true },
+        ...(IOS ? [] : Object.entries(this.engineInfo).map(([id, info]) => ({ id, ...info, removable: true,
+          bytes: info.bytes + (others(id) ? 0 : 885098),
+          state: w.state[id] === "verifying" ? "downloading" : w.state[id], verifying: w.state[id] === "verifying", progress: w.progress[id] || 0 }))),
       ] });
     },
     engineCmd(cmd, extra, emit) {
-      const w = this.eng;
-      clearInterval(w.timer);
+      const w = this.eng, id = extra.engine;
       if (cmd === "engineDownload") {
-        w.whisper = "downloading"; w.progress = 0;
+        const busy = Object.keys(w.state).find((k) => k !== id && ["downloading", "verifying"].includes(w.state[k]));
+        if (busy) { emit({ ev: "notice", code: "engine_downloading", msg: `${this.engineInfo[busy].name} 모델을 내려받는 중이에요. 끝난 뒤에 내려받을 수 있어요.` }); return; }
+        clearInterval(w.timer);
+        w.state[id] = "downloading"; w.progress[id] = 0;
         w.timer = setInterval(() => {
-          w.progress = Math.min(1, w.progress + 0.07);
-          if (w.progress >= 1 && w.whisper === "downloading") w.whisper = "verifying";
-          else if (w.whisper === "verifying") { w.whisper = "ready"; w.current = "whisper"; clearInterval(w.timer); }
+          w.progress[id] = Math.min(1, w.progress[id] + 0.07);
+          if (w.progress[id] >= 1 && w.state[id] === "downloading") w.state[id] = "verifying";
+          else if (w.state[id] === "verifying") {
+            w.state[id] = "ready"; clearInterval(w.timer);
+            const info = this.engineInfo[id], lang = state.lang || "ko", cur = this.engineInfo[w.current];
+            if (info.languages.includes(lang)) w.current = id;                 // the app's rule (Engine.downloaded)
+            else if (cur && w.state[w.current] === "ready" && cur.languages.includes(lang))
+              emit({ ev: "notice", code: "engine_language", msg: `${info.name} 모델을 내려받았어요. 영어 강의 전용이라 지금은 ${cur.name} 모델을 그대로 써요 — 영어 강의에 쓰려면 설정 › 음성 인식에서 골라 주세요.` });
+            else {
+              w.current = id;
+              emit({ ev: "notice", code: "engine_language", msg: `${info.name} 모델은 영어 강의 전용이에요. 강의 언어를 English로 바꾸면 ${info.name} 모델로 받아 적어요.` });
+            }
+          }
           this.engines(emit);
         }, 250);
       }
-      if (cmd === "engineCancel") { w.whisper = "absent"; w.progress = 0; }
-      if (cmd === "engineRemove") { w.whisper = "absent"; w.progress = 0; w.current = "apple"; }
-      if (cmd === "engineSelect") w.current = extra.engine;
+      if (cmd === "engineCancel") { clearInterval(w.timer); w.state[id] = "absent"; w.progress[id] = 0; }
+      if (cmd === "engineRemove") { w.state[id] = "absent"; w.progress[id] = 0; if (w.current === id) w.current = "apple"; }
+      if (cmd === "engineSelect") w.current = id;
       this.engines(emit);
     },
     // 기록 demo: a few sessions and a simulated player (no audio is played)
@@ -2144,6 +2269,8 @@
   };
 
   if (IOS) {
+    $("hero").classList.add("ios");                                   // the mic, not a screen
+    $("hero").setAttribute("viewBox", "50 0 188 64");
     $("headline").innerHTML = "강의 소리가 들리는 곳에서<br>시작을 눌러 주세요";
     $("hint").innerHTML = `${DEVICE} 마이크로 받아 적어요. 화면을 꺼도 계속 녹음돼요.<br>녹음과 글은 ‘기록’에 자동으로 모여요.`;
   } else if (HAS_LIBRARY) {
