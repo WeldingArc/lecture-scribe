@@ -70,17 +70,17 @@ final class ScreenSlides: NSObject, SCContentSharingPickerObserver, SCStreamOutp
         do {
             try s.addStreamOutput(self, type: .screen, sampleHandlerQueue: queue)
         } catch {
-            onNote?("slides_note", "슬라이드를 모으지 못했어요. 받아쓰기는 계속돼요.")
+            onNote?("slides_note", "슬라이드를 모으지 못했습니다. 받아쓰기는 계속됩니다.")
             return
         }
         stream = s
         s.startCapture { [weak self] error in
             guard let error else { return }
             log("slides: capture failed: \(error)")
-            Task { @MainActor in self?.onNote?("slides_note", "슬라이드를 모으지 못했어요. 받아쓰기는 계속돼요.") }
+            Task { @MainActor in self?.onNote?("slides_note", "슬라이드를 모으지 못했습니다. 받아쓰기는 계속됩니다.") }
         }
         log("slides: watching \(cfg.width)×\(cfg.height)")
-        onNote?("slides_on", "슬라이드를 모으고 있어요. 바뀔 때마다 한 장씩 PDF에 담아요.")
+        onNote?("slides_on", "슬라이드를 모으고 있습니다. 바뀔 때마다 한 장씩 PDF에 담습니다.")
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { if let self, let img = self.latest.take() { self.onFrame?(img) } }
@@ -96,7 +96,7 @@ final class ScreenSlides: NSObject, SCContentSharingPickerObserver, SCStreamOutp
     nonisolated func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {
         Task { @MainActor in
             guard self.active, self.stream == nil else { return }
-            self.onNote?("slides_note", "강의 창을 고르지 않아서 슬라이드 없이 받아 적어요.")
+            self.onNote?("slides_note", "강의 창을 선택하지 않아서 슬라이드 없이 받아 적습니다.")
             self.stop()
         }
     }
@@ -104,7 +104,7 @@ final class ScreenSlides: NSObject, SCContentSharingPickerObserver, SCStreamOutp
     nonisolated func contentSharingPickerStartDidFailWithError(_ error: Error) {
         Task { @MainActor in
             log("slides: picker failed: \(error)")
-            self.onNote?("slides_note", "창 선택을 열지 못했어요. 슬라이드 없이 받아 적어요.")
+            self.onNote?("slides_note", "창 선택을 열지 못했습니다. 슬라이드 없이 받아 적습니다.")
             self.stop()
         }
     }
@@ -125,7 +125,7 @@ final class ScreenSlides: NSObject, SCContentSharingPickerObserver, SCStreamOutp
         log("slides: stream stopped: \(error)")
         Task { @MainActor in
             guard self.active else { return }
-            self.onNote?("slides_note", "강의 창이 닫혀서 슬라이드 모으기를 멈췄어요. 받아쓰기는 계속돼요.")
+            self.onNote?("slides_note", "강의 창이 닫혀서 슬라이드 모으기를 멈췄습니다. 받아쓰기는 계속됩니다.")
             self.stop()
         }
     }

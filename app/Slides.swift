@@ -948,7 +948,7 @@ enum SlidesPDF {
                 said.append(text("\(fmtTime(l.0))   ", timeFont, accent, kern: 0.4, line: 1.75))
                 said.append(text(l.1 + (k + 1 < mine.count ? "\n" : ""), bodyFont, ink, line: 1.75))
             }
-            if mine.isEmpty { said.append(text("이 슬라이드가 보이는 동안 받아 적은 말이 없어요.", bodyFont, muted, line: 1.75)) }
+            if mine.isEmpty { said.append(text("이 슬라이드가 보이는 동안 받아 적은 말이 없습니다.", bodyFont, muted, line: 1.75)) }
 
             var start = 0, first = true
             repeat {

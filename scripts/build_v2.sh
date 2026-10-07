@@ -11,8 +11,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${VERSION:-2.1.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-210}"
+VERSION="${VERSION:-2.2.0}"
+BUILD_NUMBER="${BUILD_NUMBER:-220}"
 SIGN_ID="${SIGN_ID:--}"
 ENTITLEMENTS="${ENTITLEMENTS:-$ROOT/app/LectureScribe.entitlements}"
 OUT="$ROOT/build/v2"

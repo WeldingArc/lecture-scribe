@@ -182,9 +182,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         if url.isFileURL {
             let media = UTType(filenameExtension: url.pathExtension)?.conforms(to: .audiovisualContent) ?? false
             if !media {
-                toPage(["ev": "notice", "code": "file_error", "msg": "녹음이나 영상 파일만 받아 적을 수 있어요."])
+                toPage(["ev": "notice", "code": "file_error", "msg": "녹음이나 영상 파일만 받아 적을 수 있습니다."])
             } else if !FileManager.default.isReadableFile(atPath: url.path) {      // the sandbox didn't grant this drop
-                toPage(["ev": "notice", "code": "file_error", "msg": "이 파일은 아래쪽 [파일 불러오기]로 열어 주세요."])
+                toPage(["ev": "notice", "code": "file_error", "msg": "이 파일은 아래쪽 [파일 불러오기]로 열어야 합니다."])
             } else {
                 engine.start(.file, file: url)               // busy → the engine says so
             }
@@ -272,6 +272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             .separator(), it("닫기", #selector(NSWindow.performClose(_:)), "w"),
         ])
         let help = sub("도움말", [
+            it("이용 안내 및 면책 고지", #selector(openLegal), ""),
             it("GitHub 페이지 열기", #selector(openRepo), ""),
             it("로그 폴더 열기 (문제 신고용)", #selector(openLogs), ""),
         ])
@@ -284,6 +285,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
 
     @objc func openRepo() { if let u = URL(string: repoURL) { NSWorkspace.shared.open(u) } }
     @objc func openSettings() { toPage(["ev": "openSettings"]) }
+    @objc func openLegal() { toPage(["ev": "openLegal"]) }
     @objc func openLogs() { NSWorkspace.shared.open(logURL.deletingLastPathComponent()) }
 }
 
