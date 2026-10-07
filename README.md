@@ -4,6 +4,8 @@
 
 # 강의 받아쓰기
 
+<p><b>한국어</b> · <a href="README.en.md">English</a></p>
+
 **온라인 강의를 실시간으로 받아 적는 Mac 앱**<br>
 Apple 온디바이스 음성 인식 · 무료 · 오픈소스 · 모든 처리가 내 Mac 안에서
 
@@ -29,7 +31,7 @@ Apple 온디바이스 음성 인식 · 무료 · 오픈소스 · 모든 처리�
 - **억양이 강한 경우 주의.** 말하는 사람의 억양이 강하면 다른 언어로 잘못 인식될 수 있습니다(예: 억양이 강한 영어가 한글로 적히는 경우). 영어 강의라면 시작 전에 **English**로 변경하십시오. 억양이 아주 강하면 Apple 음성 인식은 여전히 잘못 적을 수 있으므로, 이때는 **Qwen3-ASR**을 사용하십시오. 억양이 강한 영어도 가장 정확하게 받아 적습니다. (Qwen3-ASR도 아주 시끄러운 녹음에서는 짧은 말을 잘못 적을 수 있습니다.)
 - **영어로 말한 부분은 영어 그대로** 적습니다. 임의로 번역하지 않습니다. (“Good question.” 같은 아주 짧은 영어 대답은 가끔 한국어로 적힐 수 있습니다.) 다만 Apple 음성 인식은 한국어 문장 사이에 끼인 짧은 영어 인용을 통째로 놓칠 때가 있습니다. 영어 인용(시험에 나올 표현 등)을 반드시 받아 적어야 한다면 Qwen3-ASR을 사용하십시오.
 - **중요 문장 표시** — ‘출석’, ‘시험’, ‘과제’ 같은 단어가 나온 문장에 밑줄을 긋고, 저장 파일 끝에 따로 모아 줍니다. 단어는 직접 변경할 수 있습니다.
-- **파일 받아쓰기** — 녹음·영상 파일을 창에 끌어다 놓으면 재생 시간보다 훨씬 빠르게 받아 적습니다. (1시간 강의 기준 Apple·Parakeet은 1~2분, Whisper·Qwen3-ASR은 15~30분 정도 걸리며, 영어가 섞이거나 말이 자주 끊기면 더 걸립니다.)
+- **파일 받아쓰기** — 녹음·영상 파일을 창에 끌어다 놓으면 재생 시간보다 훨씬 빠르게 받아 적습니다. (1시간 강의 기준 Apple·Parakeet은 1\~2분, Whisper·Qwen3-ASR은 15\~30분 정도 걸리며, 영어가 섞이거나 말이 자주 끊기면 더 걸립니다.)
 - **슬라이드 PDF** — 강의 자료를 제공하지 않는 수업이라면 ‘슬라이드 PDF’를 선택하십시오. 슬라이드가 바뀔 때마다 한 장씩 캡처하여 그동안 한 말과 함께 PDF로 모아 줍니다. 글자가 하나씩 늘어나는 슬라이드는 다 채워진 모습으로 한 장만 담고, 강의하는 사람의 카메라 화면이 바뀌는 것은 무시합니다. (Mac: 강의 창을 선택하여 · iPhone/Mac: 영상 파일에서도)
 
 <p align="center"><img src="docs/slides-demo.gif" width="600" alt="슬라이드 PDF가 동작하는 모습"></p>
@@ -37,7 +39,7 @@ Apple 온디바이스 음성 인식 · 무료 · 오픈소스 · 모든 처리�
 ## 요구 사항
 
 - **macOS 26 (Tahoe) 이상**, Apple Silicon(M1 이상) Mac
-- macOS 14.2~15라면 [v1(Whisper 버전)](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)을 사용하십시오. 아래 설치 명령은 macOS 버전에 맞는 버전을 자동으로 선택합니다.
+- macOS 14.2\~15라면 [v1(Whisper 버전)](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)을 사용하십시오. 아래 설치 명령은 macOS 버전에 맞는 버전을 자동으로 선택합니다.
 
 ## 설치
 
@@ -129,7 +131,7 @@ Mac 시스템 소리 ─▶ Core Audio 탭 (macOS 14.2+) ─▶ Apple SpeechAnal
 
 하나의 네이티브 Swift 앱입니다(AppKit + WKWebView). Apple 샌드박스 안에서 작동하며, 앱 크기는 약 16MB입니다(음성 인식 모델은 내려받을 때만). 직접 빌드하려면 [DEVELOPMENT.md](DEVELOPMENT.md)를 참고하십시오.
 
-**v1**은 OpenAI Whisper large-v3-turbo를 whisper.cpp로 실행하는 버전이었습니다. macOS 14.2~15용으로 [v1.0.0 릴리스](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)에 남아 있습니다.
+**v1**은 OpenAI Whisper large-v3-turbo를 whisper.cpp로 실행하는 버전이었습니다. macOS 14.2\~15용으로 [v1.0.0 릴리스](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)에 남아 있습니다.
 
 ## 라이선스
 
@@ -139,10 +141,4 @@ MIT. 사용한 오픈소스와 라이선스는 [THIRD_PARTY_NOTICES.md](THIRD_PA
 
 ## English
 
-**강의 받아쓰기 (Lecture Transcriber)** is a free, open-source Mac app that live-transcribes whatever lecture is playing on your Mac (LearnUs, YouTube, Zoom…). It captures system audio directly (no microphone) and transcribes it on-device with **Apple's SpeechAnalyzer** — Korean, with English quotes kept in English (it never translates on purpose; a very short English reply can occasionally come out in Korean) — then saves a text file and an audio recording when you stop. Sentences containing keywords you choose (attendance, exam, assignment…) are highlighted and collected at the end. A built-in Library keeps every session's transcript and recording together — click any sentence to hear it. Nothing leaves your Mac, and there is no model to download — unless you choose an optional engine in Settings › 음성 인식, a one-time download that also runs entirely on your Mac: **Qwen3-ASR** (~1.5 GB; the most accurate for mixed Korean/English lectures and strongly accented English — it may spell foreign names in English letters inside Korean sentences, write a very strongly Korean-accented short English line in Hangul, turn unclear or noisy short speech into made-up English, and write Japanese speech in an English lecture as Korean), **Whisper large-v3 turbo** (~575 MB) or **Parakeet** (~540 MB; English lectures only, the fastest and lightest of the downloadable engines — Korean speech is dropped or comes out as made-up English). Heads-up: a strong accent can make a recognizer hear the other language — for an English lecture, switch 강의 언어 to English before you start; with a very strong accent Apple's recognizer can still get it wrong, so use Qwen3-ASR. With Apple's recognizer, a Korean remark in an English lecture (short ones most often) or a short English quote between Korean sentences can be missed entirely; if those matter (exam phrases, attendance words), use Qwen3-ASR.
-
-**Requirements:** macOS 26+, Apple Silicon. (macOS 14.2–15: use [v1](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0), which runs Whisper large-v3-turbo locally.)
-**Install:** `curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-transcriber/main/scripts/install.sh | bash`, or download the zip from [Releases](https://github.com/WeldingArc/lecture-transcriber/releases/latest).
-**Please** use it for personal study only and respect your instructors' rights and your school's recording policy.
-
-**Disclaimer.** Lecture Transcriber is a study aid for personal use. Lectures, slides and transcripts you record remain the copyright of their owners (the lecturer, the university). Use recordings, transcripts and slide PDFs only for your own study — sharing, distributing or posting them may infringe copyright. Check your course's recording policy before recording. You alone are responsible for how you use the app and for any legal consequences; the developer accepts no liability. Transcripts can contain errors — check anything important against the original lecture. The app asks you to agree to this on first launch (Settings › 정보 › 이용 안내 및 면책 고지 shows it again).
+The full English README — every feature, install, FAQ and the disclaimer — is in **[README.en.md](README.en.md)**.

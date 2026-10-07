@@ -112,7 +112,7 @@ its own through the same messages:
   lecture recorded in Korean mode doubled every word ("welcome welcome back. back."). Under an accepted English phrase
   its Latin guesses go: tokens without Hangul overlapping the phrase ±0.15 s by more than half or ending inside it (a
   line's first token often starts in the silence before it), and any run of them that touches the phrase, within 1.5 s
-  of it (the two models' word times drift by up to ~1.2 s at a quote's edges) — also on the neighbouring line. A Korean
+  of it (the two models' word times drift by up to \~1.2 s at a quote's edges) — also on the neighbouring line. A Korean
   word is never dropped, however unsure (unsure Hangul at a quote's edges was real speech: "꼭", "라는", "보세요.").
   A phrase doesn't start with punctuation or with an unsure word stretched over the Korean before it ("Tell,(0.35)"
   0.36–2.64). A Korean word far longer than its letters take to say (> 0.5 s + 0.5 s per syllable) was stretched over
@@ -154,15 +154,15 @@ its own through the same messages:
 - an engine implements `SpeechRecognizer` (16 kHz mono Int16 in; `Line`s out — previews replaced by finals with the
   same id, an empty final withdraws a preview) and `Engine.makeRecognizer` picks it.
 
-Whisper (Mac): only the runtime is compiled in (~3.4 MB, `-D WHISPER`); the model (574 MB) and Silero VAD
+Whisper (Mac): only the runtime is compiled in (\~3.4 MB, `-D WHISPER`); the model (574 MB) and Silero VAD
 (0.9 MB) come from Hugging Face on request into Application Support/LectureScribe/Models, are checked against their
 SHA-256, and can be removed. whisper.cpp v1.9.4 is built with `GGML_NATIVE=OFF` (an M2-tuned build can crash on
-an M1). The first load compiles the Metal shaders (~20–40 s; macOS caches the result, but an update can make it compile
+an M1). The first load compiles the Metal shaders (\~20–40 s; macOS caches the result, but an update can make it compile
 again), so the download ends with a warm-up, and when Whisper is the chosen engine each new build warms up once in the
-background at launch; after that a load takes ~0.7 s. Per piece: ~2–9 s on a busy M2 (beam 5, plus a second encode for the
+background at launch; after that a load takes \~0.7 s. Per piece: \~2–9 s on a busy M2 (beam 5, plus a second encode for the
 Korean/English check on finals ≥ 2.5 s). Live, it skips previews and the language check while it is behind, so it
-catches up rather than drifting — but under GPU contention one decode took ~10 s and the lag reached ~13 s (drained
-~12 s after 정지), and in continuous speech a final lands ~20–25 s after its piece starts (22 s cap; previews fill the
+catches up rather than drifting — but under GPU contention one decode took \~10 s and the lag reached \~13 s (drained
+\~12 s after 정지), and in continuous speech a final lands \~20–25 s after its piece starts (22 s cap; previews fill the
 gap). Files are read at most 30 s ahead of decoding. Previews are always decoded as Korean (a language check would
 double their GPU work), so a long English quote can show a Korean paraphrase in grey for a few seconds before its final
 replaces it. A short piece the Korean pass wrote in English anyway is read again as English (the Korean pass drops or
@@ -190,7 +190,7 @@ nvidia-open-model-license), shipped in Contents/Resources/licenses with NVIDIA's
 shared (one copy; removing an engine keeps it while another engine has it — a ready engine's size shows what 삭제 frees),
 one download runs at a time, progress counts only what is missing, and the checksum frees each 8 MB chunk as it goes (it used to hold a 1.5 GB model in memory: 1.57 GB
 peak → 53 MB). Same pipeline as Whisper (VAD pieces, previews, Apple takeover and checksum check when a model can't
-load); the first load compiles Metal shaders (up to a minute: Qwen3/Parakeet ~40 s, Whisper ~20 s on an M2), hence the
+load); the first load compiles Metal shaders (up to a minute: Qwen3/Parakeet \~40 s, Whisper \~20 s on an M2), hence the
 same warm-up. An English-only engine
 downloaded while 강의 언어 is 한국어 doesn't push aside an engine that writes Korean (Qwen3-ASR stays chosen, a notice
 says how to pick Parakeet for English lectures); chosen anyway, its row says Apple's recognizer writes the Korean lecture.
@@ -238,7 +238,7 @@ translated unless its re-read is a clear Korean sentence; a Latin phrase
 ("Carpe diem") can be left out; a short English line in a Korean voice can come out in Hangul ("Any questions so far?" →
 "N E Q S 천슬소파"); a one-word Korean aside in an English lecture comes out romanized ("muzikae"). Parakeet writes
 English only: Korean speech is left out or comes out as made-up English ("자, 질문 있는 사람 있나요?" → "I'm not sure if
-I can do"), so a Korean lecture uses Apple's recognizer with a notice; ~0.02–0.03 × real time on an M2, weaker than
+I can do"), so a Korean lecture uses Apple's recognizer with a notice; \~0.02–0.03 × real time on an M2, weaker than
 Qwen3 on strong accents (v9g_english CER 22% vs 6.9%). Fun-ASR-MLT-Nano (also transcribe.cpp) was tried and left out:
 it keeps one language per piece — a Korean passage's English quotes and an English one's Korean asides vanish — and
 with its text normalization on it stops after the first sentence.
@@ -282,7 +282,7 @@ with its text normalization on it stops after the first sentence.
   a ticking timer, subtitles, or an earlier step of a stored slide (the current slide included). A page is dated to
   when its slide appeared — back over frames that show it with only a pointer elsewhere — not to when it was decided;
   live frames are timed by the audio clock. Files use 1 frame/s with a 1 s settle (live: 2 fps, 1.5 s), so a slide on
-  screen for less than ~2.5 s live or ~3 s in a file can be missed.
+  screen for less than \~2.5 s live or \~3 s in a file can be missed.
   Known limits: a single changed character in body text (one revised digit in a table cell) is usually invisible at
   this resolution, so the page keeps the earlier version (several characters are caught); if a player's controls or a
   notification are showing at the very moment a slide changes, the page includes them and the slide can get a second
@@ -292,12 +292,12 @@ with its text normalization on it stops after the first sentence.
   settles into a static figure under the same title, the last strokes of pen annotation, a fly-in build's last bullet
   in file mode, slides right after a full-window video, and push/zoom transitions with a camera can be missed or late.
   Found by verify9 (52 new scenes; v4 passes 77/104 runs, v3 49/104): a cursor slowly tracing a line (60–160 px/s) is
-  learned as a moving area and can hide a bullet that appears there within ~6 s, or a whole slide in a busy Zoom view;
-  title-only or one-line slide changes less than ~8–9 s apart in the same place are taken for captions; returns are
+  learned as a moving area and can hide a bullet that appears there within \~6 s, or a whole slide in a busy Zoom view;
+  title-only or one-line slide changes less than \~8–9 s apart in the same place are taken for captions; returns are
   duplicated when captions run inside a browser player or a cursor rests on a photo/gradient slide; player controls
-  appearing up to ~2.5 s after a change give the slide a second page; automatic fly-in builds, growing charts, pen
-  annotation or a busy chat right after a change date the page 1–4 s late; a resting position under ~7.5 s after a
-  scroll can be missed live; switching speaker panels with cameras off, or camera insets ≥ ~200 px from the edges, add a
+  appearing up to \~2.5 s after a change give the slide a second page; automatic fly-in builds, growing charts, pen
+  annotation or a busy chat right after a change date the page 1–4 s late; a resting position under \~7.5 s after a
+  scroll can be missed live; switching speaker panels with cameras off, or camera insets ≥ \~200 px from the edges, add a
   page. Separately, a recognizer line that starts with leading silence can put its first sentence on the previous page.
   Harnesses: verify7 (138 scenarios: 124 pass; v3 115, v2 79), verify6 (40-slide mixed and 60-slide real decks, all
   caught; 14 misses+dups over 45 scenarios), the verify8 adversarial set (64: 49 pass; v3 28), and end-to-end on
@@ -370,14 +370,14 @@ logs). Installer: `LECTURE_ZIP_URL`, `LECTURE_INSTALL_DIR`, `LECTURE_NO_OPEN=1`.
 ### Engine notes (measured on an M2 MacBook Air)
 
 - Voice activity detection is Silero VAD v5 re-implemented in NumPy (`SileroVAD` in backend.py):
-  identical to the ONNX graph within 1.3e-6, ~0.2 ms per 32 ms frame. ONNX Runtime is deliberately
+  identical to the ONNX graph within 1.3e-6, \~0.2 ms per 32 ms frame. ONNX Runtime is deliberately
   not used — its macOS builds collect telemetry by default, even with `disable_telemetry_events()`.
 - Everything is built for macOS 14.2 (the build fails if any binary needs a newer macOS, and Metal APIs
   from macOS 15+ must be weak-linked).
 
-- whisper large-v3-turbo q5_0 via whisper-server: ~1.4–1.8 s per request regardless of clip length
+- whisper large-v3-turbo q5_0 via whisper-server: \~1.4–1.8 s per request regardless of clip length
   (encoder-bound). `no_language_probabilities` is essential (otherwise 2× slower); reduced
-  `audio_ctx` breaks turbo. Beam 5 costs ~+0.2 s and is used for finals; live previews are greedy
+  `audio_ctx` breaks turbo. Beam 5 costs \~+0.2 s and is used for finals; live previews are greedy
   and only run when the GPU is idle.
 - The segmenter cuts at pauses (needs 1.2 s / 0.6 s / 0.3 s of silence for segments < 4 s / < 12 s /
   ≥ 12 s; hard cap 22 s at the quietest frame).
@@ -387,7 +387,7 @@ logs). Installer: `LECTURE_ZIP_URL`, `LECTURE_INSTALL_DIR`, `LECTURE_NO_OPEN=1`.
   English *translation*. Confidence thresholds alone cannot separate English quotes from Korean.
 - The Core Audio tap delivers no samples at all while nothing is playing (and before the permission
   is granted), so the "no sound" watchdog is wall-clock based.
-- The model unloads after 10 idle minutes and reloads in ~2 s.
+- The model unloads after 10 idle minutes and reloads in \~2 s.
 - Rebuilding `App.swift` changes the ad-hoc signature, so macOS asks for the System Audio Recording
   permission again.
 
