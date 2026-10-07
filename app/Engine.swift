@@ -236,13 +236,13 @@ final class Engine {
         if m.spec.languages.contains(settings.language) { selectEngine(id); return }
         if let current = model(settings.engine), current.state == .ready, current.spec.languages.contains(settings.language) {
             emit(["ev": "notice", "code": "engine_language",
-                  "msg": "\(name) 모델을 내려받았어요. 영어 강의 전용이라 지금은 \(current.spec.name) 모델을 그대로 써요 — 영어 강의에 쓰려면 설정 › 음성 인식에서 골라 주세요."])
+                  "msg": "\(name) 모델을 내려받았습니다. 영어 강의 전용이라 지금은 \(current.spec.name) 모델을 그대로 사용합니다 — 영어 강의에 사용하려면 설정 › 음성 인식에서 선택하십시오."])
             emit(enginesEvent)
             return
         }
         selectEngine(id)
         emit(["ev": "notice", "code": "engine_language",
-              "msg": "\(name) 모델은 영어 강의 전용이에요. 강의 언어를 English로 바꾸면 \(name) 모델로 받아 적어요."])
+              "msg": "\(name) 모델은 영어 강의 전용입니다. 강의 언어를 English로 바꾸면 \(name) 모델로 받아 적습니다."])
     }
 
     /// A shared file (the voice detector) may have gone with another engine's check.
@@ -255,7 +255,7 @@ final class Engine {
     /// 설정 › 음성 인식: every engine this app offers and its state. The page draws whatever is listed, so another
     /// platform (a Windows build, say) can offer its own engines through the same events and commands.
     var enginesEvent: [String: Any] {
-        var list: [[String: Any]] = [["id": "apple", "name": "Apple 음성 인식", "desc": "기본 · 추가 다운로드 없이 가볍고 빨라요",
+        var list: [[String: Any]] = [["id": "apple", "name": "Apple 음성 인식", "desc": "기본 · 추가 다운로드 없이 가볍고 빠릅니다",
                                       "state": "ready", "bytes": 0]]
         #if WHISPER
         for m in models {                                 // a ready engine's size: what 삭제 frees (the shared detector stays
@@ -292,7 +292,7 @@ final class Engine {
         guard let m = model(id) else { return }
         if let other = models.first(where: { $0 !== m && ($0.downloading || $0.state == .verifying) }) {   // one at a time
             emit(["ev": "notice", "code": "engine_downloading",
-                  "msg": "\(other.spec.name) 모델을 내려받는 중이에요. 끝난 뒤에 내려받을 수 있어요."])
+                  "msg": "\(other.spec.name) 모델을 내려받는 중입니다. 끝난 뒤에 내려받을 수 있습니다."])
             return
         }
         m.download()
@@ -309,7 +309,7 @@ final class Engine {
         #if WHISPER
         guard let m = model(id) else { return }
         if session?.engineID == id || savingSessions.contains(where: { !$0.done && $0.engineID == id }) {
-            emit(["ev": "notice", "code": "engine_busy", "msg": "지금 \(m.spec.name) 모델로 받아 적는 중이에요. 끝난 뒤에 지울 수 있어요."])
+            emit(["ev": "notice", "code": "engine_busy", "msg": "지금 \(m.spec.name) 모델로 받아 적는 중입니다. 끝난 뒤에 삭제할 수 있습니다."])
             return
         }
         // the voice detector stays while another engine has it
@@ -326,15 +326,15 @@ final class Engine {
             let name = m.spec.name
             if !m.spec.languages.contains(settings.language) {
                 emit(["ev": "notice", "code": "engine_language",
-                      "msg": "\(name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적어요."])
+                      "msg": "\(name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적습니다."])
             } else if m.state == .ready {
                 let r = WhisperRecognizer(live: live, major: settings.language, spec: m.spec)
                 r.onFallback = { [weak m] in m?.recheck() }
                 return (r, m.spec.id)
             } else {
                 emit(["ev": "notice", "code": "engine_missing", "msg": m.downloading || m.state == .verifying
-                      ? "\(name) 모델을 아직 준비하는 중이라 이번에는 Apple 음성 인식으로 받아 적어요."
-                      : "\(name) 모델이 없어서 Apple 음성 인식으로 받아 적어요. 설정 › 음성 인식에서 내려받을 수 있어요."])
+                      ? "\(name) 모델을 아직 준비하는 중이라 이번에는 Apple 음성 인식으로 받아 적습니다."
+                      : "\(name) 모델이 없어서 Apple 음성 인식으로 받아 적습니다. 설정 › 음성 인식에서 내려받을 수 있습니다."])
             }
         }
         #endif
@@ -402,7 +402,7 @@ final class Engine {
                 booting = false
                 log("engine boot failed: \(error)")
                 emit(["ev": "engine", "state": "error", "retry": true,
-                      "msg": (error as NSError).localizedDescription.isEmpty ? "음성 인식을 시작하지 못했어요." : "음성 인식을 시작하지 못했어요. \((error as NSError).localizedDescription)"])
+                      "msg": (error as NSError).localizedDescription.isEmpty ? "음성 인식을 시작하지 못했습니다." : "음성 인식을 시작하지 못했습니다. \((error as NSError).localizedDescription)"])
             }
         }
     }
@@ -416,17 +416,17 @@ final class Engine {
 
     func start(_ mode: Session.Mode, file: URL? = nil) {
         guard session == nil else {
-            if mode == .file { emit(["ev": "notice", "code": "busy_recording", "msg": "지금 받아 적는 중이에요. 끝난 뒤에 다시 해 주세요."]) }
+            if mode == .file { emit(["ev": "notice", "code": "busy_recording", "msg": "지금 받아 적는 중입니다. 끝난 뒤에 다시 시도하십시오."]) }
             discardIfTemp(file)
             return
         }
         guard savingSessions.allSatisfy({ $0.done }) else {
-            emit(["ev": "notice", "code": "busy_saving", "msg": "저장이 끝나면 다시 시작할 수 있어요."])
+            emit(["ev": "notice", "code": "busy_saving", "msg": "저장이 끝나면 다시 시작할 수 있습니다."])
             discardIfTemp(file)
             return
         }
         guard ready else {
-            emit(["ev": "notice", "code": "not_ready", "msg": "엔진이 아직 준비 중이에요. 준비되면 다시 시도해 주세요."])
+            emit(["ev": "notice", "code": "not_ready", "msg": "엔진이 아직 준비 중입니다. 준비되면 다시 시도하십시오."])
             discardIfTemp(file)
             return
         }
@@ -441,17 +441,17 @@ final class Engine {
                     if mode == .file {
                         let ce = error as? CaptureError
                         emit(["ev": "notice", "code": "file_error", "msg": ce?.status == -3
-                              ? "파일을 여는 데 너무 오래 걸려요. iCloud나 네트워크에 있는 파일이면 먼저 이 기기에 내려받은 뒤 다시 해 주세요."
-                              : ce?.step == "no audio track" ? "이 파일에는 소리가 없어서 받아 적을 수 없어요."
-                              : "이 파일에서 소리를 읽을 수 없어요. 녹음이나 영상 파일인지 확인해 주세요."])
+                              ? "파일을 여는 데 너무 오래 걸립니다. iCloud나 네트워크에 있는 파일이면 먼저 이 기기에 내려받은 뒤 다시 시도하십시오."
+                              : ce?.step == "no audio track" ? "이 파일에는 소리가 없어서 받아 적을 수 없습니다."
+                              : "이 파일에서 소리를 읽을 수 없습니다. 녹음이나 영상 파일인지 확인하십시오."])
                     } else {
-                        emit(["ev": "notice", "code": "tap_error", "msg": "소리를 가져오지 못했어요."])
+                        emit(["ev": "notice", "code": "tap_error", "msg": "소리를 가져오지 못했습니다."])
                     }
                     stop()
                 }
             }
         } catch {
-            emit(["ev": "notice", "code": "file_missing", "msg": "파일을 만들거나 열 수 없어요."])
+            emit(["ev": "notice", "code": "file_missing", "msg": "파일을 만들거나 열 수 없습니다."])
             discardIfTemp(file)
         }
     }
@@ -492,7 +492,7 @@ final class Engine {
             #if WHISPER
             if let m = model(settings.engine), m.state == .ready, !m.spec.languages.contains(v) {   // Parakeet: English only
                 emit(["ev": "notice", "code": "engine_language",
-                      "msg": "\(m.spec.name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적어요."])
+                      "msg": "\(m.spec.name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적습니다."])
             }
             #endif
         }
@@ -623,7 +623,7 @@ final class Session {
         recognizer.onError = { [weak self] e in
             log("recognizer error: \(e)")
             self?.engine.emit(["ev": "notice", "code": "recognizer",
-                               "msg": (e as? EngineError)?.message ?? "음성 인식이 잠깐 멈췄어요. 녹음은 계속돼요."])
+                               "msg": (e as? EngineError)?.message ?? "음성 인식이 잠시 멈췄습니다. 녹음은 계속됩니다."])
         }
         try await recognizer.start()
         if stopping { return }                       // 정지 already pressed: don't open the microphone/tap at all
@@ -686,7 +686,7 @@ final class Session {
         guard !stopping else { return }                       // 정지 came while starting
         if let fs = fileSource { duration = fs.duration }
         if mode == .file, engine.settings.slides, let f = fileURL, !(await VideoSlides.hasVideo(f)) {
-            engine.emit(["ev": "notice", "code": "slides_note", "msg": "소리만 있는 파일이라 슬라이드 PDF는 만들지 않아요."])
+            engine.emit(["ev": "notice", "code": "slides_note", "msg": "소리만 있는 파일이라 슬라이드 PDF는 만들지 않습니다."])
         }
         if mode == .file, engine.settings.slides, let f = fileURL, await VideoSlides.hasVideo(f), !stopping {   // slides from the video
             let c = try SlideCollector(settle: 1, transcript: txtURL)     // one frame a second: two alike
@@ -751,10 +751,10 @@ final class Session {
         guard !notified else { return }
         if stats.samples == 0 && elapsed > 20 {
             notified = true
-            engine.emit(["ev": "notice", "code": "no_input", "msg": "아직 소리가 들어오지 않아요."])
+            engine.emit(["ev": "notice", "code": "no_input", "msg": "아직 소리가 들어오지 않습니다."])
         } else if stats.samples > 0 && !stats.nonzero && elapsed > 20 {
             notified = true
-            engine.emit(["ev": "notice", "code": "no_audio", "msg": "20초째 소리가 들어오지 않아요."])
+            engine.emit(["ev": "notice", "code": "no_audio", "msg": "20초째 소리가 들어오지 않습니다."])
         }
     }
 

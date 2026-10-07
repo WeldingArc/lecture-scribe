@@ -90,8 +90,8 @@ final class Bridge {
         let id = (body["id"] as? String)?.nfc
         let editable = id.map { !engine.busyIDs.contains($0) } ?? false     // not while recording or saving
         if !editable, id != nil, ["play", "rename", "delete", "share", "revealSession"].contains(cmd) {
-            notice("busy_saving", id == recordingID ? "지금 녹음 중인 기록이에요. 녹음을 마친 뒤에 해 주세요."
-                                                    : "이 기록은 아직 저장하는 중이에요. 잠시 후에 다시 해 주세요.")
+            notice("busy_saving", id == recordingID ? "지금 녹음 중인 기록입니다. 녹음을 마친 뒤에 다시 시도하십시오."
+                                                    : "이 기록은 아직 저장하는 중입니다. 잠시 후에 다시 시도하십시오.")
             if cmd == "rename", let id { send(["ev": "renamed", "from": id, "to": id]) }                // put the old name back
             return
         }
@@ -101,7 +101,7 @@ final class Bridge {
             player.stop()
             platform?.requestRecording { [weak self] ok in
                 guard let self else { return }
-                guard ok else { self.notice("mic_denied", "마이크 권한이 꺼져 있어요."); return }
+                guard ok else { self.notice("mic_denied", "마이크 권한이 꺼져 있습니다."); return }
                 self.engine.start(.live)
                 if self.engine.session != nil, self.engine.settings.slides { self.platform?.startScreenSlides() }
             }
@@ -157,7 +157,7 @@ final class Bridge {
                 let s = Library.session(dir, id: id, recording: rec, busy: busy)
                 await MainActor.run {
                     guard let s else {
-                        self.notice("session_missing", "이 기록을 찾을 수 없어요. 파일이 옮겨졌거나 지워졌을 수 있어요.")
+                        self.notice("session_missing", "이 기록을 찾을 수 없습니다. 파일이 옮겨졌거나 삭제되었을 수 있습니다.")
                         self.refreshLibrary()
                         return
                     }
@@ -168,7 +168,7 @@ final class Bridge {
         case "play":
             guard let id, editable else { return }
             if engine.session?.mode == .live {
-                notice("busy_recording", "녹음 중에는 재생할 수 없어요. 녹음을 마친 뒤에 들어 주세요.")
+                notice("busy_recording", "녹음 중에는 재생할 수 없습니다. 녹음을 마친 뒤에 들으십시오.")
                 return
             }
             if player.id != id {
@@ -188,10 +188,10 @@ final class Bridge {
                 send(["ev": "renamed", "from": id, "to": new])
                 refreshLibrary()
             } catch Library.Problem.exists {
-                notice("rename", "같은 이름의 기록이 이미 있어요.")
+                notice("rename", "같은 이름의 기록이 이미 있습니다.")
                 send(["ev": "renamed", "from": id, "to": id])
             } catch {
-                notice("rename", "이름을 바꾸지 못했어요.")
+                notice("rename", "이름을 변경하지 못했습니다.")
                 send(["ev": "renamed", "from": id, "to": id])
             }
         case "delete":
@@ -203,7 +203,7 @@ final class Bridge {
                 scheduleFinalize()
             } catch {
                 log("delete failed: \(error)")
-                notice("delete", "기록을 지우지 못했어요.")
+                notice("delete", "기록을 삭제하지 못했습니다.")
             }
             refreshLibrary()
         case "undoDelete":
@@ -216,9 +216,9 @@ final class Bridge {
                 log("undo failed: \(error)")
                 Library.finalize(d.bin)                                    // Mac: still recoverable from the Trash
                 #if os(macOS)
-                notice("undo", "되돌리지 못했어요. Finder의 휴지통에서 꺼낼 수 있어요.")
+                notice("undo", "되돌리지 못했습니다. Finder의 휴지통에서 꺼낼 수 있습니다.")
                 #else
-                notice("undo", "되돌리지 못했어요.")
+                notice("undo", "되돌리지 못했습니다.")
                 #endif
             }
             refreshLibrary()
@@ -230,7 +230,7 @@ final class Bridge {
             guard let id else { return }
             let pdf = engine.outDir.appendingPathComponent("\(id).pdf")
             if FileManager.default.fileExists(atPath: pdf.path) { platform?.openDocument(pdf) }
-            else { notice("slides_missing", "슬라이드 PDF를 찾을 수 없어요.") }
+            else { notice("slides_missing", "슬라이드 PDF를 찾을 수 없습니다.") }
         case "revealSession":
             guard let id, editable else { return }
             if let f = Library.files(engine.outDir, id).first { platform?.reveal(f) }

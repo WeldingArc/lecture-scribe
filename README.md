@@ -4,90 +4,100 @@
 
 # 강의 받아쓰기
 
-**온라인 강의를 실시간으로 받아 적어 주는 Mac 앱**<br>
+**온라인 강의를 실시간으로 받아 적는 Mac 앱**<br>
 Apple 온디바이스 음성 인식 · 무료 · 오픈소스 · 모든 처리가 내 Mac 안에서
 
-<img src="docs/screenshot.png" width="760" alt="강의 받아쓰기 화면">
+<img src="docs/appstore/screenshots/02-live.png" width="760" alt="강의 받아쓰기 — 실시간 받아쓰기 화면">
 
-<img src="docs/library.png" width="760" alt="기록 화면 — 받아 적은 글과 녹음을 함께">
+<img src="docs/appstore/screenshots/03-library.png" width="760" alt="기록 화면 — 받아 적은 글과 녹음을 함께">
 
 </div>
 
-## 이런 앱이에요
+## 주요 기능
 
-- **음성 인식:** Apple이 macOS에 넣어 둔 **온디바이스 음성 인식(SpeechAnalyzer)**으로 Mac 안에서 바로 받아 적어요. 따로 내려받을 게 없고, 강의 내용이 밖으로 나가지 않아요.
-- **다른 음성 인식 엔진도 고를 수 있어요(선택).** ‘설정 › 음성 인식’에서 한 번 내려받으면 Apple 대신 쓸 수 있어요. 모두 Mac 안에서만 돌아가고, 필요 없으면 지우면 돼요. (Apple보다 전력을 더 써요.)
-  - **Qwen3-ASR** (Alibaba의 공개 모델, 약 1.5GB) — 한국어와 영어가 섞인 강의, 억양이 강한 영어에 가장 정확해요. (한국어 문장 속 외국 사람 이름은 영어 철자로 적기도 하고, 한국어 억양이 아주 강한 짧은 영어 문장은 한글로, 또렷하지 않은 짧은 한국어 말은 엉뚱한 영어로 적을 때도 있어요. 영어 강의 중의 일본어는 한국어로 적혀요)
+- **음성 인식:** Apple이 macOS에 기본으로 제공하는 **온디바이스 음성 인식(SpeechAnalyzer)**으로 Mac 안에서 바로 받아 적습니다. 따로 내려받을 것이 없고, 강의 내용이 외부로 전송되지 않습니다.
+- **다른 음성 인식 엔진 선택(선택 사항).** ‘설정 › 음성 인식’에서 한 번 내려받으면 Apple 대신 사용할 수 있습니다. 모두 Mac 안에서만 작동하며, 필요 없으면 삭제하면 됩니다. (Apple보다 전력을 더 사용합니다.)
+  - **Qwen3-ASR** (Alibaba의 공개 모델, 약 1.5GB) — 한국어와 영어가 섞인 강의, 억양이 강한 영어에 가장 정확합니다. (한국어 문장 속 외국인 이름을 영어 철자로 적기도 하고, 한국어 억양이 아주 강한 짧은 영어 문장은 한글로, 또렷하지 않은 짧은 한국어 말은 엉뚱한 영어로 적을 때도 있습니다. 영어 강의 중의 일본어는 한국어로 적힙니다.)
   - **Whisper large-v3 turbo** (OpenAI의 공개 모델, 약 575MB)
-  - **Parakeet** (NVIDIA의 공개 모델, 약 540MB) — 영어 강의 전용이에요. 한국어로 한 말은 빠지거나 엉뚱한 영어로 적혀요. 내려받는 엔진 중 가장 빠르고 가벼워요.
-- **Mac에서 나오는 소리를 그대로 받아 적어요.** 런어스·유튜브·줌 등 무엇이든 재생만 하면 돼요. 마이크는 쓰지 않아서 이어폰을 껴도 되고 주변이 시끄러워도 괜찮아요.
-- **말하는 대로 글자가 바로 나타나요.** 끝나면 텍스트(`.txt`)와 녹음(`.m4a`)을 `다운로드/강의기록`에 자동으로 저장해요.
-- **기록** — 강의마다 녹음과 받아 적은 글이 앱 안에 한곳으로 모여요. 문장을 누르면 그 부분부터 다시 들려주고, ‘중요 문장’은 맨 위에 모아 보여 줘요. 이름 바꾸기·검색·공유도 돼요.
-- **배속 재생도 OK.** 1.5배·2배속도 따라가요.
-- **[전체 복사]** 한 번이면 ChatGPT·Claude 같은 AI에 붙여 넣어 요약·정리할 수 있어요.
-- **영어 강의도 OK.** 시작 버튼 아래에서 강의 언어를 **한국어 / English** 중에 고르세요. 영어 강의면 영어로 받아 적고, 중간에 한국어로 하는 말도 한국어로 적으려고 해요 — 다만 Apple 음성 인식은 영어 강의 중의 한국어 말을 놓칠 때가 있어요(짧을수록 자주 · Qwen3-ASR이 더 잘 잡아요).
-- **억양이 강하면 주의하세요.** 말하는 사람의 억양이 강하면 다른 언어로 잘못 들릴 수 있어요(예: 억양이 강한 영어가 한글로 적히는 식). 영어 강의라면 시작 전에 **English**로 바꿔 주세요. 억양이 아주 강하면 그래도 Apple 음성 인식은 엉뚱하게 적을 수 있으니, 그럴 땐 **Qwen3-ASR**을 쓰세요 — 억양이 강한 영어도 가장 정확하게 받아 적어요. (Qwen3-ASR도 아주 시끄러운 녹음에서는 짧은 말을 엉뚱하게 적을 수 있어요.)
-- **영어로 말하는 부분은 영어 그대로** 적어요. 일부러 번역하지 않아요. (“Good question.” 같은 아주 짧은 영어 대답은 가끔 한국어로 적힐 수 있어요) 다만 Apple 음성 인식은 한국어 문장 사이에 끼인 짧은 영어 인용을 통째로 놓칠 때가 있어요 — 영어 인용(시험에 나올 표현 같은)을 꼭 받아 적어야 하면 Qwen3-ASR을 쓰세요.
-- **중요 문장 표시** — ‘출석’, ‘시험’, ‘과제’ 같은 단어가 나온 문장에 밑줄을 긋고, 저장 파일 끝에 따로 모아 줘요. 단어는 직접 바꿀 수 있어요.
-- **파일 받아쓰기** — 녹음·영상 파일을 창에 끌어다 놓으면 재생 시간보다 훨씬 빨리 받아 적어요. (1시간 강의 기준 Apple·Parakeet은 1~2분, Whisper·Qwen3-ASR은 15~30분쯤 — 영어가 섞이거나 말이 자주 끊기면 더 걸려요)
-- **슬라이드 PDF** — 강의 자료를 안 주는 수업이라면 ‘슬라이드 PDF’에 체크하세요. 슬라이드가 바뀔 때마다 한 장씩 찍어, 그동안 한 말과 함께 PDF로 모아 줘요. 글자가 하나씩 늘어나는 슬라이드는 다 채워진 모습으로 한 장만, 구석 카메라 화면이 바뀌는 건 무시해요. (Mac: 강의 창을 골라서 · iPhone/Mac: 영상 파일에서도)
+  - **Parakeet** (NVIDIA의 공개 모델, 약 540MB) — 영어 강의 전용입니다. 한국어로 한 말은 빠지거나 엉뚱한 영어로 적힙니다. 내려받는 엔진 중 가장 빠르고 가볍습니다.
+- **Mac에서 나오는 소리를 그대로 받아 적습니다.** 런어스·유튜브·줌 등 무엇이든 재생하기만 하면 됩니다. 마이크를 사용하지 않으므로 이어폰을 착용해도 되고, 주변이 시끄러워도 괜찮습니다.
+- **말하는 즉시 글자가 나타납니다.** 끝나면 텍스트(`.txt`)와 녹음(`.m4a`)을 `다운로드/강의기록`에 자동으로 저장합니다.
+- **기록** — 강의마다 녹음과 받아 적은 글이 앱 안의 한곳에 모입니다. 문장을 누르면 그 부분부터 다시 재생하고, ‘중요 문장’은 맨 위에 모아 보여 줍니다. 이름 변경·검색·공유도 할 수 있습니다.
+- **배속 재생 지원.** 1.5배속·2배속으로 재생해도 받아 적습니다.
+- **[전체 복사]** 한 번으로 ChatGPT·Claude 같은 AI에 붙여 넣어 요약·정리할 수 있습니다.
+- **영어 강의 지원.** 시작 버튼 아래에서 강의 언어를 **한국어 / English** 중에서 선택하십시오. 영어 강의는 영어로 받아 적고, 중간에 한국어로 하는 말도 한국어로 적으려 합니다. 다만 Apple 음성 인식은 영어 강의 중의 한국어 말을 놓칠 때가 있습니다(짧을수록 자주 발생하며, Qwen3-ASR이 더 잘 인식합니다).
+- **억양이 강한 경우 주의.** 말하는 사람의 억양이 강하면 다른 언어로 잘못 인식될 수 있습니다(예: 억양이 강한 영어가 한글로 적히는 경우). 영어 강의라면 시작 전에 **English**로 변경하십시오. 억양이 아주 강하면 Apple 음성 인식은 여전히 잘못 적을 수 있으므로, 이때는 **Qwen3-ASR**을 사용하십시오. 억양이 강한 영어도 가장 정확하게 받아 적습니다. (Qwen3-ASR도 아주 시끄러운 녹음에서는 짧은 말을 잘못 적을 수 있습니다.)
+- **영어로 말한 부분은 영어 그대로** 적습니다. 임의로 번역하지 않습니다. (“Good question.” 같은 아주 짧은 영어 대답은 가끔 한국어로 적힐 수 있습니다.) 다만 Apple 음성 인식은 한국어 문장 사이에 끼인 짧은 영어 인용을 통째로 놓칠 때가 있습니다. 영어 인용(시험에 나올 표현 등)을 반드시 받아 적어야 한다면 Qwen3-ASR을 사용하십시오.
+- **중요 문장 표시** — ‘출석’, ‘시험’, ‘과제’ 같은 단어가 나온 문장에 밑줄을 긋고, 저장 파일 끝에 따로 모아 줍니다. 단어는 직접 변경할 수 있습니다.
+- **파일 받아쓰기** — 녹음·영상 파일을 창에 끌어다 놓으면 재생 시간보다 훨씬 빠르게 받아 적습니다. (1시간 강의 기준 Apple·Parakeet은 1~2분, Whisper·Qwen3-ASR은 15~30분 정도 걸리며, 영어가 섞이거나 말이 자주 끊기면 더 걸립니다.)
+- **슬라이드 PDF** — 강의 자료를 제공하지 않는 수업이라면 ‘슬라이드 PDF’를 선택하십시오. 슬라이드가 바뀔 때마다 한 장씩 캡처하여 그동안 한 말과 함께 PDF로 모아 줍니다. 글자가 하나씩 늘어나는 슬라이드는 다 채워진 모습으로 한 장만 담고, 강의하는 사람의 카메라 화면이 바뀌는 것은 무시합니다. (Mac: 강의 창을 선택하여 · iPhone/Mac: 영상 파일에서도)
 
 <p align="center"><img src="docs/slides-demo.gif" width="600" alt="슬라이드 PDF가 동작하는 모습"></p>
 
-## 필요한 것
+## 요구 사항
 
 - **macOS 26 (Tahoe) 이상**, Apple Silicon(M1 이상) Mac
-- macOS 14.2~15라면 [v1(Whisper 버전)](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)을 쓰세요. 아래 설치 명령은 macOS 버전에 맞는 걸 알아서 골라요.
+- macOS 14.2~15라면 [v1(Whisper 버전)](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)을 사용하십시오. 아래 설치 명령은 macOS 버전에 맞는 버전을 자동으로 선택합니다.
 
 ## 설치
 
 ### 방법 1 · 터미널 한 줄
 
-**터미널** 앱(Spotlight에서 "터미널" 검색)을 열고 아래 한 줄을 붙여 넣은 뒤 Enter:
+**터미널** 앱(Spotlight에서 "터미널" 검색)을 열고 아래 한 줄을 붙여 넣은 뒤 Enter 키를 누르십시오.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-transcriber/main/scripts/install.sh | bash
 ```
 
-업데이트할 때도 같은 줄을 다시 실행하면 돼요.
+업데이트할 때도 같은 명령을 다시 실행하면 됩니다.
 
 ### 방법 2 · 직접 다운로드
 
-[최신 릴리스](https://github.com/WeldingArc/lecture-transcriber/releases/latest)에서 `LectureScribe-mac.zip`을 받아 압축을 풀고, `강의 받아쓰기.app`을 응용 프로그램 폴더로 옮기세요.
+[최신 릴리스](https://github.com/WeldingArc/lecture-transcriber/releases/latest)에서 `LectureScribe-mac.zip`을 내려받아 압축을 풀고, `강의 받아쓰기.app`을 응용 프로그램 폴더로 옮기십시오.
 
 ## 처음 실행할 때
 
-처음 **[시작]**을 누르면 macOS가 **"시스템 오디오 녹음"** 권한을 물어봐요 → **허용**. (한국어 음성 인식 모델이 Mac에 아직 없다면 macOS가 한 번 내려받아요.)
+처음 실행하면 **이용 안내 및 면책 고지**가 표시됩니다. 내용을 확인하고 **[동의하고 시작]**을 누르십시오. 처음 **[시작]**을 누르면 macOS가 **"시스템 오디오 녹음"** 권한을 요청합니다 → **허용**. (한국어 음성 인식 모델이 Mac에 아직 없다면 macOS가 한 번 내려받습니다.)
 
 ## 사용법
 
 1. 강의 영상을 재생하고 **[시작]**
-2. 끝나면 **[정지]** → 텍스트와 녹음이 저장돼요
-3. **[기록]**에서 지난 강의를 열어 다시 듣거나, **[전체 복사]**로 AI에 붙여 넣어요
+2. 끝나면 **[정지]** → 텍스트와 녹음이 저장됩니다
+3. **[기록]**에서 지난 강의를 열어 다시 듣거나, **[전체 복사]**로 AI에 붙여 넣습니다
 
 - **파일 받아쓰기:** 녹음·영상 파일을 창에 끌어다 놓거나 [파일 불러오기]
-- **중요 단어 바꾸기:** 아래쪽 [중요 단어]
+- **중요 단어 변경:** 아래쪽 [중요 단어]
 - **단축키:** ⌘⇧C 전체 복사
 
-## 꼭 읽어 주세요
+## 알아 두실 점
 
-- **개인 공부용으로 만들었어요.** 강의 녹음이나 녹취록을 다른 사람과 공유·배포하면 저작권·초상권 문제가 생길 수 있고 학교 규정에 어긋날 수 있어요.
-- 받아쓰기는 완벽하지 않아요. 특히 이름 같은 고유명사나 숫자(예: 4장 → "사장")는 틀릴 수 있으니, 중요한 내용은 녹음으로 확인하세요.
+- **개인 학습용입니다.** 강의 녹음이나 녹취록을 다른 사람과 공유·배포하면 저작권·초상권 문제가 생길 수 있으며 학교 규정에 어긋날 수 있습니다. 자세한 내용은 아래 이용 안내 및 면책을 확인하십시오.
+- 받아쓰기는 완벽하지 않습니다. 특히 이름 같은 고유명사나 숫자(예: 4장 → "사장")는 틀릴 수 있으므로, 중요한 내용은 녹음으로 확인하십시오.
+
+## 이용 안내 및 면책
+
+강의 받아쓰기는 개인 학습을 돕기 위한 도구입니다. 앱을 처음 실행하면 아래 내용에 동의해야 사용할 수 있으며, 설정 › 정보 › ‘이용 안내 및 면책 고지’에서 다시 볼 수 있습니다.
+
+- 이 앱으로 녹음하거나 받아 적은 강의, 슬라이드, 녹취록의 저작권은 강의자와 학교 등 원저작권자에게 있습니다.
+- 녹음 파일, 녹취록, 슬라이드 PDF는 본인의 학습 용도로만 사용하십시오. 다른 사람에게 공유·배포하거나 인터넷에 게시하면 저작권 침해가 될 수 있습니다.
+- 녹음하기 전에 해당 수업의 녹음·녹화 규정과 강의자의 방침을 확인하십시오.
+- 앱 사용으로 발생하는 모든 법적 책임은 사용자 본인에게 있으며, 개발자는 이에 대해 책임지지 않습니다.
+- 음성 인식 결과에는 오류가 있을 수 있습니다. 중요한 내용은 원래 강의에서 확인하십시오.
 
 ## 자주 묻는 질문
 
 <details>
-<summary>[시작]을 눌렀는데 글자가 안 나와요</summary>
+<summary>[시작]을 눌러도 글자가 나타나지 않는 경우</summary>
 
-강의 영상이 실제로 재생 중인지 확인하세요. 그래도 안 되면 **시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 녹음**의 **"시스템 오디오 녹음만"** 목록에서 강의 받아쓰기를 켠 뒤 앱을 다시 열어 주세요.
+강의 영상이 실제로 재생 중인지 확인하십시오. 그래도 나타나지 않으면 **시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 녹음**의 **"시스템 오디오 녹음만"** 목록에서 강의 받아쓰기를 켠 뒤 앱을 다시 여십시오.
 </details>
 
 <details>
-<summary>v1에서 업데이트했어요</summary>
+<summary>v1에서 업데이트한 경우</summary>
 
-v1으로 받아 적은 기록은 홈 폴더의 `강의기록`에 그대로 있어요. v2부터는 `다운로드/강의기록`에 저장돼요(Apple 샌드박스 때문이에요).
+v1으로 받아 적은 기록은 홈 폴더의 `강의기록`에 그대로 있습니다. v2부터는 `다운로드/강의기록`에 저장됩니다(Apple 샌드박스 정책 때문입니다).
 
-v1이 쓰던 Whisper AI 모델(570MB)은 더 이상 필요 없어요. 공간을 비우려면 터미널에서:
+v1이 사용하던 Whisper AI 모델(570MB)은 더 이상 필요하지 않습니다. 공간을 확보하려면 터미널에서 다음을 실행하십시오.
 
 ```bash
 rm -rf ~/Library/Application\ Support/LectureScribe/models
@@ -95,18 +105,18 @@ rm -rf ~/Library/Application\ Support/LectureScribe/models
 </details>
 
 <details>
-<summary>지우고 싶어요</summary>
+<summary>앱을 삭제하려는 경우</summary>
 
-앱을 휴지통으로 옮기고, 설정과 (내려받았다면) 음성 인식 모델이 담긴 `~/Library/Containers/io.github.joshichoi.lecture-scribe` 폴더를 지우면 돼요. 모델만 지우려면 설정 › 음성 인식에서 ‘삭제’를 누르세요. 받아 적은 기록은 `다운로드/강의기록`에 남아 있어요.
+앱을 휴지통으로 옮기고, 설정과 (내려받았다면) 음성 인식 모델이 들어 있는 `~/Library/Containers/io.github.joshichoi.lecture-scribe` 폴더를 삭제하면 됩니다. 모델만 삭제하려면 설정 › 음성 인식에서 ‘삭제’를 누르십시오. 받아 적은 기록은 `다운로드/강의기록`에 남아 있습니다.
 </details>
 
 <details>
-<summary>문제가 생겼어요</summary>
+<summary>문제가 발생한 경우</summary>
 
-메뉴 **도움말 → 로그 폴더 열기 (문제 신고용)**에서 `app.log`를 첨부해 [이슈](https://github.com/WeldingArc/lecture-transcriber/issues)로 알려 주세요. 로그에는 받아 적은 내용도, Mac 사용자 이름도 들어가지 않아요.
+메뉴 **도움말 → 로그 폴더 열기 (문제 신고용)**에서 `app.log`를 첨부하여 [이슈](https://github.com/WeldingArc/lecture-transcriber/issues)로 알려 주십시오. 로그에는 받아 적은 내용도, Mac 사용자 이름도 포함되지 않습니다.
 </details>
 
-## 어떻게 동작하나요
+## 동작 원리
 
 ```
 Mac 시스템 소리 ─▶ Core Audio 탭 (macOS 14.2+) ─▶ Apple SpeechAnalyzer
@@ -115,15 +125,15 @@ Mac 시스템 소리 ─▶ Core Audio 탭 (macOS 14.2+) ─▶ Apple SpeechAnal
                                               ─▶ 화면 + 다운로드/강의기록 (.txt, .m4a)
 ```
 
-다른 엔진을 고르면 SpeechAnalyzer 대신 앱에 들어 있는 작은 실행 부분 — Whisper는 **whisper.cpp**, Qwen3-ASR과 Parakeet은 **transcribe.cpp** — 이 내려받은 모델로 받아 적어요. 말소리 감지(Silero VAD)로 쉬는 곳에서 끊고, 영어 인용은 영어 그대로 두고(Qwen3-ASR은 번역된 것 같거나 말이 빠진 것 같은 부분을 둘로 나눠 다시 읽어요), 지어낸 문구(“시청해 주셔서 감사합니다” 등)와 같은 말 반복은 걸러요.
+다른 엔진을 선택하면 SpeechAnalyzer 대신 앱에 포함된 실행 모듈(Whisper는 **whisper.cpp**, Qwen3-ASR과 Parakeet은 **transcribe.cpp**)이 내려받은 모델로 받아 적습니다. 말소리 감지(Silero VAD)로 쉬는 지점에서 끊고, 영어 인용은 영어 그대로 두며(Qwen3-ASR은 번역된 것 같거나 말이 빠진 것 같은 부분을 둘로 나누어 다시 읽습니다), 지어낸 문구(“시청해 주셔서 감사합니다” 등)와 같은 말의 반복은 걸러 냅니다.
 
-하나의 네이티브 Swift 앱이에요(AppKit + WKWebView). Apple 샌드박스 안에서 동작하고, 앱 크기는 약 16MB예요(음성 인식 모델은 내려받을 때만). 직접 빌드하려면 [DEVELOPMENT.md](DEVELOPMENT.md)를 보세요.
+하나의 네이티브 Swift 앱입니다(AppKit + WKWebView). Apple 샌드박스 안에서 작동하며, 앱 크기는 약 16MB입니다(음성 인식 모델은 내려받을 때만). 직접 빌드하려면 [DEVELOPMENT.md](DEVELOPMENT.md)를 참고하십시오.
 
-**v1**은 OpenAI Whisper large-v3-turbo를 whisper.cpp로 돌리는 버전이었어요. macOS 14.2~15용으로 [v1.0.0 릴리스](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)에 남아 있어요.
+**v1**은 OpenAI Whisper large-v3-turbo를 whisper.cpp로 실행하는 버전이었습니다. macOS 14.2~15용으로 [v1.0.0 릴리스](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)에 남아 있습니다.
 
 ## 라이선스
 
-MIT. 사용한 오픈소스와 라이선스는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), 개인정보 처리방침은 [PRIVACY.md](PRIVACY.md)에 있어요.
+MIT. 사용한 오픈소스와 라이선스는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), 개인정보 처리방침은 [PRIVACY.md](PRIVACY.md)에 있습니다.
 
 ---
 
@@ -134,3 +144,5 @@ MIT. 사용한 오픈소스와 라이선스는 [THIRD_PARTY_NOTICES.md](THIRD_PA
 **Requirements:** macOS 26+, Apple Silicon. (macOS 14.2–15: use [v1](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0), which runs Whisper large-v3-turbo locally.)
 **Install:** `curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-transcriber/main/scripts/install.sh | bash`, or download the zip from [Releases](https://github.com/WeldingArc/lecture-transcriber/releases/latest).
 **Please** use it for personal study only and respect your instructors' rights and your school's recording policy.
+
+**Disclaimer.** Lecture Transcriber is a study aid for personal use. Lectures, slides and transcripts you record remain the copyright of their owners (the lecturer, the university). Use recordings, transcripts and slide PDFs only for your own study — sharing, distributing or posting them may infringe copyright. Check your course's recording policy before recording. You alone are responsible for how you use the app and for any legal consequences; the developer accepts no liability. Transcripts can contain errors — check anything important against the original lecture. The app asks you to agree to this on first launch (Settings › 정보 › 이용 안내 및 면책 고지 shows it again).
