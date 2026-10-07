@@ -146,10 +146,16 @@ func audioSeconds(_ url: URL) -> Double? {
 
 /// WAV → AAC .m4a (≈15 MB per hour). The m4a is written under a hidden temporary name, closed and
 /// re-read; only a complete one gets the real name, and only then is the WAV deleted.
+/// compress()'s temporary file beside the recording: hidden, and ending in .m4a — AVAudioFile picks the container from
+/// the name, and from a ".part" name it wrote CAF (files named .m4a that weren't MPEG-4 until 2.3).
+func compressPart(_ m4a: URL) -> URL {
+    m4a.deletingLastPathComponent().appendingPathComponent(".\(m4a.deletingPathExtension().lastPathComponent).part.m4a")
+}
+
 func compress(wav: URL, seconds: Double) async -> URL {
     let fm = FileManager.default
     let m4a = wav.deletingPathExtension().appendingPathExtension("m4a")
-    let part = wav.deletingLastPathComponent().appendingPathComponent(".\(m4a.lastPathComponent).part")
+    let part = compressPart(m4a)
     try? fm.removeItem(at: part)
     do {
         let input = try AVAudioFile(forReading: wav)
@@ -529,6 +535,31 @@ private final class SourceBox: @unchecked Sendable {
     init(_ s: AudioSource) { source = s }
 }
 
+/// 일시정지 for the audio thread: while paused the sound is let go. The first buffer after pausing becomes a short
+/// silence instead, so the sentence before the break ends there — the recording gets the same silence and stays in
+/// step with the transcript's times.
+private final class PauseGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var paused = false, gap = false
+    func set(_ on: Bool) { lock.lock(); paused = on; if on { gap = true }; lock.unlock() }
+    /// Audio thread: (drop this buffer, put the silence in first).
+    func take() -> (drop: Bool, gap: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        let g = gap
+        gap = false
+        return (paused, g)
+    }
+}
+
+/// Quiet audio in the sources' format (16 kHz mono Int16).
+func silence(seconds: Double) -> AVAudioPCMBuffer? {
+    let n = AVAudioFrameCount(seconds * sampleRate)
+    guard let b = AVAudioPCMBuffer(pcmFormat: pcmFormat, frameCapacity: n), let p = b.int16ChannelData?[0] else { return nil }
+    b.frameLength = n
+    p.update(repeating: 0, count: Int(n))
+    return b
+}
+
 // MARK: - Session
 
 private let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
@@ -565,6 +596,11 @@ final class Session {
     private var closed = false
     private var duration: Double = 0
     private let started = Date()
+    private let gate = PauseGate()
+    /// 일시정지 (live recordings): nothing is recognized or recorded until 계속.
+    private(set) var paused = false
+    private var pausedSince: Date?
+    private var pausedTotal: Double = 0
 
     /// Audio-thread counters.
     final class Stats: @unchecked Sendable {
@@ -646,7 +682,7 @@ final class Session {
         src.onProblem = { [weak self] code, msg in
             DispatchQueue.main.async { self?.engine.emit(["ev": "notice", "code": code, "msg": msg]) }
         }
-        let rec = recognizer, stats = stats, wav = wav, mode = mode
+        let rec = recognizer, stats = stats, wav = wav, mode = mode, gate = gate
         src.onBuffer = { [weak self] buf in                       // hooked up before any audio can flow
             guard let buf else {                                    // the file ended: stop this session — never a newer one
                 if mode == .file {
@@ -655,6 +691,9 @@ final class Session {
                 }
                 return
             }
+            let (drop, gap) = gate.take()
+            if gap, let quiet = silence(seconds: 1.5) { rec.push(quiet); wav?.write(quiet); _ = stats.add(quiet) }
+            if drop { return }
             rec.push(buf)
             wav?.write(buf)
             if let level = stats.add(buf) {
@@ -693,6 +732,7 @@ final class Session {
             slides = c
             slideProgress = 0
             c.onCount = { [weak self] n in DispatchQueue.main.async { MainActor.assumeIsolated { self?.engine.emit(["ev": "slides", "count": n]) } } }
+            c.onPreview = previewSender()
             let limit = slideLimit
             slideTask = Task.detached(priority: .utility) {
                 await VideoSlides.extract(f, into: c, until: { limit.value }) { p in
@@ -710,6 +750,22 @@ final class Session {
         for l in lines.values.sorted(by: { ($0.start, $0.id) < ($1.start, $1.id) }) {
             engine.emit(["ev": "seg", "id": l.id, "t": (l.start * 100).rounded() / 100, "text": l.text, "final": l.final])
         }
+        if paused || pausedTotal > 0 { emitPaused() }
+    }
+
+    /// 일시정지 / 계속 (live recordings only). The page's clock leaves the paused time out, like the recording does.
+    func setPaused(_ on: Bool) {
+        guard mode == .live, !stopping, on != paused else { return }
+        paused = on
+        gate.set(on)
+        if on { pausedSince = Date() } else if let s = pausedSince { pausedTotal += Date().timeIntervalSince(s); pausedSince = nil }
+        emitPaused()
+        log(on ? "paused" : "resumed")
+    }
+
+    private func emitPaused() {
+        engine.emit(["ev": "paused", "on": paused, "total": (pausedTotal * 10).rounded() / 10,
+                     "since": pausedSince?.timeIntervalSince1970 ?? 0])
     }
 
     private func tick(level v: Double) {
@@ -734,21 +790,30 @@ final class Session {
         slideProgress = nil
     }
 
+    /// The live preview for the page: the frame (small JPEG) and the lecturer's camera, if one was found.
+    private func previewSender() -> @Sendable (String, CGRect?) -> Void {
+        { [weak self] jpeg, cam in
+            let camera: Any = cam.map { [Double($0.minX), Double($0.minY), Double($0.width), Double($0.height)] } ?? NSNull()
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.engine.emit(["ev": "slidePreview", "img": "data:image/jpeg;base64," + jpeg, "camera": camera]) } }
+        }
+    }
+
     /// A frame of the lecture window (Mac). Slides are found as they appear.
     func addSlideFrame(_ image: CGImage) {
-        guard mode == .live, !stopping, engine.settings.slides else { return }
+        guard mode == .live, !stopping, !paused, engine.settings.slides else { return }   // paused: the window may show anything
         if slides == nil {
             slides = try? SlideCollector(settle: 1.5, transcript: txtURL)
             slides?.onCount = { [weak self] n in DispatchQueue.main.async { MainActor.assumeIsolated { self?.engine.emit(["ev": "slides", "count": n]) } } }
+            slides?.onPreview = previewSender()
         }
         slides?.add(image, at: Double(stats.samples) / 16000)     // audio time, like the transcript: a paused video can't shift it
     }
 
     private var notified = false
     private func check() {
-        let elapsed = Date().timeIntervalSince(started)
-        if Date().timeIntervalSince(stats.last) > 0.6 { engine.emit(["ev": "level", "v": 0]) }
-        guard !notified else { return }
+        let elapsed = Date().timeIntervalSince(started) - pausedTotal - (pausedSince.map { Date().timeIntervalSince($0) } ?? 0)
+        if paused || Date().timeIntervalSince(stats.last) > 0.6 { engine.emit(["ev": "level", "v": 0]) }
+        guard !notified, !paused else { return }
         if stats.samples == 0 && elapsed > 20 {
             notified = true
             engine.emit(["ev": "notice", "code": "no_input", "msg": "아직 소리가 들어오지 않습니다."])
@@ -781,6 +846,7 @@ final class Session {
             if !reachedEnd { slideLimit.value = Double(stats.samples) / 16000 }
             await t.value
         }
+        log("session finishing")
         await recognizer.finish()
         closed = true
         // Rewrite the whole transcript in time order (English rescues may have updated lines).
@@ -869,8 +935,8 @@ func recoverOrphans(in dir: URL, busy: (@Sendable (String, Bool) async -> Void)?
     }
     for wav in items where wav.pathExtension.lowercased() == "wav" && settled(wav) && isOurWAV(wav) && hasOurTranscript(wav) {
         let m4a = wav.deletingPathExtension().appendingPathExtension("m4a")
-        let part = wav.deletingLastPathComponent().appendingPathComponent(".\(m4a.lastPathComponent).part")
-        if fm.fileExists(atPath: part.path) && settled(part) { try? fm.removeItem(at: part) }     // compress() was cut off
+        for part in [compressPart(m4a), wav.deletingLastPathComponent().appendingPathComponent(".\(m4a.lastPathComponent).part")]
+            where fm.fileExists(atPath: part.path) && settled(part) { try? fm.removeItem(at: part) }  // compress() was cut off (also 2.2's name)
         guard let h = try? FileHandle(forUpdating: wav) else { continue }
         var n = min(Int((try? h.seekToEnd()) ?? 44) - 44, WavWriter.maxDataBytes)
         n -= n % 2

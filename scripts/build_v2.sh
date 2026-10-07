@@ -11,8 +11,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${VERSION:-2.2.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-220}"
+VERSION="${VERSION:-2.3.0}"
+BUILD_NUMBER="${BUILD_NUMBER:-230}"
 SIGN_ID="${SIGN_ID:--}"
 ENTITLEMENTS="${ENTITLEMENTS:-$ROOT/app/LectureScribe.entitlements}"
 OUT="$ROOT/build/v2"
@@ -34,7 +34,7 @@ WHISPER=(-D WHISPER -import-objc-header "$ROOT/app/WhisperBridge.h" -Xcc "-I$ROO
 step "compile"
 if ! swiftc -O -swift-version 5 -target arm64-apple-macos26.0 -file-prefix-map "$ROOT/=./" "${WHISPER[@]}" \
        -o "$OUT/LectureScribe" "$ROOT"/app/Audio.swift "$ROOT"/app/Recognizer.swift "$ROOT"/app/Engine.swift \
-       "$ROOT"/app/Library.swift "$ROOT"/app/Player.swift "$ROOT"/app/Bridge.swift "$ROOT"/app/Slides.swift \
+       "$ROOT"/app/Library.swift "$ROOT"/app/Player.swift "$ROOT"/app/Bridge.swift "$ROOT"/app/Slides.swift "$ROOT"/app/CameraFinder.swift \
        "$ROOT"/app/ScreenSlides.swift "$ROOT"/app/Whisper.swift "$ROOT"/app/main.swift 2> "$OUT/swiftc.log"; then
   cat "$OUT/swiftc.log"; exit 1
 fi

@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- One App Store / README marketing screenshot: a feature label, a headline and a line of pitch above the app window.
+     Rendered by tools/make_marketing.sh with tools/shot.swift at 1440×900 (→ 2880×1800).
+     ?img=<app screenshot>&eyebrow=…&title=…&sub=…&lang=ko|en -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 1440px; height: 900px; overflow: hidden; }
+  body {
+    font-family: "Pretendard", "Pretendard Variable", "Apple SD Gothic Neo", -apple-system, sans-serif;
+    background:
+      radial-gradient(ellipse 58% 46% at 50% 74%, rgba(201, 169, 107, 0.16), transparent 72%),
+      radial-gradient(ellipse 90% 60% at 50% 0%, rgba(120, 140, 190, 0.10), transparent 70%),
+      linear-gradient(180deg, #0a0f1d 0%, #111a2d 100%);
+    color: #f1ece2; text-align: center; -webkit-font-smoothing: antialiased;
+  }
+  header { position: absolute; top: 0; left: 0; right: 0; height: 214px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .eyebrow { font-size: 13px; font-weight: 500; letter-spacing: 0.34em; text-indent: 0.34em; color: #c9a96b; }
+  html[lang="en"] .eyebrow { letter-spacing: 0.28em; text-indent: 0.28em; }
+  h1 { margin: 14px 0 0; font-size: 46px; font-weight: 300; letter-spacing: -0.012em; line-height: 1.25; color: #f4efe6; word-break: keep-all; }
+  html[lang="en"] h1 { letter-spacing: -0.02em; }
+  .sub { margin-top: 14px; font-size: 19px; font-weight: 300; letter-spacing: 0.005em; color: #a3abbd; word-break: keep-all; }
+  .frame {
+    position: absolute; left: 50%; top: 226px; width: 1040px; height: 650px; transform: translateX(-50%);
+    border-radius: 16px; overflow: hidden; background: #0d1220;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 30px 90px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .lights { position: absolute; top: 9px; left: 11px; display: flex; gap: 6px; }       /* the window's own buttons, to scale */
+  .lights i { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.25); }
+  .lights i:nth-child(1) { background: #ff5f57; } .lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow" id="eyebrow"></div>
+    <h1 id="title"></h1>
+    <div class="sub" id="sub"></div>
+  </header>
+  <div class="frame"><img id="img" alt=""><div class="lights"><i></i><i></i><i></i></div></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  document.documentElement.lang = q.get("lang") || "ko";
+  for (const k of ["eyebrow", "title", "sub"]) document.getElementById(k).textContent = q.get(k) || "";
+  document.getElementById("img").src = q.get("img") || "";
+</script>
+</body>
+</html>

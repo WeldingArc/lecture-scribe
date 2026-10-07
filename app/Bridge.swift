@@ -89,7 +89,7 @@ final class Bridge {
     func handle(_ cmd: String, _ body: [String: Any]) {
         let id = (body["id"] as? String)?.nfc
         let editable = id.map { !engine.busyIDs.contains($0) } ?? false     // not while recording or saving
-        if !editable, id != nil, ["play", "rename", "delete", "share", "revealSession"].contains(cmd) {
+        if !editable, id != nil, ["play", "rename", "delete", "share", "revealSession", "saveLines"].contains(cmd) {
             notice("busy_saving", id == recordingID ? "지금 녹음 중인 기록입니다. 녹음을 마친 뒤에 다시 시도하십시오."
                                                     : "이 기록은 아직 저장하는 중입니다. 잠시 후에 다시 시도하십시오.")
             if cmd == "rename", let id { send(["ev": "renamed", "from": id, "to": id]) }                // put the old name back
@@ -106,6 +106,8 @@ final class Bridge {
                 if self.engine.session != nil, self.engine.settings.slides { self.platform?.startScreenSlides() }
             }
         case "stop": engine.stop()
+        case "pauseRec": engine.session?.setPaused(true)
+        case "resumeRec": engine.session?.setPaused(false)
         case "retry": engine.boot()
         case "settings":
             let icon = engine.settings.icon, slides = engine.settings.slides
@@ -193,6 +195,22 @@ final class Bridge {
             } catch {
                 notice("rename", "이름을 변경하지 못했습니다.")
                 send(["ev": "renamed", "from": id, "to": id])
+            }
+        case "saveLines":                                     // 글 편집: the page sends every line as it is now
+            guard let id, editable, let rows = body["lines"] as? [[Any]] else { return }
+            let lines = rows.compactMap { row -> Library.Line? in
+                guard row.count == 2, let t = (row[0] as? NSNumber)?.doubleValue, let s = row[1] as? String else { return nil }
+                let text = s.components(separatedBy: .newlines).joined(separator: " ").trimmingCharacters(in: .whitespaces)
+                return text.isEmpty ? nil : Library.Line(t: max(0, t), text: text)
+            }
+            do {
+                try Library.writeLines(engine.outDir, id: id, lines: lines, keywords: engine.keywords)
+                send(["ev": "linesSaved", "id": id, "count": lines.count])
+                refreshLibrary()
+            } catch {
+                log("edit failed: \(error)")
+                notice("edit", "고친 내용을 저장하지 못했습니다.")
+                send(["ev": "linesSaved", "id": id, "failed": true])
             }
         case "delete":
             guard let id, editable else { return }

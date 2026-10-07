@@ -191,16 +191,39 @@ final class SlideDetector {
     /// tiles that moved, and what had been learned before it.
     private var episode: (start: Double, from: Signature, frames: [Signature], scrolls: Int, tiles: Set<Int>, movedAt: [Double])?
     private let hold = 6.0                                                    // seconds a moving part stays ignored after it stops
+    /// The lecturer's camera: the compact rectangle that keeps changing (CameraFinder). Its tiles are left out of every
+    /// comparison — a face turning is never a new slide — and the app shows it on the live preview.
+    private let cameraFinder = CameraFinder(aspect: Double(Signature.w) / Double(Signature.h))
+    private(set) var cameraRect: CGRect?
+    private var cameraTiles = [Bool](repeating: false, count: Signature.tiles)
+    private var cameraAt = [Double](repeating: -1000, count: Signature.tiles)  // when the camera last covered each tile
 
     init(settle: Double) { self.settle = settle }
 
     /// Tests: explains each decision.
     var trace: ((String) -> Void)?
 
-    private var trusted: [Bool] { movedAt.map { now - $0 > hold } }
+    private var trusted: [Bool] { (0..<Signature.tiles).map { now - movedAt[$0] > hold && !cameraTiles[$0] } }
+
+    /// The tiles a camera rectangle covers, with a small margin: its edge bleeds into the tiles around it when the frame is
+    /// shrunk, so a tile goes with the camera once 5 % of it is inside.
+    static func tiles(in rect: CGRect?) -> [Bool] {
+        var out = [Bool](repeating: false, count: Signature.tiles)
+        guard let r = rect?.insetBy(dx: -0.015, dy: -0.02) else { return out }
+        let tw = 1.0 / Double(Signature.cols), th = 1.0 / Double(Signature.rows)
+        for i in 0..<Signature.tiles {
+            let tile = CGRect(x: Double(i % Signature.cols) * tw, y: Double(i / Signature.cols) * th, width: tw, height: th)
+            let o = tile.intersection(r)
+            if !o.isNull, Double(o.width * o.height) >= 0.05 * tw * th { out[i] = true }
+        }
+        return out
+    }
 
     func step(_ t: Double, _ sig: Signature) -> Event? {
         now = t
+        cameraRect = cameraFinder.add(gray: sig.px, width: Signature.w, height: Signature.h, at: t)?.rect
+        for (i, on) in SlideDetector.tiles(in: cameraRect).enumerated() where on { cameraAt[i] = t }
+        cameraTiles = cameraAt.map { t - $0 < hold }      // where the camera just was stays left out a while: it may have moved
         defer { last = sig; lastT = t }
         recent.append((t, sig))
         if let f = recent.first, t - f.t > 30 { recent.removeFirst() }
@@ -604,6 +627,9 @@ final class SlideDetector {
 final class SlideCollector: @unchecked Sendable {
     let dir: URL
     var onCount: (@Sendable (Int) -> Void)?
+    /// About once a second: the frame as a small JPEG (base64) and the lecturer's camera, if one was found (0–1, top-left).
+    var onPreview: (@Sendable (String, CGRect?) -> Void)?
+    private var lastPreview = Date.distantPast
     private let detector: SlideDetector
     private let queue = DispatchQueue(label: "lecture.slides", qos: .utility)
     private var timeline: [(slide: Int, from: Double)] = []
@@ -625,7 +651,13 @@ final class SlideCollector: @unchecked Sendable {
     /// Any thread; frames are handled in order on the collector's own queue.
     func add(_ image: CGImage, at t: Double) {
         queue.async { [self] in
-            guard !closed, let sig = Signature(image), let ev = detector.step(t, sig) else { return }
+            guard !closed, let sig = Signature(image) else { return }
+            let ev = detector.step(t, sig)
+            if let preview = onPreview, Date().timeIntervalSince(lastPreview) >= 1, let jpeg = SlideCollector.previewJPEG(image) {
+                lastPreview = Date()
+                preview(jpeg, detector.cameraRect)
+            }
+            guard let ev else { return }
             switch ev {
             case .new(let i, let since):
                 save(image, i)
@@ -639,6 +671,15 @@ final class SlideCollector: @unchecked Sendable {
             }
             writeTimeline()
         }
+    }
+
+    /// A small JPEG of a frame, base64 (about 20 KB): what the live preview shows.
+    static func previewJPEG(_ image: CGImage) -> String? {
+        let data = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(dest, scaled(image, max: 480), [kCGImageDestinationLossyCompressionQuality: 0.6] as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else { return nil }
+        return (data as Data).base64EncodedString()
     }
 
     private func save(_ image: CGImage, _ i: Int) {
