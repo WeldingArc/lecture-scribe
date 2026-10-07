@@ -1,10 +1,11 @@
-// The optional Whisper engine for 강의 받아쓰기 v2 on the Mac (whisper.cpp, large-v3-turbo, on this Mac's GPU).
-// Only the small runtime is compiled into the app: the model and its voice detector are downloaded from
-// 설정 › 음성 인식, checked against their published SHA-256, and can be removed there again.
+// The optional engines for 강의 받아쓰기 v2 on the Mac, run on this Mac's GPU: Whisper (whisper.cpp, large-v3-turbo),
+// Qwen3-ASR (Korean and English, also mixed) and Parakeet (English lectures) — the last two through transcribe.cpp.
+// Only the small runtimes are compiled into the app: each model and the voice detector they share are downloaded
+// from 설정 › 음성 인식, checked against their published SHA-256, and can be removed there again.
 //
 // The pipeline is v1's: a voice detector cuts the audio at pauses, each piece is transcribed (long ones get live
-// previews), and Whisper's known failure modes are caught — phrases it invents on silence, one phrase repeated over
-// and over, and an English quote translated into Korean (or the reverse) instead of written down as spoken.
+// previews), and the engines' known failure modes are caught — phrases invented on silence, one phrase repeated over
+// and over, and (Whisper) an English quote translated into Korean (or the reverse) instead of written down as spoken.
 
 #if WHISPER
 import Accelerate
@@ -12,33 +13,65 @@ import AVFoundation
 import CryptoKit
 import Foundation
 
-// MARK: - Model files
+// MARK: - Engines and their files
 
-struct WhisperFile: Sendable {
+struct ModelFile: Sendable {
     let name: String, url: URL, bytes: Int64, sha256: String
 }
 
-let whisperFiles = [
-    WhisperFile(name: "ggml-silero-v5.1.2.bin",
-                url: URL(string: "https://huggingface.co/ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v5.1.2.bin")!,
-                bytes: 885_098, sha256: "29940d98d42b91fbd05ce489f3ecf7c72f0a42f027e4875919a28fb4c04ea2cf"),
-    WhisperFile(name: "ggml-large-v3-turbo-q5_0.bin",
-                url: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin")!,
-                bytes: 574_041_195, sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"),
+/// An optional engine: what 설정 › 음성 인식 shows, the files it needs and the runtime that runs it.
+struct EngineSpec: Sendable {
+    enum Runtime: Sendable { case whisper, transcribe }
+    let id: String, name: String, model: String, desc: String
+    let files: [ModelFile]                     // the voice detector first (one copy, shared), then the model
+    let languages: [String]                    // the lecture languages (강의 언어) it writes
+    let runtime: Runtime
+    var bytes: Int64 { files.reduce(0) { $0 + $1.bytes } }
+    var modelFile: ModelFile { files[files.count - 1] }
+}
+
+private func hf(_ path: String) -> URL { URL(string: "https://huggingface.co/" + path)! }
+
+/// The voice detector every engine cuts the audio with.
+let vadFile = ModelFile(name: "ggml-silero-v5.1.2.bin",
+                        url: hf("ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v5.1.2.bin"),
+                        bytes: 885_098, sha256: "29940d98d42b91fbd05ce489f3ecf7c72f0a42f027e4875919a28fb4c04ea2cf")
+
+/// Pinned to a commit: a file can't change under its checksum.
+let engineSpecs = [
+    EngineSpec(id: "whisper", name: "Whisper", model: "large-v3 turbo",
+               desc: "OpenAI의 공개 모델을 이 Mac에서 실행해요 · Apple보다 전력을 더 써요",
+               files: [vadFile, ModelFile(name: "ggml-large-v3-turbo-q5_0.bin",
+                                          url: hf("ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin"),
+                                          bytes: 574_041_195, sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2")],
+               languages: ["ko", "en"], runtime: .whisper),
+    EngineSpec(id: "qwen3", name: "Qwen3-ASR", model: "1.7B",
+               desc: "Alibaba의 공개 모델 · 한국어와 영어가 섞여도, 억양이 강한 영어도 정확해요",
+               files: [vadFile, ModelFile(name: "Qwen3-ASR-1.7B-Q5_K_M.gguf",
+                                          url: hf("handy-computer/Qwen3-ASR-1.7B-gguf/resolve/3555bd238a8572bbace3ebf60d23b036dc0a5dbe/Qwen3-ASR-1.7B-Q5_K_M.gguf"),
+                                          bytes: 1_517_290_464, sha256: "034c557fe92ff8fcd9a9c041cbdaad347be0a86a58d3a348f63cf3f0180879d0")],
+               languages: ["ko", "en"], runtime: .transcribe),
+    EngineSpec(id: "parakeet", name: "Parakeet", model: "0.6B",
+               desc: "NVIDIA의 공개 모델 · 영어 강의 전용 — 한국어로 한 말은 빠지거나 엉뚱한 영어로 적혀요 · 내려받는 엔진 중 가장 빠르고 가벼워요",
+               files: [vadFile, ModelFile(name: "parakeet-unified-en-0.6b-Q5_K_M.gguf",
+                                          url: hf("handy-computer/parakeet-unified-en-0.6b-gguf/resolve/d5249700b2382bf5c5024c2421d101b8db54a629/parakeet-unified-en-0.6b-Q5_K_M.gguf"),
+                                          bytes: 540_795_264, sha256: "f9def6f9b4e83ab7d006df3e1b676dfa1f973a3b6da232a9c99fcaa66bcd2836")],
+               languages: ["en"], runtime: .transcribe),
 ]
-let whisperBytes = whisperFiles.reduce(Int64(0)) { $0 + $1.bytes }
+
 private let appBuildVersion = "\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev")-\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0")"
 
 /// Application Support/LectureScribe/Models (inside the app's container). Tests: LECTURE_MODEL_DIR.
-let whisperDir: URL = env["LECTURE_MODEL_DIR"].map { URL(fileURLWithPath: $0) }
+let modelDir: URL = env["LECTURE_MODEL_DIR"].map { URL(fileURLWithPath: $0) }
     ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("LectureScribe/Models")
 
-private func whisperPath(_ f: WhisperFile) -> String { whisperDir.appendingPathComponent(f.name).path }
+func modelPath(_ f: ModelFile) -> String { modelDir.appendingPathComponent(f.name).path }
 
-/// Downloads, checks and removes the model files. One download at a time; progress goes to the page.
+/// Downloads, checks and removes one engine's files (the Engine runs one download at a time); progress goes to the page.
 @MainActor
-final class WhisperModel: NSObject, URLSessionDownloadDelegate {
+final class ModelStore: NSObject, URLSessionDownloadDelegate {
     enum State: Equatable { case absent, downloading(Double), verifying, ready, failed(String) }
+    nonisolated let spec: EngineSpec
     private(set) var state: State = .absent { didSet { if state != oldValue { onChange?() } } }
     var onChange: (() -> Void)?
     /// A download the user started has finished.
@@ -49,50 +82,59 @@ final class WhisperModel: NSObject, URLSessionDownloadDelegate {
     private var resumeData: Data?                   // a download cut off by the network continues where it stopped
     private var resumeIndex = -1
     private var index = 0
+    private var needBytes: Int64 = 1                // what this download fetches (the shared voice detector may be here)
+    private var doneBytes: Int64 = 0
     private var lastReport = Date.distantPast
+    private static var tidied = false
 
-    override init() {
+    init(spec: EngineSpec) {
+        self.spec = spec
         super.init()
-        if let left = try? FileManager.default.contentsOfDirectory(atPath: whisperDir.path) {   // an interrupted download
-            for f in left where f.hasSuffix(".part") { try? FileManager.default.removeItem(at: whisperDir.appendingPathComponent(f)) }
+        if !ModelStore.tidied, let left = try? FileManager.default.contentsOfDirectory(atPath: modelDir.path) {   // an interrupted download
+            ModelStore.tidied = true
+            for f in left where f.hasSuffix(".part") { try? FileManager.default.removeItem(at: modelDir.appendingPathComponent(f)) }
         }
-        state = WhisperModel.installed ? .ready : .absent
+        state = installed ? .ready : .absent
     }
 
-    nonisolated static func complete(_ f: WhisperFile) -> Bool {
-        (try? FileManager.default.attributesOfItem(atPath: whisperPath(f))[.size] as? NSNumber)?.int64Value == f.bytes
+    nonisolated static func complete(_ f: ModelFile) -> Bool {
+        (try? FileManager.default.attributesOfItem(atPath: modelPath(f))[.size] as? NSNumber)?.int64Value == f.bytes
     }
-    nonisolated static var installed: Bool { whisperFiles.allSatisfy(complete) }
+    nonisolated var installed: Bool { spec.files.allSatisfy(ModelStore.complete) }
 
     var downloading: Bool { task != nil }
 
+    /// Bytes still to download.
+    nonisolated var missingBytes: Int64 { spec.files.filter { !ModelStore.complete($0) }.reduce(Int64(0)) { $0 + $1.bytes } }
+
     func download() {
         guard task == nil, state != .ready else { return }
-        let need = whisperBytes + 500_000_000
+        needBytes = max(1, missingBytes); doneBytes = 0
+        let need = needBytes + 500_000_000
         let free = (try? URL(fileURLWithPath: NSHomeDirectory())
             .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage) ?? need
         guard free >= need else {
             state = .failed("저장 공간이 부족해요. \(String(format: "%.1f", Double(need) / 1e9))GB 이상 비운 뒤 다시 해 주세요.")
             return
         }
-        do { try FileManager.default.createDirectory(at: whisperDir, withIntermediateDirectories: true) } catch {
+        do { try FileManager.default.createDirectory(at: modelDir, withIntermediateDirectories: true) } catch {
             state = .failed("모델을 저장할 폴더를 만들지 못했어요."); return
         }
         let cfg = URLSessionConfiguration.ephemeral
         cfg.timeoutIntervalForRequest = 60
         session = URLSession(configuration: cfg, delegate: self, delegateQueue: .main)
         index = 0
-        log("whisper: model download started")
+        log("\(spec.id): model download started")
         next()
     }
 
     private func next() {
-        while index < whisperFiles.count, WhisperModel.complete(whisperFiles[index]) { index += 1 }
-        guard index < whisperFiles.count, let session else { return finished() }
-        let f = whisperFiles[index]
+        while index < spec.files.count, ModelStore.complete(spec.files[index]) { index += 1 }   // the shared voice detector may be here already
+        guard index < spec.files.count, let session else { return finished() }
+        let f = spec.files[index]
         let url = env["LECTURE_MODEL_URL"].flatMap { URL(string: $0)?.appendingPathComponent(f.name) } ?? f.url   // tests: a local server
         let t: URLSessionDownloadTask
-        if let data = resumeData, resumeIndex == index { t = session.downloadTask(withResumeData: data); log("whisper: resuming the download") }
+        if let data = resumeData, resumeIndex == index { t = session.downloadTask(withResumeData: data); log("\(spec.id): resuming the download") }
         else { t = session.downloadTask(with: url) }
         resumeData = nil
         task = t
@@ -103,25 +145,25 @@ final class WhisperModel: NSObject, URLSessionDownloadDelegate {
     private func report(_ written: Int64, force: Bool = false) {
         guard force || Date().timeIntervalSince(lastReport) >= 0.25 else { return }
         lastReport = Date()
-        let before = whisperFiles.prefix(index).reduce(Int64(0)) { $0 + $1.bytes }
-        state = .downloading(min(0.999, Double(before + written) / Double(whisperBytes)))
+        state = .downloading(min(0.999, Double(doneBytes + written) / Double(needBytes)))
     }
 
     private func finished() {
         session?.finishTasksAndInvalidate()
         session = nil; task = nil
-        guard WhisperModel.installed else { state = .failed("모델을 내려받지 못했어요. 다시 해 주세요."); return }
-        // The very first load compiles the model's GPU programs (about 40 s, once; macOS keeps them): do it now,
-        // while the page still says "확인 중", so the first recording with Whisper starts at once.
+        guard installed else { state = .failed("모델을 내려받지 못했어요. 다시 해 주세요."); return }
+        // The very first load compiles the model's GPU programs (up to a minute, once; macOS keeps them): do it now,
+        // while the page still says "확인 중", so the first recording with this engine starts at once.
         state = .verifying
+        let spec = self.spec
         Task.detached(priority: .userInitiated) {
             let t0 = Date()
-            WhisperCore.warmUp()
-            log(String(format: "whisper: warmed up in %.1f s", Date().timeIntervalSince(t0)))
+            WhisperCore.warmUp(spec)
+            log(String(format: "\(spec.id): warmed up in %.1f s", Date().timeIntervalSince(t0)))
             await MainActor.run {
-                guard self.task == nil, self.session == nil, WhisperModel.installed else { return }
+                guard self.task == nil, self.session == nil, self.installed else { return }
                 self.state = .ready
-                log("whisper: model ready")
+                log("\(spec.id): model ready")
                 self.onReady?()
             }
         }
@@ -139,61 +181,67 @@ final class WhisperModel: NSObject, URLSessionDownloadDelegate {
         task?.cancel()
         session?.invalidateAndCancel()
         task = nil; session = nil
-        state = WhisperModel.installed ? .ready : .absent
-        log("whisper: download cancelled")
+        state = installed ? .ready : .absent
+        log("\(spec.id): download cancelled")
     }
 
-    func remove() {
+    /// `shared`: files another engine still uses (the voice detector) stay.
+    func remove(keeping shared: Set<String> = []) {
         cancel()
-        for f in whisperFiles { try? FileManager.default.removeItem(atPath: whisperPath(f)) }
+        for f in spec.files where !shared.contains(f.name) { try? FileManager.default.removeItem(atPath: modelPath(f)) }
         state = .absent
-        log("whisper: model removed")
+        log("\(spec.id): model removed")
     }
 
-    /// Whisper didn't load: check the files against their checksums (in the background). Damaged or missing files are
+    /// A shared file went (another engine's check removed it): this engine has to be downloaded again too.
+    func refresh() {
+        if state == .ready, !installed { state = .absent }
+    }
+
+    /// The model didn't load: check the files against their checksums (in the background). Damaged or missing files are
     /// removed, so 설정 › 음성 인식 offers the download again instead of failing at every recording.
     func recheck() {
         guard state == .ready, task == nil else { return }
+        let spec = self.spec
         Task.detached(priority: .utility) {
-            let bad = whisperFiles.filter { !WhisperModel.verify(URL(fileURLWithPath: whisperPath($0)), $0) }
-            let missing = bad.contains { !FileManager.default.fileExists(atPath: whisperPath($0)) }
+            let bad = spec.files.filter { !ModelStore.verify(URL(fileURLWithPath: modelPath($0)), $0) }
+            let missing = bad.contains { !FileManager.default.fileExists(atPath: modelPath($0)) }
             await MainActor.run {
-                guard !bad.isEmpty else { log("whisper: the model files are intact"); return }
+                guard !bad.isEmpty else { log("\(spec.id): the model files are intact"); return }
                 guard self.state == .ready, self.task == nil else { return }
-                for f in bad { try? FileManager.default.removeItem(atPath: whisperPath(f)) }
-                log("whisper: removed damaged or missing files: \(bad.map(\.name).joined(separator: ", "))")
+                for f in bad { try? FileManager.default.removeItem(atPath: modelPath(f)) }
+                log("\(spec.id): removed damaged or missing files: \(bad.map(\.name).joined(separator: ", "))")
                 self.state = .failed(missing ? "모델 파일이 없어졌어요. 다시 내려받아 주세요." : "모델 파일이 손상되어 지웠어요. 다시 내려받아 주세요.")
             }
         }
     }
 
-    /// After an app update the GPU programs are compiled again on the first load (20–40 s): if Whisper is the chosen
-    /// engine, do that quietly in the background once per build, so the next recording starts at once.
+    /// After an app update the GPU programs are compiled again on the first load (20–40 s): for the chosen engine, do
+    /// that quietly in the background once per build, so the next recording starts at once.
     func warmUpIfUpdated(selected: Bool) {
         guard selected, state == .ready, env["LECTURE_TEST_NO_WARMUP"] == nil else { return }
         let exe = Bundle.main.executableURL.map { $0.path } ?? CommandLine.arguments[0]
         let built = (try? FileManager.default.attributesOfItem(atPath: exe)[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let key = "whisperWarm", stamp = "\(appBuildVersion)-\(Int(built))"
+        let key = "\(spec.id)Warm", stamp = "\(appBuildVersion)-\(Int(built))", spec = self.spec
         guard UserDefaults.standard.string(forKey: key) != stamp else { return }
         Task.detached(priority: .background) {
             let t0 = Date()
-            WhisperCore.warmUp()
-            log(String(format: "whisper: warmed up for this build in %.1f s", Date().timeIntervalSince(t0)))
+            WhisperCore.warmUp(spec)
+            log(String(format: "\(spec.id): warmed up for this build in %.1f s", Date().timeIntervalSince(t0)))
             UserDefaults.standard.set(stamp, forKey: key)
         }
     }
 
     /// For the page (설정 › 음성 인식).
     var info: [String: Any] {
-        var d: [String: Any] = ["id": "whisper", "name": "Whisper", "model": "large-v3 turbo",
-                                "desc": "OpenAI의 공개 모델을 이 Mac에서 실행해요 · Apple보다 전력을 더 써요",
-                                "bytes": whisperBytes, "removable": true]
-        switch state {
-        case .absent: d["state"] = "absent"
-        case .downloading(let p): d["state"] = "downloading"; d["progress"] = (p * 1000).rounded() / 1000
-        case .verifying: d["state"] = "downloading"; d["progress"] = 1; d["verifying"] = true
+        var d: [String: Any] = ["id": spec.id, "name": spec.name, "model": spec.model, "desc": spec.desc,
+                                "bytes": spec.bytes, "removable": true, "languages": spec.languages]
+        switch state {                                   // bytes: what a download fetches; once ready, what 삭제 frees
+        case .absent: d["state"] = "absent"; d["bytes"] = missingBytes > 0 ? missingBytes : spec.bytes
+        case .downloading(let p): d["state"] = "downloading"; d["progress"] = (p * 1000).rounded() / 1000; d["bytes"] = needBytes
+        case .verifying: d["state"] = "downloading"; d["progress"] = 1; d["verifying"] = true; d["bytes"] = needBytes
         case .ready: d["state"] = "ready"
-        case .failed(let m): d["state"] = "failed"; d["error"] = m
+        case .failed(let m): d["state"] = "failed"; d["error"] = m; d["bytes"] = missingBytes > 0 ? missingBytes : spec.bytes
         }
         return d
     }
@@ -207,7 +255,7 @@ final class WhisperModel: NSObject, URLSessionDownloadDelegate {
 
     nonisolated func urlSession(_ s: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         let status = (downloadTask.response as? HTTPURLResponse)?.statusCode ?? 0
-        let part = whisperDir.appendingPathComponent(UUID().uuidString + ".part")     // the temporary file is gone after this returns
+        let part = modelDir.appendingPathComponent(UUID().uuidString + ".part")      // the temporary file is gone after this returns
         let moved = (try? FileManager.default.moveItem(at: location, to: part)) != nil
         MainActor.assumeIsolated { self.received(downloadTask, part: moved ? part : nil, status: status) }
     }
@@ -216,7 +264,7 @@ final class WhisperModel: NSObject, URLSessionDownloadDelegate {
         guard let error else { return }
         MainActor.assumeIsolated {
             guard t === self.task, (error as NSError).code != NSURLErrorCancelled else { return }
-            log("whisper: download failed: \(error)")
+            log("\(self.spec.id): download failed: \(error)")
             if let data = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data {   // 다시 시도 continues from here
                 self.resumeData = data; self.resumeIndex = self.index
             }
@@ -228,55 +276,62 @@ final class WhisperModel: NSObject, URLSessionDownloadDelegate {
     private func received(_ t: URLSessionDownloadTask, part: URL?, status: Int) {
         guard t === task, let part, status == 200 else {
             if let part { try? FileManager.default.removeItem(at: part) }
-            if t === task { log("whisper: download HTTP \(status)"); fail("모델을 내려받지 못했어요. 잠시 후 다시 해 주세요.") }
+            if t === task { log("\(spec.id): download HTTP \(status)"); fail("모델을 내려받지 못했어요. 잠시 후 다시 해 주세요.") }
             return
         }
-        let f = whisperFiles[index]
-        state = .verifying
+        let f = spec.files[index]
+        if index == spec.files.count - 1 { state = .verifying }          // the voice detector checks in a blink
         Task.detached(priority: .userInitiated) {
-            let ok = WhisperModel.verify(part, f)
+            let ok = ModelStore.verify(part, f)
             await MainActor.run {
                 guard t === self.task else { try? FileManager.default.removeItem(at: part); return }     // cancelled meanwhile
                 guard ok else {
                     try? FileManager.default.removeItem(at: part)
-                    log("whisper: \(f.name) failed its checksum")
+                    log("\(self.spec.id): \(f.name) failed its checksum")
                     self.fail("내려받은 파일이 올바르지 않아요. 다시 해 주세요."); return
                 }
-                try? FileManager.default.removeItem(atPath: whisperPath(f))
-                do { try FileManager.default.moveItem(atPath: part.path, toPath: whisperPath(f)) } catch {
+                try? FileManager.default.removeItem(atPath: modelPath(f))
+                do { try FileManager.default.moveItem(atPath: part.path, toPath: modelPath(f)) } catch {
                     self.fail("모델을 저장하지 못했어요."); return
                 }
                 self.index += 1
+                self.doneBytes += f.bytes
                 self.next()
             }
         }
     }
 
-    nonisolated static func verify(_ url: URL, _ f: WhisperFile) -> Bool {
+    nonisolated static func verify(_ url: URL, _ f: ModelFile) -> Bool {
         guard let h = try? FileHandle(forReadingFrom: url) else { return false }
         defer { try? h.close() }
         var sha = SHA256(), n: Int64 = 0
-        while let chunk = try? h.read(upToCount: 8 << 20), !chunk.isEmpty { sha.update(data: chunk); n += Int64(chunk.count) }
+        // each chunk freed before the next: without the pool a 1.5 GB model stayed in memory until the end
+        while autoreleasepool(invoking: { () -> Bool in
+            guard let chunk = try? h.read(upToCount: 8 << 20), !chunk.isEmpty else { return false }
+            sha.update(data: chunk); n += Int64(chunk.count)
+            return true
+        }) {}
         return n == f.bytes && sha.finalize().map { String(format: "%02x", $0) }.joined() == f.sha256
     }
 }
 
 // MARK: - Recognizer
 
-/// Whisper's speech recognition for one session. The model loads while the first audio is already buffered,
-/// so 시작 responds at once. If it can't be loaded at all (a damaged file, the GPU refusing it), Apple's recognizer
-/// takes over the session with everything heard so far — the transcript never just stops.
+/// One downloaded engine's speech recognition for one session (Whisper, Qwen3-ASR or Parakeet). The model loads while
+/// the first audio is already buffered, so 시작 responds at once. If it can't be loaded at all (a damaged file, the GPU
+/// refusing it), Apple's recognizer takes over the session with everything heard so far — the transcript never just stops.
 @MainActor
 final class WhisperRecognizer: SpeechRecognizer {
     var onLine: ((Line) -> Void)?
     var onError: ((Error) -> Void)?
-    /// Whisper didn't load and Apple's recognizer took over (the engine then checks the model files).
+    /// The model didn't load and Apple's recognizer took over (the engine then checks the model files).
     var onFallback: (() -> Void)?
     private let core: WhisperCore
     private var apple: Recognizer?
     private var takeover: Task<Void, Never>?
 
-    init(live: Bool) { core = WhisperCore(live: live) }
+    /// `major`: the lecture's language (강의 언어), "ko" or "en"; the other one is written where it is spoken.
+    init(live: Bool, major: String = "ko", spec: EngineSpec) { core = WhisperCore(live: live, major: major, spec: spec) }
 
     func start() async throws {
         core.deliver = { [weak self] line in DispatchQueue.main.async { MainActor.assumeIsolated { self?.onLine?(line) } } }
@@ -302,7 +357,7 @@ final class WhisperRecognizer: SpeechRecognizer {
 
     private func fallBack(_ error: Error) {
         guard takeover == nil else { return }
-        let apple = Recognizer(), core = self.core
+        let apple = Recognizer(main: core.major), core = self.core
         apple.onLine = { [weak self] in self?.onLine?($0) }
         apple.onError = { [weak self] in self?.onError?($0) }
         self.apple = apple
@@ -311,12 +366,12 @@ final class WhisperRecognizer: SpeechRecognizer {
             do {
                 try await apple.start()
                 core.handOver { apple.push($0) }
-                log("whisper: Apple's recognizer took over")
-                self?.onError?(EngineError(message: "Whisper 모델을 열지 못해서 이번 녹음은 Apple 음성 인식으로 받아 적어요. 지금까지 들린 내용도 빠짐없이 받아 적어요."))
+                log("\(core.spec.id): Apple's recognizer took over")
+                self?.onError?(EngineError(message: "\(core.spec.name) 모델을 열지 못해서 이번 녹음은 Apple 음성 인식으로 받아 적어요. 지금까지 들린 내용도 빠짐없이 받아 적어요."))
             } catch {
                 core.abandon()
                 self?.apple = nil
-                log("whisper: Apple's recognizer couldn't take over: \(error)")
+                log("\(core.spec.id): Apple's recognizer couldn't take over: \(error)")
                 self?.onError?(EngineError(message: "음성 인식을 시작하지 못했어요. 녹음은 계속돼요."))
             }
         }
@@ -345,6 +400,13 @@ final class AtomicValue: @unchecked Sendable {
 /// A model failed to load in this run: its half-made GPU state makes ggml's teardown abort at exit ("quit
 /// unexpectedly"), so the app then leaves with `_exit` once everything is saved (main.swift `quit`).
 let whisperLoadFailed = AbortFlag()
+
+/// transcribe.cpp's messages go to the app log (warnings and errors; everything with LECTURE_DEBUG). Set once.
+private let transcribeLogging: Void = transcribe_log_set({ level, msg, _ in
+    guard let msg, level == TRANSCRIBE_LOG_LEVEL_WARN || level == TRANSCRIBE_LOG_LEVEL_ERROR || env["LECTURE_DEBUG"] == "1" else { return }
+    let line = String(cString: msg).trimmingCharacters(in: .whitespacesAndNewlines)
+    if !line.isEmpty { log("transcribe: " + line) }
+}, nil)
 
 final class AbortFlag: @unchecked Sendable {
     private let lock = NSLock(); private var v = false
@@ -386,15 +448,19 @@ func whisperCollapse(_ text: String) -> String {
     return w.joined(separator: " ")
 }
 
-/// Everything the worker thread touches. Audio arrives on capture threads; Whisper runs on one worker thread.
+/// Everything the worker thread touches. Audio arrives on capture threads; the model runs on one worker thread.
 private final class WhisperCore: @unchecked Sendable {
     let live: Bool
+    let major: String                          // the lecture's language: "ko" or "en"
+    let spec: EngineSpec
+    private var minor: String { major == "en" ? "ko" : "en" }
     var deliver: (Line) -> Void = { _ in }
     var failed: (Error) -> Void = { _ in }
     /// The model couldn't be loaded. The audio keeps being collected until `handOver` passes it on.
     var loadFailed: (Error) -> Void = { _ in }
 
-    private var ctx: OpaquePointer?
+    private var ctx: OpaquePointer?                // Whisper
+    private var session: OpaquePointer?            // Qwen3-ASR, Parakeet (transcribe.cpp)
     private var vad: OpaquePointer?
     private let cond = NSCondition()
     private var input: [Float] = []
@@ -405,11 +471,13 @@ private final class WhisperCore: @unchecked Sendable {
     private var forward: ((AVAudioPCMBuffer) -> Void)?     // after a failed load: where the audio goes instead
     private let abort = AbortFlag()
 
-    init(live: Bool) { self.live = live }
+    init(live: Bool, major: String = "ko", spec: EngineSpec) {
+        self.live = live; self.major = major == "en" ? "en" : "ko"; self.spec = spec
+    }
 
     /// Loads the model once and frees it (after a download): macOS keeps the compiled GPU programs.
-    static func warmUp() {
-        let core = WhisperCore(live: false)
+    static func warmUp(_ spec: EngineSpec) {
+        let core = WhisperCore(live: false, spec: spec)
         try? core.load()
         core.release()
     }
@@ -419,7 +487,7 @@ private final class WhisperCore: @unchecked Sendable {
         let t = Thread { [self] in work() }
         t.stackSize = 8 << 20
         t.qualityOfService = .userInitiated
-        t.name = "lecture.whisper"
+        t.name = "lecture.\(spec.id)"
         t.start()
     }
 
@@ -480,7 +548,7 @@ private final class WhisperCore: @unchecked Sendable {
         while running, Date() < deadline { _ = cond.wait(until: min(deadline, Date() + 1)) }
         let stuck = running
         cond.unlock()
-        if stuck { log("whisper: still busy after 3 minutes; stopping"); stop() } else { release() }
+        if stuck { log("\(spec.id): still busy after 3 minutes; stopping"); stop() } else { release() }
     }
 
     func cancel() { stop() }
@@ -501,6 +569,7 @@ private final class WhisperCore: @unchecked Sendable {
         guard !running else { return }                        // never free under a running decode
         if let v = vad { whisper_vad_free(v); vad = nil }
         if let c = ctx { whisper_free(c); ctx = nil }
+        if let s = session { transcribe_session_free(s); session = nil }
     }
 
     // MARK: worker
@@ -516,18 +585,35 @@ private final class WhisperCore: @unchecked Sendable {
             if !line.isEmpty { log("whisper: " + line) }
         }, nil)
         let t0 = Date()
+        var vp = whisper_vad_default_context_params()          // whisper.cpp's voice detector cuts the audio for every engine
+        vp.n_threads = 1
+        vp.use_gpu = false
+        guard let v = whisper_vad_init_from_file_with_params(modelPath(vadFile), vp) else {
+            throw EngineError(message: "the voice detector didn't load")
+        }
+        if spec.runtime == .transcribe {
+            _ = transcribeLogging
+            var sp = transcribe_session_params()
+            transcribe_session_params_init(&sp)
+            sp.n_threads = 4
+            var s: OpaquePointer?
+            let rc = transcribe_open(modelPath(spec.modelFile), nil, &sp, &s)
+            guard rc == TRANSCRIBE_OK, let s else {
+                whisper_vad_free(v)
+                throw EngineError(message: "the model didn't load (\(String(cString: transcribe_status_string(Int32(rc.rawValue)))))")
+            }
+            transcribe_set_abort_callback(s, { $0.map { Unmanaged<AbortFlag>.fromOpaque($0).takeUnretainedValue().value } ?? false },
+                                          Unmanaged.passUnretained(abort).toOpaque())
+            session = s; vad = v
+            log(String(format: "\(spec.id): model loaded in %.1f s on ", Date().timeIntervalSince(t0)) + String(cString: transcribe_model_backend(transcribe_get_model(s))))
+            return
+        }
         var cp = whisper_context_default_params()
         cp.use_gpu = true
         cp.flash_attn = true                                   // measured: ~20% faster on an M2
-        guard let c = whisper_init_from_file_with_params(whisperPath(whisperFiles[1]), cp) else {
+        guard let c = whisper_init_from_file_with_params(modelPath(spec.modelFile), cp) else {
+            whisper_vad_free(v)
             throw EngineError(message: "the model didn't load")
-        }
-        var vp = whisper_vad_default_context_params()
-        vp.n_threads = 1
-        vp.use_gpu = false
-        guard let v = whisper_vad_init_from_file_with_params(whisperPath(whisperFiles[0]), vp) else {
-            whisper_free(c)
-            throw EngineError(message: "the voice detector didn't load")
         }
         ctx = c; vad = v
         log(String(format: "whisper: model loaded in %.1f s · ", Date().timeIntervalSince(t0)) + String(cString: whisper_print_system_info()))
@@ -536,14 +622,14 @@ private final class WhisperCore: @unchecked Sendable {
     private func work() {
         let slow = DispatchWorkItem { [weak self] in
             guard let self, !self.isClosing else { return }
-            self.failed(EngineError(message: "Whisper를 준비하는 중이에요. 처음 한 번은 1분쯤 걸려요 — 그동안에도 녹음은 계속되고, 준비되면 이어서 받아 적어요."))
+            self.failed(EngineError(message: "\(self.spec.name) 모델을 준비하는 중이에요. 처음 한 번은 1분쯤 걸려요 — 그동안에도 녹음은 계속되고, 준비되면 이어서 받아 적어요."))
         }
         DispatchQueue.global().asyncAfter(deadline: .now() + 5, execute: slow)
         defer { slow.cancel() }
         do { try load(); slow.cancel() } catch {
             slow.cancel()
             whisperLoadFailed.value = true
-            log("whisper: \(error)")
+            log("\(spec.id): \(error)")
             cond.lock(); loadError = error; running = false; cond.broadcast(); cond.unlock()
             loadFailed(error)                                 // the audio waits for Apple's recognizer
             return
@@ -581,7 +667,7 @@ private final class WhisperCore: @unchecked Sendable {
         if s.count % 512 != 0 { s += [Float](repeating: 0, count: 512 - s.count % 512) }
         let ok = s.withUnsafeBufferPointer { whisper_vad_detect_speech_no_reset(vad, $0.baseAddress, Int32($0.count)) }
         let n = Int(whisper_vad_n_probs(vad))
-        guard ok, n == s.count / 512, let probs = whisper_vad_probs(vad) else { log("whisper: voice detector failed"); return }
+        guard ok, n == s.count / 512, let probs = whisper_vad_probs(vad) else { log("\(spec.id): voice detector failed"); return }
         for i in 0..<n { feed(s[(i * 512)..<((i + 1) * 512)], probs[i]) }
     }
 
@@ -668,11 +754,19 @@ private final class WhisperCore: @unchecked Sendable {
         var sure: Float = 1                                     // "auto": how sure Whisper was of `lang`
     }
 
-    /// Korean or English, written down as spoken (never translated) — v1's rule: long finals detect their language;
-    /// if that differs from the lecture's (Korean), the piece is decoded both ways and the more confident reading
-    /// wins, so an English quote stays English and a misheard Korean sentence can't turn into an English translation.
+    /// Korean or English, written down as spoken (never translated on purpose) — v1's rule: long finals detect their
+    /// language; if that differs from the lecture's (강의 언어: Korean by default, or English), the piece is decoded both
+    /// ways and the more confident reading wins, so a quote in the other language stays as spoken and a misheard
+    /// sentence can't turn into a translation.
     private func transcribe(_ pcm: [Float], final: Bool, voice: [Float] = []) -> String {
-        let major = "ko"
+        if spec.runtime == .transcribe {
+            var text = transcribeOther(pcm, voice: final && (!live || backlog < 3) ? voice : [])
+            // "commons.는": a full stop right before a Korean particle (Qwen3 ends an English phrase with one)
+            text = text.replacingOccurrences(of: "\\.(?=[가-힣])", with: "", options: .regularExpression)
+            if whisperLoop(text) != nil { log("\(spec.id): collapsing a repeated phrase"); text = whisperCollapse(text) }
+            return clean(text)
+        }
+        let major = self.major, minor = self.minor
         let behind = live ? backlog : 0
         var r: Result
         if final, Double(pcm.count) / 16000 >= 2.5, behind < 3 {
@@ -685,17 +779,18 @@ private final class WhisperCore: @unchecked Sendable {
             }
         } else {
             r = decode(pcm, language: major, beam: final && behind < 8 ? 5 : 1); r.lang = major
-            // A short piece may be an English quote ("Less is more."). If the Korean pass wrote it in English anyway, read it
-            // again as English (the Korean pass drops or capitalises its words: "STAY HUNGRY"). If Korean can't make sense
-            // of it, it becomes English only when Whisper itself identifies the speech as English: forced into English,
-            // unclear Korean comes out as invented English ("잠깐만요" → "I'm done with you").
+            // A short piece may be a quote in the other language ("Less is more." in a Korean lecture). If the lecture's
+            // language pass wrote it in the other script anyway, read it again in that language (the Korean pass drops or
+            // capitalises English words: "STAY HUNGRY"). If the pass can't make sense of it, it switches only when
+            // Whisper itself identifies the other language: forced into a language, unclear speech comes out invented
+            // ("잠깐만요" → "I'm done with you").
             if final, behind < 8, Double(pcm.count) / 16000 >= 0.6 {
-                if latin(r.text) {
-                    let e = decode(pcm, language: "en", beam: 5)
-                    if latin(e.text), e.conf > -0.9 { r = e; r.lang = "en" }
+                if written(r.text, in: minor) {
+                    let e = decode(pcm, language: minor, beam: 5)
+                    if written(e.text, in: minor), e.conf > -0.9 { r = e; r.lang = minor }
                 } else if r.text.isEmpty || r.conf < -0.8 {
                     let a = decode(pcm, language: "auto", beam: 5)
-                    if a.lang == "en", a.sure >= 0.9, latin(a.text), a.conf > -0.9 { r = a }
+                    if a.lang == minor, a.sure >= 0.9, written(a.text, in: minor), a.conf > -0.9 { r = a }
                 }
             }
         }
@@ -714,6 +809,15 @@ private final class WhisperCore: @unchecked Sendable {
         let letters = text.unicodeScalars.filter { CharacterSet.letters.contains($0) }
         return !letters.isEmpty && Double(letters.filter { $0.isASCII }.count) >= 0.8 * Double(letters.count)
     }
+
+    /// Mostly Hangul.
+    private func hangul(_ text: String) -> Bool {
+        let letters = text.unicodeScalars.filter { CharacterSet.letters.contains($0) }
+        return !letters.isEmpty && Double(letters.filter { (0xAC00...0xD7A3).contains($0.value) }.count) >= 0.8 * Double(letters.count)
+    }
+
+    /// Written in the script of `lang` ("en": Latin, "ko": Hangul).
+    private func written(_ text: String, in lang: String) -> Bool { lang == "en" ? latin(text) : hangul(text) }
 
     /// Speech the voice detector heard but no part of the transcript covers — typically a short English quote inside a
     /// mostly Korean piece, which Whisper leaves out. Each such utterance is decoded again with Whisper's own language
@@ -748,17 +852,17 @@ private final class WhisperCore: @unchecked Sendable {
             guard hi - lo >= 9600 else { continue }
             let t0 = Double(lo) / 16000, t1 = Double(hi) / 16000
             let around = raw.filter { $0.t1 > t0 && $0.t0 < t1 }
-            // a Korean segment there with English words in it heard this speech, if poorly: nothing was left out
-            if r.lang != "en", around.contains(where: { latinWord($0.text) }) { continue }
+            // a segment there with words of the other language in it heard this speech, if poorly: nothing was left out
+            if r.lang == major, around.contains(where: { minor == "en" ? latinWord($0.text) : hangulWord($0.text) }) { continue }
             if env["LECTURE_DEBUG"] == "1" { log(String(format: "whisper: checking %.1f–%.1f s for left-out speech", t0, t1)) }
             let x = decode(Array(pcm[lo..<hi]), language: "auto", beam: 5)
             guard !x.text.isEmpty, x.conf > -0.9, !similar(x.text, r.text) else { continue }
-            // English only when Whisper is sure it is English: real quotes measure 0.98–1.00, while Korean it already has
-            // (a slow speaker makes the guess of where a segment began too late) misidentified as English measures
-            // 0.24–0.62 and comes out as invented English ("여러분," → "You're a good one.")
-            let english = x.lang == "en" && x.sure >= 0.9 && latin(x.text)
-            let korean = x.lang == "ko" && !latin(x.text) && around.isEmpty         // a gap in Whisper's own timing
-            guard english || korean else { continue }
+            // the other language only when Whisper is sure of it: real English quotes measure 0.98–1.00, while Korean the
+            // transcript already has (a slow speaker makes the guess of where a segment began too late) misidentified as
+            // English measures 0.24–0.62 and comes out as invented English ("여러분," → "You're a good one.")
+            let quote = x.lang == minor && x.sure >= 0.9 && written(x.text, in: minor)
+            let ownGap = x.lang == major && !written(x.text, in: minor) && around.isEmpty    // a gap in Whisper's own timing
+            guard quote || ownGap else { continue }
             parts.append((t0 - 0.01, t1, x.text))                                    // before what follows it
             added = true
             log("whisper: put back speech the transcript had left out")
@@ -792,6 +896,15 @@ private final class WhisperCore: @unchecked Sendable {
         return runs
     }
 
+    /// A Korean word (two syllables or more).
+    private func hangulWord(_ text: String) -> Bool {
+        var run = 0
+        for u in text.unicodeScalars {
+            if (0xAC00...0xD7A3).contains(u.value) { run += 1; if run >= 2 { return true } } else { run = 0 }
+        }
+        return false
+    }
+
     /// An English word (four letters or more, not an acronym like "GDP").
     private func latinWord(_ text: String) -> Bool {
         latinRuns(text).contains { $0.count >= 4 && $0.contains { $0.isLowercase } }
@@ -805,6 +918,158 @@ private final class WhisperCore: @unchecked Sendable {
         }
         let pa = pairs(a), pb = Set(pairs(b))
         return !pa.isEmpty && Double(pa.filter(pb.contains).count) >= 0.6 * Double(pa.count)
+    }
+
+    /// Qwen3-ASR and Parakeet. Parakeet knows only English. Qwen3 identifies each piece's language itself and then
+    /// writes both languages as spoken — told the language instead, it drops or spells out in Hangul the English words
+    /// of a Korean piece. But it decides once per piece, and a piece it takes for the other language can come out
+    /// translated ("다음 표현을 들어보세요. Actions speak…" → "Next, listen to the following. Actions speak…"), and
+    /// an English term inside a Korean sentence is now and then left out ("말씀하신 는 공유지의 비극"). Both happen
+    /// to pieces holding two utterances and depend on where the piece was cut, so such a piece is read again in two
+    /// halves, split at its longest pause — and the halves are kept only if they bring back words of the missing
+    /// language (a correct reading cut in a word can come out worse). Previews (`voice` empty) are read once.
+    private func transcribeOther(_ pcm: [Float], voice: [Float], depth: Int = 0) -> String {
+        let only = spec.languages.count == 1 ? spec.languages[0] : nil
+        let r = run(pcm, language: only)
+        guard only == nil, !r.text.isEmpty else { return r.text }
+        // A third language (or kana / Chinese characters) is read again in the lecture's language — noise and accents make
+        // Qwen3 name any language (kept as it was, noisy English came out in Thai script). In an English lecture a piece
+        // Qwen3 itself took for Japanese or Chinese is read as Korean — in these lectures it is almost always a Korean
+        // aside ("クラン継続かけます。" for "그럼 계속하겠습니다.", "苏哲，内伊卡金内。" for "숙제 내일까지 내."; told English it came
+        // out translated or invented: "Then, we will continue.", "Such a nail, a jine.") — unless it is katakana alone,
+        // English the way Japanese writes loanwords ("ハッピーバースデー。", which read as Korean became "하피 버스 데이").
+        // (Japanese speech itself — a quote, a filler — comes out as Korean that way.)
+        if foreign(r.text) || !["ko", "en"].contains(r.lang) {
+            let katakanaOnly = !r.text.unicodeScalars.contains { (0x3040...0x309F).contains($0.value) || (0x4E00...0x9FFF).contains($0.value) }
+            if major == "en", !["ko", "en"].contains(r.lang), foreign(r.text), !katakanaOnly {
+                let k = run(pcm, language: "ko")
+                if !k.text.isEmpty { return k.text }
+            }
+            let m = run(pcm, language: major)
+            return m.text.isEmpty ? r.text : m.text
+        }
+        guard !voice.isEmpty, depth < 2 else { return r.text }
+        var doubt: String?, cut: (([Float], [Float]), ([Float], [Float]))?
+        let other = r.lang == "ko" ? "en" : "ko"
+        var want = other                                              // the script the halves must bring back
+        if r.lang == "ko", strandedParticle(r.text), let h = halves(pcm, voice, pause: 0) {
+            doubt = "may have left out a word"; cut = h; want = "en"   // a sure sign: cut even where the pause is short
+        } else if !written(r.text, in: other, atAll: true), let h = halves(pcm, voice, pause: 5),
+                  sentence(run(pcm, language: other).text, in: other) {
+            // all in one language, but told the other one Qwen3 hears a sentence of it: translated or left out.
+            // (Its reading in the other language is never used itself: told Korean, it turns "Time is money." into
+            // "타임은 돈이다".)
+            doubt = r.lang == minor ? "may have been translated" : "may have left out the other language"; cut = h
+        }
+        guard let doubt, let (left, right) = cut else { return r.text }
+        if env["LECTURE_DEBUG"] == "1" { log("\(spec.id): a piece \(doubt); reading it again in two halves") }
+        var a = transcribeOther(left.0, voice: left.1, depth: depth + 1)
+        let b = transcribeOther(right.0, voice: right.1, depth: depth + 1)
+        if env["LECTURE_DEBUG"] == "1" { log("\(spec.id):   halves: [\(a)] [\(b)]") }
+        // the cut is mid-sentence more often than not: no full stop after a Korean word that doesn't end a sentence
+        if a.range(of: "[가-힣]\\.$", options: .regularExpression) != nil,
+           a.range(of: "(다|요|죠|까|네|지|음|함)\\.$", options: .regularExpression) == nil { a.removeLast() }
+        let joined = [a, b].filter { !$0.isEmpty }.joined(separator: " ")
+        // Kept only if the halves bring back what was missing. Korean added with every English word kept (casual endings
+        // too: "수박 주스 꼭 메모해 둬"), or in place of English — often the first reading's translation of the aside ("This is
+        // what comes up in the exam" → "이건 시험에 나옵니다.") — only as a clear Korean sentence: a formal ending, or two
+        // words with particles. Told Korean, Qwen3 spells English out ("룩 에터 판다.", "굿모닝 에브리원", and "파파야" ends
+        // like "사과야"). English left out of a Korean reading: added, or in place of about as many Hangul words (a quote
+        // first spelled out: "프레티스 메이스 퍼펙트" → "Practice makes perfect"); in an English lecture, in place of a Korean
+        // reading of English speech.
+        let gain = words(joined, in: want) - words(r.text, in: want)
+        let loss = words(r.text, in: r.lang) - words(joined, in: r.lang)
+        let recovered = want == "ko"
+            ? gain > 0 && (loss <= 0 || koreanSentence(joined))
+            : gain > 0 && (r.lang == minor || loss <= gain + 1)
+        guard recovered else {
+            if env["LECTURE_DEBUG"] == "1" { log("\(spec.id):   the halves brought nothing back; kept the first reading") }
+            return r.text
+        }
+        return joined
+    }
+
+    /// A clear Korean sentence: a formal ending (니다 요 죠 까) or two words with particles — not one word that happens to
+    /// end like one ("파파야", "히말라야").
+    private func koreanSentence(_ text: String) -> Bool {
+        if text.range(of: "[가-힣](니다|요|죠|까)[.,?!]?(\\s|$)", options: .regularExpression) != nil { return true }
+        let marked = try? NSRegularExpression(pattern: "[가-힣](은|는|을|를|에|에서|에게|께|한테|야)[.,?!]?(?=\\s|$)")
+        return (marked?.numberOfMatches(in: text, range: NSRange(text.startIndex..., in: text)) ?? 0) >= 2
+    }
+
+    /// English words (2+ letters) or Korean words (2+ syllables) in `text`.
+    private func words(_ text: String, in lang: String) -> Int {
+        if lang == "en" { return latinRuns(text).filter { $0.count >= 2 }.count }
+        return text.split(whereSeparator: { !(0xAC00...0xD7A3).contains($0.unicodeScalars.first!.value) }).filter { $0.count >= 2 }.count
+    }
+
+
+    /// Two utterances: the piece cut in the middle of its longest pause (at least `pause` frames of 32 ms by the voice
+    /// detector; 0: its quietest moment) with at least half a second of speech on either side, each half with its
+    /// voice frames. Nil for a single utterance.
+    private func halves(_ pcm: [Float], _ voice: [Float], pause: Int) -> (([Float], [Float]), ([Float], [Float]))? {
+        let need = Int(0.5 / frameSec)
+        var before = [Int](repeating: 0, count: voice.count + 1)          // frames of speech before each frame
+        for (i, p) in voice.enumerated() { before[i + 1] = before[i] + (p >= startP ? 1 : 0) }
+        func inside(_ i: Int) -> Bool { before[i] >= need && before[voice.count] - before[i] >= need }   // not the edges' silence
+        var pauseAt = -1, longest = 0, run = 0, quietAt = -1, quietest = Float.infinity
+        for (i, p) in voice.enumerated() {
+            if p < endP { run += 1; if run > longest, inside(i - run / 2) { longest = run; pauseAt = i - run / 2 } } else { run = 0 }
+            if p < quietest, inside(i) { quietest = p; quietAt = i }
+        }
+        let best = longest >= max(pause, 1) ? pauseAt : pause == 0 ? quietAt : -1
+        guard best > 0 else { return nil }
+        let at = min(pcm.count, best * 512)
+        return ((Array(pcm[..<at]), Array(voice[..<best])), (Array(pcm[at...]), Array(voice[best...])))
+    }
+
+    /// Kana or Chinese characters: neither language of a lecture here.
+    private func foreign(_ text: String) -> Bool {
+        text.unicodeScalars.contains { (0x3040...0x30FF).contains($0.value) || (0x4E00...0x9FFF).contains($0.value) }
+    }
+
+    /// Any word in the script of `lang`.
+    private func written(_ text: String, in lang: String, atAll: Bool) -> Bool {
+        lang == "en" ? latinRuns(text).contains { $0.count >= 2 } : hangulWord(text)
+    }
+
+    /// Speech of `lang` worth a second look: three English words, or Korean — a sentence ending or two words of two
+    /// syllables ("출석 단어는 사과." has no ending). English spelled out in Hangul passes too; the halves then decide.
+    private func sentence(_ text: String, in lang: String) -> Bool {
+        if lang == "en" { return latinRuns(text).filter { $0.count >= 2 }.count >= 3 }
+        return text.range(of: "[가-힣]{2,}(다|요|죠|까)[.?!]?(\\s|$)", options: .regularExpression) != nil || words(text, in: "ko") >= 2
+    }
+
+    /// A Korean particle standing alone after a Korean word: the (English) word it belonged to was left out.
+    /// (Not 이란/란: "미국과 이란 사이" is Iran.)
+    private func strandedParticle(_ text: String) -> Bool {
+        text.range(of: "[가-힣][.,]? (는|을|를|라는|이라는)( |[.,?!]|$)", options: .regularExpression) != nil
+    }
+
+    private func run(_ pcm: [Float], language: String?) -> (text: String, lang: String) {
+        guard let session, !abort.value, !pcm.isEmpty else { return ("", "") }
+        var rp = transcribe_run_params()
+        transcribe_run_params_init(&rp)
+        let t0 = Date()
+        func go(_ lang: UnsafePointer<CChar>?) -> transcribe_status {
+            rp.language = lang
+            return pcm.withUnsafeBufferPointer { transcribe_run(session, $0.baseAddress, Int32($0.count), &rp) }
+        }
+        let rc = language.map { $0.withCString(go) } ?? go(nil)
+        let took = Date().timeIntervalSince(t0)
+        // a decode that started repeating itself or ran out of room still holds what came before
+        guard rc == TRANSCRIBE_OK || rc == TRANSCRIBE_ERR_OUTPUT_REPETITION || rc == TRANSCRIBE_ERR_OUTPUT_TRUNCATED else {
+            if !abort.value { log("\(spec.id): decode failed (\(String(cString: transcribe_status_string(Int32(rc.rawValue)))))") }
+            return ("", "")
+        }
+        if rc != TRANSCRIBE_OK { log("\(spec.id): decode stopped early (\(String(cString: transcribe_status_string(Int32(rc.rawValue)))))") }
+        let text = String(cString: transcribe_full_text(session)).trimmingCharacters(in: .whitespacesAndNewlines)
+        let lang = language ?? String(cString: transcribe_detected_language(session))
+        if env["LECTURE_DEBUG"] == "1" {
+            log(String(format: "\(spec.id): decoded %.1f s of audio in %.2f s (%@ → %@): %@", Double(pcm.count) / 16000, took,
+                       language ?? "auto", lang, String(text.prefix(60))))
+        }
+        return (text, lang)
     }
 
     private func decode(_ pcm: [Float], language: String, beam: Int) -> Result {

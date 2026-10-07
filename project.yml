@@ -9,8 +9,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "2.0.0"
-    CURRENT_PROJECT_VERSION: "200"
+    MARKETING_VERSION: "2.1.0"
+    CURRENT_PROJECT_VERSION: "210"
     CODE_SIGN_STYLE: Automatic
     ENABLE_HARDENED_RUNTIME: YES
     DEAD_CODE_STRIPPING: YES
@@ -43,6 +43,25 @@ targets:
       - path: licenses/silero-vad-MIT.txt
         buildPhase:
           copyFiles: { destination: resources, subpath: licenses }
+      - path: licenses/transcribe.cpp-MIT.txt
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+      - path: licenses/transcribe.cpp-third-party.md
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+      - path: licenses/Qwen3-ASR-Apache-2.0.txt
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+      - path: licenses/Parakeet-NVIDIA-Open-Model-License.txt
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+      - path: licenses/llamafile-sgemm-MIT.txt
+        buildPhase:
+          copyFiles: { destination: resources, subpath: licenses }
+    dependencies:
+      - framework: vendor/transcribe/lib/libtranscribe.dylib   # Qwen3-ASR and Parakeet (scripts/build_transcribe.sh)
+        embed: true
+        codeSign: true
     scheme: {}                                      # shared scheme, so xcodebuild can archive
     settings:
       base:
@@ -54,12 +73,13 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: app/LectureScribe.entitlements
         OTHER_SWIFT_FLAGS: "-file-prefix-map $(SRCROOT)/=./"
-        # the optional Whisper engine: run scripts/build_whisper.sh once (→ vendor/whisper) before building
-        ARCHS: arm64                                  # Apple Silicon only (the Whisper runtime is arm64)
+        # the optional engines: run scripts/build_whisper.sh and scripts/build_transcribe.sh once (→ vendor/) before building
+        ARCHS: arm64                                  # Apple Silicon only (the engine runtimes are arm64)
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WHISPER"
         SWIFT_OBJC_BRIDGING_HEADER: app/WhisperBridge.h
-        HEADER_SEARCH_PATHS: "$(SRCROOT)/vendor/whisper/include"
-        LIBRARY_SEARCH_PATHS: "$(SRCROOT)/vendor/whisper/lib"
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/vendor/whisper/include $(SRCROOT)/vendor/transcribe/include"
+        LIBRARY_SEARCH_PATHS: "$(SRCROOT)/vendor/whisper/lib $(SRCROOT)/vendor/transcribe/lib"
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
         OTHER_LDFLAGS: "-lwhisper -lggml -lggml-base -lggml-cpu -lggml-metal -lggml-blas -lc++ -framework Accelerate -framework Metal"
 
   LectureScribeiOS:

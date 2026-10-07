@@ -1,10 +1,12 @@
 # Assembles a README GIF from frames rendered by tools/frames.swift: crops to the card (found automatically) and
 # uses one shared palette that keeps the small accent colours.
-# usage: python3 tools/make_gif.py <frames-dir> <out.gif> <width>
+# usage: python3 tools/make_gif.py <frames-dir> <out.gif> <width> [speed]
+# (frames rendered at 10 fps of the page's own clock; speed plays them faster — the slide demo's DEMO_SPEED is 1.75)
 import glob, sys
 from collections import Counter
 from PIL import Image, ImageChops
 src, out, width = sys.argv[1], sys.argv[2], int(sys.argv[3])
+speed = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
 files = sorted(glob.glob(src + "/*.png"))
 frames = [Image.open(f).convert("RGB") for f in files]
 bg = frames[len(frames) // 2].getpixel((4, 4))
@@ -31,5 +33,7 @@ for j, c in enumerate(vivid):
     sheet.paste(Image.new("RGB", (width // 12, 40), c), ((j % 12) * (width // 12), h * len(picks) + (j // 12) * 30))
 pal = sheet.quantize(colors=160, method=Image.Quantize.MEDIANCUT)
 q = [im.quantize(palette=pal, dither=Image.Dither.NONE) for im in small]
-q[0].save(out, save_all=True, append_images=q[1:], duration=100, loop=0, optimize=False)
+ends = [round((k + 1) * 10 / speed) for k in range(len(q))]          # GIF delays are centiseconds: rounded so the total stays exact
+durations = [10 * (e - b) for b, e in zip([0] + ends[:-1], ends)]
+q[0].save(out, save_all=True, append_images=q[1:], duration=durations, loop=0, optimize=False)
 print("crop", box, "->", (width, h), len(q), "frames")

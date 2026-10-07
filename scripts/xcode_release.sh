@@ -31,6 +31,7 @@ fi
 rm -rf "$OUT"; mkdir -p "$OUT" "$ROOT/dist/v2"
 step "Xcode project"
 [ -f vendor/whisper/lib/libwhisper.a ] || scripts/build_whisper.sh     # the optional Whisper engine's runtime
+[ -f vendor/transcribe/lib/libtranscribe.dylib ] || scripts/build_transcribe.sh   # Qwen3-ASR and Parakeet
 xcodegen generate --quiet
 
 step "archive (team $TEAM_ID)"

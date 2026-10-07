@@ -1,17 +1,18 @@
 #!/bin/bash
-# Builds 강의 받아쓰기 v2 — one native app (Apple's on-device speech recognition, macOS 26+; Whisper as an
-# optional engine whose model is downloaded in the app).
+# Builds 강의 받아쓰기 v2 — one native app (Apple's on-device speech recognition, macOS 26+; Whisper, Qwen3-ASR and
+# Parakeet as optional engines whose models are downloaded in the app).
 #
 #   scripts/build_v2.sh                       # ad-hoc signed, sandboxed → build/v2/강의 받아쓰기.app
 #                                             #   and dist/v2/LectureScribe-mac.zip
 #   SIGN_ID="Developer ID Application: …" scripts/build_v2.sh     # signed for GitHub (then notarize)
 #
-# Needs Xcode Command Line Tools (swiftc, codesign, iconutil) and, once, cmake for scripts/build_whisper.sh.
+# Needs Xcode Command Line Tools (swiftc, codesign, iconutil) and, once, cmake for scripts/build_whisper.sh and
+# scripts/build_transcribe.sh.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${VERSION:-2.0.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-200}"
+VERSION="${VERSION:-2.1.0}"
+BUILD_NUMBER="${BUILD_NUMBER:-210}"
 SIGN_ID="${SIGN_ID:--}"
 ENTITLEMENTS="${ENTITLEMENTS:-$ROOT/app/LectureScribe.entitlements}"
 OUT="$ROOT/build/v2"
@@ -22,9 +23,13 @@ step() { printf '\n· %s\n' "$*"; }
 
 step "whisper runtime (the optional engine; its model is downloaded in the app)"
 [ -f "$ROOT/vendor/whisper/lib/libwhisper.a" ] || "$ROOT/scripts/build_whisper.sh"
+step "transcribe runtime (Qwen3-ASR and Parakeet; one dylib with its own private ggml)"
+[ -f "$ROOT/vendor/transcribe/lib/libtranscribe.dylib" ] || "$ROOT/scripts/build_transcribe.sh"
 WHISPER=(-D WHISPER -import-objc-header "$ROOT/app/WhisperBridge.h" -Xcc "-I$ROOT/vendor/whisper/include"
          -L "$ROOT/vendor/whisper/lib" -lwhisper -lggml -lggml-base -lggml-cpu -lggml-metal -lggml-blas -lc++
-         -framework Accelerate -framework Metal -framework Foundation)
+         -framework Accelerate -framework Metal -framework Foundation
+         -Xcc "-I$ROOT/vendor/transcribe/include" -L "$ROOT/vendor/transcribe/lib" -ltranscribe
+         -Xlinker -rpath -Xlinker @executable_path/../Frameworks)
 
 step "compile"
 if ! swiftc -O -swift-version 5 -target arm64-apple-macos26.0 -file-prefix-map "$ROOT/=./" "${WHISPER[@]}" \
@@ -34,6 +39,8 @@ if ! swiftc -O -swift-version 5 -target arm64-apple-macos26.0 -file-prefix-map "
   cat "$OUT/swiftc.log"; exit 1
 fi
 grep -E "warning:" "$OUT/swiftc.log" || true
+# the bare binary (tests, no sandbox) finds the runtime where the bundle has it: build/v2/../Frameworks
+mkdir -p "$ROOT/build/Frameworks" && ln -sf "$ROOT/vendor/transcribe/lib/libtranscribe.dylib" "$ROOT/build/Frameworks/libtranscribe.dylib"
 
 step "icon"
 if [ ! -f "$OUT/AppIcon.icns" ] || [ "$ROOT/app/make_icon.swift" -nt "$OUT/AppIcon.icns" ]; then
@@ -48,8 +55,9 @@ fi
 
 step "bundle"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$RES/ui" "$RES/licenses"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$RES/ui" "$RES/licenses"
 cp "$OUT/LectureScribe" "$APP/Contents/MacOS/LectureScribe"
+cp "$ROOT/vendor/transcribe/lib/libtranscribe.dylib" "$APP/Contents/Frameworks/"
 sed -e "s|\$(MARKETING_VERSION)|$VERSION|" -e "s|\$(CURRENT_PROJECT_VERSION)|$BUILD_NUMBER|" \
     -e "s|\$(EXECUTABLE_NAME)|LectureScribe|" -e "s|\$(PRODUCT_BUNDLE_IDENTIFIER)|io.github.joshichoi.lecture-scribe|" \
     "$ROOT/app/Info.plist" > "$APP/Contents/Info.plist"
@@ -60,13 +68,17 @@ cp "$ROOT/ui/index.html" "$RES/ui/"
 cp -R "$ROOT/ui/fonts" "$RES/ui/fonts"
 cp -R "$ROOT/ui/icons" "$RES/ui/icons"
 cp "$ROOT/LICENSE" "$ROOT/licenses/Pretendard-OFL.txt" "$ROOT/licenses/whisper.cpp-MIT.txt" \
-   "$ROOT/licenses/openai-whisper-MIT.txt" "$ROOT/licenses/silero-vad-MIT.txt" "$RES/licenses/"
+   "$ROOT/licenses/openai-whisper-MIT.txt" "$ROOT/licenses/silero-vad-MIT.txt" "$ROOT/licenses/transcribe.cpp-MIT.txt" \
+   "$ROOT/licenses/transcribe.cpp-third-party.md" "$ROOT/licenses/Qwen3-ASR-Apache-2.0.txt" \
+   "$ROOT/licenses/Parakeet-NVIDIA-Open-Model-License.txt" "$ROOT/licenses/llamafile-sgemm-MIT.txt" "$RES/licenses/"
 
 step "sign ($SIGN_ID)"
 xattr -cr "$APP"
 if [ "$SIGN_ID" = "-" ]; then
+  codesign --force --sign - "$APP/Contents/Frameworks/libtranscribe.dylib"          # inside out: the library first
   codesign --force --sign - --entitlements "$ENTITLEMENTS" "$APP"
 else
+  codesign --force --sign "$SIGN_ID" --options runtime --timestamp "$APP/Contents/Frameworks/libtranscribe.dylib"
   codesign --force --sign "$SIGN_ID" --options runtime --timestamp --entitlements "$ENTITLEMENTS" "$APP"
 fi
 codesign --verify --strict "$APP"

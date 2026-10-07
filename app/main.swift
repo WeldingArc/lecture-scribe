@@ -1,7 +1,7 @@
 // 강의 받아쓰기 v2 — a single native app: AppKit window + WKWebView UI (ui/index.html) + the
 // in-process engine (Engine.swift) using Apple's on-device speech recognition.
 //
-// Test mode (no window): LectureScribe --transcribe FILE   |   LectureScribe --live SECONDS   |   LectureScribe --download-whisper
+// Test mode (no window): LectureScribe --transcribe FILE   |   LectureScribe --live SECONDS   |   LectureScribe --download-engine ID
 // (with LECTURE_FAKE_INPUT=FILE to play a file as if it were the Mac's sound; LECTURE_MODEL_URL to download from a local
 // server). Events print as JSON lines.
 
@@ -315,7 +315,7 @@ func flag(_ name: String) -> String? {
     return args[i + 1]
 }
 
-/// Ends the process. After a Whisper model failed to load in this run, C++ teardown is skipped: ggml would abort
+/// Ends the process. After a model failed to load in this run, C++ teardown is skipped: ggml would abort
 /// at exit over the half-made GPU state ("quit unexpectedly") — everything is saved by the time this runs.
 func quit(_ code: Int32) -> Never {
     #if WHISPER
@@ -324,7 +324,8 @@ func quit(_ code: Int32) -> Never {
     exit(code)
 }
 
-if flag("--transcribe") != nil || flag("--live") != nil || args.contains("--download-whisper") {
+let downloadID = flag("--download-engine") ?? (args.contains("--download-whisper") ? "whisper" : nil)
+if flag("--transcribe") != nil || flag("--live") != nil || downloadID != nil {
     setvbuf(stdout, nil, _IOLBF, 0)
     MainActor.assumeIsolated {
         var engine: Engine!
@@ -332,15 +333,15 @@ if flag("--transcribe") != nil || flag("--live") != nil || args.contains("--down
             if JSONSerialization.isValidJSONObject(ev), let d = try? JSONSerialization.data(withJSONObject: ev),
                let s = String(data: d, encoding: .utf8) { print(s) }
             #if WHISPER
-            if args.contains("--download-whisper"), ev["ev"] as? String == "engines",
-               let w = (ev["list"] as? [[String: Any]])?.first(where: { $0["id"] as? String == "whisper" }) {
+            if let id = downloadID, ev["ev"] as? String == "engines",
+               let w = (ev["list"] as? [[String: Any]])?.first(where: { $0["id"] as? String == id }) {
                 if w["state"] as? String == "ready" { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { quit(0) } }
                 if w["state"] as? String == "failed" { quit(2) }
             }
             #endif
             switch (ev["ev"] as? String, ev["state"] as? String) {
-            case ("engine", "ready") where args.contains("--download-whisper"):
-                engine.downloadEngine("whisper")
+            case ("engine", "ready") where downloadID != nil:
+                engine.downloadEngine(downloadID!)
             case ("engine", "ready"):
                 if let f = flag("--transcribe") { engine.start(.file, file: URL(fileURLWithPath: f)) }
                 else if let secs = Double(flag("--live") ?? "") {
