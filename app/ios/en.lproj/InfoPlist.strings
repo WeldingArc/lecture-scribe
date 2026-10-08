@@ -1,0 +1,5 @@
+/* iPhone/iPad app — English (shown when the device's language is English) */
+"CFBundleDisplayName" = "Lecture Transcriber";
+"CFBundleName" = "Lecture Transcriber";
+"NSMicrophoneUsageDescription" = "The microphone is needed to record and transcribe the lecture. Recordings and text are kept only on this device.";
+"NSSpeechRecognitionUsageDescription" = "Transcribes recorded lectures on this device with Apple's speech recognition. Sound and text never leave it.";

@@ -37,6 +37,8 @@ app/ios/App.swift        iPhone/iPad: SwiftUI scene + WKWebView, share sheet, do
 app/ios/Info.plist, Assets.xcassets, PrivacyInfo.xcprivacy
                          iOS app settings (background audio, Files app sharing), icon, privacy manifest
 app/Info.plist           usage descriptions, macOS 26 minimum (build settings fill in the $(…) variables)
+app/Resources/{ko,en}.lproj/InfoPlist.strings, app/ios/{ko,en}.lproj/InfoPlist.strings
+                         the app's name and permission prompts per system language (강의 받아쓰기 / Lecture Transcriber)
 app/LectureScribe.entitlements
                          App Sandbox: Downloads read-write, user-selected read-only,
                          network.client (WKWebView; the optional model downloads),
@@ -92,15 +94,41 @@ Hooks (environment variables): `LECTURE_OUT_DIR`, `LECTURE_AUTOSTART=1`, `LECTUR
 stderr), `LECTURE_TEST_OPEN=library|<session>|trash:<session>|delete:<session>` (the page opens 기록 or a
 session; `trash:` deletes and undoes it, `delete:` deletes it — the page logs what it rendered),
 `LECTURE_TEST_QUIT=<sec>` (logs the 녹음 menu as it reads then, then ⌘Q) with `LECTURE_TEST_QUIT_ANSWER=quit|cancel`
-(answers the warning 3 s later). CLI: `--live <sec> --pause-at <sec> --pause-for <sec>` pauses a test recording.
+(answers the warning 3 s later), `LECTURE_UI_LANGUAGE=ko|en` (the app's language), `LECTURE_PDF_LAYOUT=landscape|split|classic`,
+`LECTURE_TEST_LANG=<sec>:<ko|en>` (switches the language the way the page does, then logs the window title, every menu
+and the reloaded page — `LECTURE_TEST_JS=<expression>` replaces that page probe; the bare `build/v2/LectureScribe` needs
+`LECTURE_DEV_DIR` to find `ui/`, otherwise its window stays blank), `LECTURE_TEST_START=<sec>` / `LECTURE_TEST_STOP=<sec>`
+/ `LECTURE_TEST_PAUSE=<sec>` / `LECTURE_TEST_RESUME=<sec>` (시작 / 정지 / 일시정지 / 계속 as the page presses them — 시작 also
+opens 슬라이드 PDF's capture), `LECTURE_TEST_SNAP=<sec,sec,…>` (WebKit's own
+picture of the page at those seconds into `LECTURE_OUT_DIR`: no screen access needed), `LECTURE_FAKE_SCREEN=<video>` (a video
+plays the lecture window for 슬라이드 PDF, in real time, instead of the picker), `LECTURE_CLEAN_CAPTURE=0|1`. Any
+`LECTURE_TEST_*` skips the first-run notice. `OUT=<dir> DIST=<dir> scripts/build_v2.sh` builds elsewhere. CLI: `--live <sec> --pause-at <sec> --pause-for <sec>` pauses a test recording.
 
 The UI runs in a normal browser as a demo (no sound): `ui/index.html?shot`, `?shot=saved|keywords|library|detail|playing|slides|find`
-for still frames (`slides`: recording with 슬라이드 PDF, the camera outlined; `find`: ⌘F in a session, `&q=` the word), `&ios` for the iPhone wording. Screenshots: `swiftc -O tools/shot.swift -o /tmp/shot`, then
+for still frames (`slides`: recording with 슬라이드 PDF, the camera outlined; `find`: ⌘F in a session, `&q=` the word), `&ios` for the iPhone wording, `&lang=en|ko` for the language, `slidescard` / `slidesfind` for the live preview as a card / still looking for the slide, `settings&at=engines` scrolled to 음성 인식. Screenshots: `swiftc -O tools/shot.swift -o /tmp/shot`, then
 `/tmp/shot "file://$PWD/ui/index.html?shot=library" library.png 1440 900`. The 슬라이드 PDF demo GIF: `swiftc -O tools/frames.swift -o /tmp/frames`,
 `/tmp/frames "file://$PWD/ui/index.html?shot=slidesdemo" /tmp/f 720 660 22 10 __renderDemo`, then
 `python3 tools/make_gif.py /tmp/f docs/slides-demo.gif 600 1.75` (1.75 = the page's `DEMO_SPEED`). Marketing screenshots
 (App Store and README; a feature label, a headline and a line of pitch over each screen, Korean and English):
 `tools/make_marketing.sh` → `docs/appstore/marketing/{ko,en}/*.jpg` (template `tools/marketing.html`; the captions are in the script). Logs: `~/Library/Containers/io.github.joshichoi.lecture-scribe/Data/Library/Application Support/LectureScribe/logs/app.log`.
+
+### Languages (English / Korean)
+
+The whole app is in Korean and English (2.4). `AppLanguage` (app/Engine.swift) holds the app's language — `uiLanguage`
+in the settings; before anyone chooses, the Mac's (iPhone's) own language: Korean if it comes first, English otherwise;
+`LECTURE_UI_LANGUAGE` for tests — and `L("한국어", "English")` picks the text, in Swift and in the page alike. The page
+gets `window.__LANG__` at document start. Markup text is translated once by `translatePage()` from the `EN_TEXT` table
+(keys: the Korean text with its whitespace collapsed; `translate="no"` keeps the language picker's 한국어), whatever the
+script writes goes through `L()`, and `nEN(n, "slide")` makes English plurals. Changing the language (the start screen's
+globe, 설정 › 언어) rebuilds the menus and the window title, resets the page script and reloads the page; the engine
+replays its state. Saved files follow the language of the moment — `YYYY-MM-DD HH시MM분 강의` / `YYYY-MM-DD HH.MM Lecture`,
+`… 받아쓰기` / `… transcript`, the headers `강의 녹취 · …` / `Lecture transcript · …` and `파일 받아쓰기 · …` /
+`File transcription · …`, the tail `── 중요 문장 ──` / `── Key Sentences ──` — and 기록 reads both (`Library.headerPrefixes`,
+`Library.defaultNameRE`). A new library folder is `Downloads/Lecture Transcriber` in English unless `Downloads/강의기록`
+exists. The permission prompts and the Finder name come from the `.lproj` InfoPlist.strings, so they follow the system's
+language, not the app's. Global constants must not call `L()`: they would keep the language of their first use, and
+`engineSpecs` → `Settings.load()` → `AppLanguage` → `engineSpecs` was an initialization cycle that trapped at launch —
+keep both texts and choose when they are read (`EngineSpec.desc`).
 
 ### Speech engines (설정 › 음성 인식)
 
@@ -332,11 +360,53 @@ with its text normalization on it stops after the first sentence.
   inset's straight edges and kept 45 s while the lecturer sits still. With no camera nothing is marked. Its tiles (5 % of
   a tile inside the box plus a small margin: the edge bleeds into the next tile when the frame is shrunk) are left out
   of every comparison, and stay out 6 s after the camera leaves them (it may have jumped to another corner). While
-  recording with 슬라이드 PDF the page shows the frame (a 480 px JPEG about once a second, `slidePreview`) with the camera
-  outlined, at the bottom left; hidden under 760 px wide. Against 2.2.0: the W scenes 9 → 12 of 36 (a camera at the top
+  recording with 슬라이드 PDF the page shows the frame (a 960 px JPEG about once a second, `slidePreview`, with `camera` and
+  `clean`): 화면 — big under the header, its lower edge fading into the transcript — or 글 — a card at the bottom left
+  (hidden under 760 px wide); the switch under the status line, the choice kept in localStorage `liveView`. The camera
+  has a white glow, what goes into the PDF a red frame (a red line sweeps while it is still unknown), and each slide taken
+  (the `slides` count going up) flashes and flies into the page count. Against 2.2.0: the W scenes 9 → 12 of 36 (a camera at the top
   right while bullets build: 8 pages → the right 4), the corner-camera scenes 1–2 fewer extra pages each, verify9 one
   wrong final picture fewer; verify7, verify6 and verify8 unchanged. One W scene (a cursor wandering around each
   change, live) gets a duplicate page — the same scene already did from a file.
+- Slide PDF layouts (설정 › PDF 형식, `pdfLayout`): `landscape` (the default: a cover, then each slide full-bleed on a
+  960 pt-wide page of the slide's own aspect, followed by a two-column page of what was said while it was up), `split`
+  (the slides alone, plus `NAME (받아쓰기).pdf` / `NAME (Transcript).pdf`: A4, a heading per slide) and `classic` (the
+  earlier A4 page with slide and text together). Each slide is named `슬라이드 N · title`: the title is read with Vision
+  (`VNRecognizeTextRequest`, accurate, ko-KR + en-US) from the top 45 % of the captured picture (with 깔끔하게 담기, only
+  lines inside the kept area count, sized against it) — URL- and clock-like lines, and lines that repeat across slides
+  in the top 16 % (browser or player chrome), are dropped; the largest line wins (a near tie
+  goes to the higher one) and a second line right under it is joined; with no title, just the number. Titles are read
+  on a background queue as each slide is kept (the first read in a process loads the model, \~28 s; then 0.2–0.4 s).
+  Bookmarks are written with `CGPDFContextSetOutline` (a title on the outline's root makes Core Graphics write none), and
+  `Keywords: slides=N` lets 기록 count the slides — never re-save these PDFs with PDFKit: it drops the outline and turns
+  the Keywords into an array.
+- 깔끔하게 담기 (`CleanCapture` in app/Slides.swift; `cleanCapture`, default on; `LECTURE_CLEAN_CAPTURE=0`): the PDF keeps the
+  part that changes (the slide). From the kept slides (320×180 signatures) in order: the changes between neighbours, in
+  8×8 cells, minus the camera's box and the tiles the detector saw moving when either was kept (`kept.tsv`: camera,
+  moving tiles); patches under 1 % of the picture, under two cells either way, or thin bands across it (a control bar
+  shown, subtitles) don't count; a cell must change at two slide turns (one, with three slides or fewer) — one-off
+  flickers stay out. The changed pixels of those cells make a seed box, which grows out to its panel's borders: a side
+  moves while the next line looks like the last (each line's median, so text never stops it) and stops at a border — two
+  even-toned lines clearly apart, or near-black after something lighter (a dark slide against black), or a line that is
+  mostly camera; first each side settles onto a border just inside (a pixel spilled past a slide's edge would run on
+  through the black). An even band beyond a border is passed through when it belongs to the slide: one that ends before
+  the picture's edges (a slide's own header or footer bar, framed by the player), or a full-width one followed by
+  near-black letterbox; a near-black band never is. A strip that changed only once but lines up with the box and touches
+  it (a title bar whose title changed once) joins. Then the sides snap to the strongest step on a 960 px picture. Nil
+  (the whole picture) while under 1.5 % has changed, above 94 % or under 5 % of the picture, or stretched past 4.5 : 1.
+  Pictures of one size share one area, worked out from them alone (after a resize, the new size gets whole pictures
+  until its own slides show the area). A page keeps its whole picture when it differs from the usual surroundings in
+  ≥ 4 % of the cells outside the area (a wider slide, a title screen), when it differs in a thin ring just outside the
+  area (content running past the edge), or when it has content of its own outside the area that most pages don't share
+  (`pageSpecific`: pixels that change on many pages, such as a video's controls, don't count). Titles read from the full
+  picture are kept inside the area and measured against it. The live preview shows the area as it stands after each kept
+  slide; the PDF works it out again from the files. Harnesses in the session scratchpad: real frames from LearnUs
+  recordings, nine synthetic scenes (camera known/unknown/moving, a title band, a dark slide, a camera on the slide,
+  photos, two slides, a white player, a Zoom strip), 24 adversarial scenes from a separate review (slide headers,
+  footers, logos and page numbers, sidebars, dark and mixed-width slides, a camera over the slide, a video inside a
+  slide, a window resize), and synthetic LearnUs videos end to end (`LECTURE_FAKE_SCREEN`, plus header, footer and rule
+  variants). In the 2.4 runs no page lost slide content in any of them; clutter stays only where the camera is unknown
+  or a Zoom strip has no moving tiles.
 - iPhone/iPad: the microphone session is `.playAndRecord` + `.mixWithOthers`, recording continues with the
   screen locked (background audio) and resumes after calls; the page is reloaded and the state replayed if
   iOS reclaims the web view in the background.

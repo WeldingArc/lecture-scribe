@@ -8,6 +8,7 @@ import CoreText
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
+import Vision
 
 // MARK: - Comparing frames
 
@@ -156,6 +157,368 @@ extension Signature {
     }
 }
 
+// MARK: - Clean capture (깔끔하게 담기)
+
+/// 깔끔하게 담기: the part of the lecture window that holds the slide, so the browser's bars, the site's and the player's
+/// controls and black borders stay out of the PDF. Those look the same from slide to slide; the slide doesn't. So the
+/// places that changed when the slide turned — leaving out the lecturer's camera and specks like a clock — mark the
+/// slide, and that region is grown out to the edges of the panel it sits in, so a margin or a logo that never changes
+/// still comes along. Worked out again with every slide: a place that starts changing later widens it.
+enum CleanCapture {
+    private static let w = Signature.w, h = Signature.h, cell = 8
+    private static let cw = (w + cell - 1) / cell, ch = (h + cell - 1) / cell
+
+    /// Tests: explains each step.
+    nonisolated(unsafe) static var trace: ((String) -> Void)?
+
+    /// A patch of change between two pictures: its cells, and the box around its changed pixels.
+    struct Patch { var cells: [Int]; var x0: Int, x1: Int, y0: Int, y1: Int; var boxes: [(Int, Int, Int, Int)] = [] }
+
+    /// The part to keep (0–1, top-left origin) for pictures of one size, given in the order they were kept — or nil while
+    /// it isn't clear yet (one slide so far) or there's nothing worth leaving out. `cameras`: where the lecturer's camera
+    /// was. `image`: one of the full pictures, to find the panel's exact edges.
+    static func area(_ sigs: [Signature], cameras: [CGRect] = [], moving: [[Bool]] = [], image: CGImage? = nil) -> CGRect? {
+        guard sigs.count >= 2 else { return nil }
+        let cam = mask(cameras)
+        var votes = [Int](repeating: 0, count: cw * ch)
+        var seen: [Patch] = []
+        for k in 1..<sigs.count {
+            // what was moving when either picture was kept (a camera the finder missed, participants, a video) isn't a
+            // slide change either — but it doesn't stop the growing below: a video can play inside a slide
+            let skip = k < moving.count ? masked(cam, moving[k - 1], moving[k]) : cam
+            for patch in changes(sigs[k - 1].px, sigs[k].px, skip) { for c in patch.cells { votes[c] += 1 }; seen.append(patch) }
+        }
+        // a place that changed at two slide turns (one, early on): one-off flickers — a status line, the player's bar
+        // shown once — don't count
+        let pairs = sigs.count - 1
+        var need = pairs >= 3 ? 2 : 1
+        var seed = votes.indices.filter { votes[$0] >= need }
+        if seed.count * 1000 < cw * ch * 15, need > 1 { need = 1; seed = votes.indices.filter { votes[$0] >= 1 } }
+        trace?("pairs \(pairs), need \(need), seed cells \(seed.count), patches \(seen.count)")
+        guard seed.count * 1000 >= cw * ch * 15 else { return nil }        // under 1.5 % of the picture: not yet
+        // the changed pixels themselves, not their cells: a cell can reach past the slide's edge into a black border,
+        // and growing from there would run on through the black
+        var inSeed = [Bool](repeating: false, count: cw * ch)
+        for c in seed { inSeed[c] = true }
+        var x0 = w, x1 = 0, y0 = h, y1 = 0
+        for p in seen {
+            for (c, b) in zip(p.cells, p.boxes) where inSeed[c] { x0 = min(x0, b.0); x1 = max(x1, b.1); y0 = min(y0, b.2); y1 = max(y1, b.3) }
+        }
+        guard x1 > x0, y1 > y0 else { return nil }
+        trace?("seed box x \(x0)…\(x1) y \(y0)…\(y1)")
+        let ref = reference(sigs)
+        (x0, x1, y0, y1) = grow(ref, x0, x1, y0, y1, skip: cam)
+        trace?("grown x \(x0)…\(x1) y \(y0)…\(y1)")
+        // a strip of the same panel that changed only once — a title bar whose title changed once — comes along when it
+        // lines up with the box and touches it; a flicker out in a black border grows into the whole border, which doesn't
+        for _ in 0..<4 {
+            var merged = false
+            for p in seen where p.x1 <= x0 || p.x0 >= x1 || p.y1 <= y0 || p.y0 >= y1 {
+                let g = grow(ref, p.x0, p.x1, p.y0, p.y1, skip: cam)
+                let t = 3
+                let vertical = abs(g.0 - x0) <= t && abs(g.1 - x1) <= t && (abs(g.3 - y0) <= t || abs(g.2 - y1) <= t)
+                    && (g.3 - g.2) * 10 <= (y1 - y0) * 4
+                let sideways = abs(g.2 - y0) <= t && abs(g.3 - y1) <= t && (abs(g.1 - x0) <= t || abs(g.0 - x1) <= t)
+                    && (g.1 - g.0) * 10 <= (x1 - x0) * 4
+                guard vertical || sideways else { trace?("  patch x \(p.x0)…\(p.x1) y \(p.y0)…\(p.y1) → grows to x \(g.0)…\(g.1) y \(g.2)…\(g.3): apart"); continue }
+                trace?("strip x \(g.0)…\(g.1) y \(g.2)…\(g.3) joins")
+                x0 = min(x0, g.0); x1 = max(x1, g.1); y0 = min(y0, g.2); y1 = max(y1, g.3)
+                merged = true
+            }
+            if !merged { break }
+        }
+        var r = CGRect(x: Double(x0) / Double(w), y: Double(y0) / Double(h), width: Double(x1 - x0) / Double(w), height: Double(y1 - y0) / Double(h))
+        if let image { r = snap(r, image) }
+        let share = r.width * r.height
+        trace?(String(format: "area %.3f %.3f %.3f %.3f (%.0f%%)", r.minX, r.minY, r.width, r.height, share * 100))
+        guard share <= 0.94, share >= 0.05, r.width / r.height * Double(w) / Double(h) < 4.5,
+              r.height / r.width * Double(h) / Double(w) < 4.5 else { return nil }
+        return r
+    }
+
+    /// Does this picture show more than its usual surroundings outside `area` — a wider slide, a title screen? Then that
+    /// page keeps the whole picture: nothing of a slide is ever cut away.
+    static func extends(_ sig: Signature, beyond area: CGRect, reference ref: [UInt8], cameras: [CGRect] = [], moving: [Bool] = []) -> Bool {
+        var cam = masked(mask(cameras), moving)
+        let ax0 = Int(area.minX * Double(w)), ax1 = Int((area.maxX * Double(w)).rounded(.up))
+        let ay0 = Int(area.minY * Double(h)), ay1 = Int((area.maxY * Double(h)).rounded(.up))
+        for y in max(0, ay0 - 1)..<min(h, ay1 + 1) { for x in max(0, ax0 - 1)..<min(w, ax1 + 1) { cam[y * w + x] = true } }
+        let more = changes(ref, sig.px, cam).reduce(0) { $0 + $1.cells.count }
+        if more * 100 >= cw * ch * 4 { return true }
+        // a slide that runs on past the area (a wider one, a dark one whose edge is faint) shows up right at its border,
+        // however little of it there is: a ring of pixels 2–5 outside the area, against the usual picture
+        let camOnly = masked(mask(cameras), moving)
+        var ring = 0, hits = 0
+        for y in max(0, ay0 - 5)..<min(h, ay1 + 5) {
+            for x in max(0, ax0 - 5)..<min(w, ax1 + 5) {
+                let dx = x < ax0 ? ax0 - x : (x >= ax1 ? x - ax1 + 1 : 0), dy = y < ay0 ? ay0 - y : (y >= ay1 ? y - ay1 + 1 : 0)
+                guard max(dx, dy) >= 2, !camOnly[y * w + x] else { continue }
+                ring += 1
+                if abs(Int(ref[y * w + x]) - Int(sig.px[y * w + x])) > 16 { hits += 1 }
+            }
+        }
+        return ring > 0 && hits * 100 >= ring * 3 && hits >= 6
+    }
+
+    /// Content a page shows outside `area` that the other pages don't — the edge of a wider slide, however small (a
+    /// near-black wide slide is only seen by its text). Places that differ on many pages (a clock, a progress bar, a
+    /// camera the finder missed) and thin bands across the picture (the player's controls shown) don't count.
+    static func pageSpecific(_ sigs: [Signature], area: CGRect, reference ref: [UInt8], cameras: [CGRect] = [], moving: [[Bool]] = []) -> [Bool] {
+        let n = sigs.count
+        guard n >= 2, ref.count == w * h else { return Array(repeating: false, count: n) }
+        let ax0 = Int(area.minX * Double(w)) - 1, ax1 = Int((area.maxX * Double(w)).rounded(.up)) + 1
+        let ay0 = Int(area.minY * Double(h)) - 1, ay1 = Int((area.maxY * Double(h)).rounded(.up)) + 1
+        let cam = mask(cameras)
+        var often = [Int](repeating: 0, count: w * h)
+        var strong: [[Bool]] = []
+        for (k, sig) in sigs.enumerated() {
+            let skip = k < moving.count ? masked(cam, moving[k]) : cam
+            var m = [Bool](repeating: false, count: w * h)
+            for y in 0..<h {
+                for x in 0..<w where !(x >= ax0 && x < ax1 && y >= ay0 && y < ay1) {
+                    let i = y * w + x
+                    if !skip[i] && abs(Int(ref[i]) - Int(sig.px[i])) > 40 { m[i] = true; often[i] += 1 }
+                }
+            }
+            strong.append(m)
+        }
+        let volatile = max(2, Int((Double(n) * 0.4).rounded(.up)))
+        return strong.map { m in
+            var count = [Int](repeating: 0, count: cw * ch)
+            for i in 0..<(w * h) where m[i] && often[i] < volatile { count[(i / w / cell) * cw + (i % w) / cell] += 1 }
+            var pixels = 0
+            for p in cellPatches(count.map { $0 >= 2 }) where p.cells.count >= 3 && !(p.r1 - p.r0 <= 1 && (p.c1 - p.c0 + 1) * 10 >= cw * 4) {
+                pixels += p.cells.reduce(0) { $0 + count[$1] }
+            }
+            return pixels >= 30
+        }
+    }
+
+    /// Connected patches of cells (8-neighbours), with their bounds in cells.
+    private static func cellPatches(_ on: [Bool]) -> [(cells: [Int], c0: Int, c1: Int, r0: Int, r1: Int)] {
+        var left = on, out: [(cells: [Int], c0: Int, c1: Int, r0: Int, r1: Int)] = []
+        for start in left.indices where left[start] {
+            var cells: [Int] = [], stack = [start]
+            left[start] = false
+            var c0 = cw, c1 = 0, r0 = ch, r1 = 0
+            while let c = stack.popLast() {
+                cells.append(c)
+                let cx = c % cw, cy = c / cw
+                c0 = min(c0, cx); c1 = max(c1, cx); r0 = min(r0, cy); r1 = max(r1, cy)
+                for dy in -1...1 {
+                    for dx in -1...1 where dx != 0 || dy != 0 {
+                        let nx = cx + dx, ny = cy + dy
+                        guard nx >= 0, nx < cw, ny >= 0, ny < ch, left[ny * cw + nx] else { continue }
+                        left[ny * cw + nx] = false
+                        stack.append(ny * cw + nx)
+                    }
+                }
+            }
+            out.append((cells, c0, c1, r0, r1))
+        }
+        return out
+    }
+
+    /// Each pixel's middle value over (up to nine of) the pictures: what the window usually looks like.
+    static func reference(_ sigs: [Signature]) -> [UInt8] {
+        guard sigs.count > 2 else { return sigs.last?.px ?? [] }
+        let pick = (0..<min(9, sigs.count)).map { sigs[$0 * (sigs.count - 1) / max(1, min(9, sigs.count) - 1)].px }
+        var out = [UInt8](repeating: 0, count: w * h), vals = [UInt8](repeating: 0, count: pick.count)
+        for i in 0..<(w * h) {
+            for (k, p) in pick.enumerated() { vals[k] = p[i] }
+            vals.sort()
+            out[i] = vals[vals.count / 2]
+        }
+        return out
+    }
+
+    /// A pixel mask with the given tiles (16 × 9, the slide detector's) added.
+    private static func masked(_ base: [Bool], _ tileSets: [Bool]...) -> [Bool] {
+        var out = base
+        for tiles in tileSets where tiles.count == Signature.tiles {
+            for (i, on) in tiles.enumerated() where on {
+                let tx = (i % Signature.cols) * Signature.tw, ty = (i / Signature.cols) * Signature.th
+                for y in ty..<ty + Signature.th { for x in tx..<tx + Signature.tw { out[y * w + x] = true } }
+            }
+        }
+        return out
+    }
+
+    /// Pixels a camera rectangle covers, with the same margin the slide detector gives it.
+    private static func mask(_ cameras: [CGRect]) -> [Bool] {
+        var cam = [Bool](repeating: false, count: w * h)
+        for r in cameras {
+            let g = r.insetBy(dx: -0.015, dy: -0.02)
+            let x0 = max(0, Int(g.minX * Double(w))), x1 = min(w, Int((g.maxX * Double(w)).rounded(.up)))
+            let y0 = max(0, Int(g.minY * Double(h))), y1 = min(h, Int((g.maxY * Double(h)).rounded(.up)))
+            guard x0 < x1, y0 < y1 else { continue }
+            for y in y0..<y1 { for x in x0..<x1 { cam[y * w + x] = true } }
+        }
+        return cam
+    }
+
+    /// The patches (cells of 8×8 pixels) that changed between two pictures and are big enough to be slide content: at
+    /// least 1 % of the picture and two cells high and wide — a clock, a progress bar or a pointer never are — and not
+    /// a thin band across the picture (the player's control bar showing up, a line of subtitles).
+    private static func changes(_ a: [UInt8], _ b: [UInt8], _ cam: [Bool]) -> [Patch] {
+        var count = [Int](repeating: 0, count: cw * ch)
+        var bx0 = [Int](repeating: w, count: cw * ch), bx1 = [Int](repeating: 0, count: cw * ch)
+        var by0 = [Int](repeating: h, count: cw * ch), by1 = [Int](repeating: 0, count: cw * ch)
+        for y in 0..<h {
+            let row = y * w, crow = (y / cell) * cw
+            for x in 0..<w where !cam[row + x] && abs(Int(a[row + x]) - Int(b[row + x])) > 28 {
+                let c = crow + x / cell
+                count[c] += 1
+                bx0[c] = min(bx0[c], x); bx1[c] = max(bx1[c], x + 1); by0[c] = min(by0[c], y); by1[c] = max(by1[c], y + 1)
+            }
+        }
+        var changed = count.map { $0 >= 3 }
+        var out: [Patch] = []
+        for start in changed.indices where changed[start] {
+            var patch: [Int] = [], stack = [start]
+            changed[start] = false
+            var c0 = cw, c1 = 0, r0 = ch, r1 = 0
+            while let c = stack.popLast() {
+                patch.append(c)
+                let cx = c % cw, cy = c / cw
+                c0 = min(c0, cx); c1 = max(c1, cx); r0 = min(r0, cy); r1 = max(r1, cy)
+                for dy in -1...1 {
+                    for dx in -1...1 where dx != 0 || dy != 0 {
+                        let nx = cx + dx, ny = cy + dy
+                        guard nx >= 0, nx < cw, ny >= 0, ny < ch, changed[ny * cw + nx] else { continue }
+                        changed[ny * cw + nx] = false
+                        stack.append(ny * cw + nx)
+                    }
+                }
+            }
+            let band = r1 - r0 <= 1 && (c1 - c0 + 1) * 10 >= cw * 4
+            guard patch.count * 100 >= cw * ch, c1 > c0, r1 > r0, !band else { continue }
+            var p = Patch(cells: patch, x0: w, x1: 0, y0: h, y1: 0)
+            for c in patch {
+                p.x0 = min(p.x0, bx0[c]); p.x1 = max(p.x1, bx1[c]); p.y0 = min(p.y0, by0[c]); p.y1 = max(p.y1, by1[c])
+                p.boxes.append((bx0[c], bx1[c], by0[c], by1[c]))
+            }
+            out.append(p)
+        }
+        return out
+    }
+
+    /// Grows a box out to the edges of the panel it sits in: a side moves out while the line beyond it looks like the
+    /// line inside it (judged by each line's middle brightness, so text crossing a line doesn't stop it), and stops at a
+    /// border — the slide's edge against the black, the bar above the player.
+    private static func grow(_ ref: [UInt8], _ ax0: Int, _ ax1: Int, _ ay0: Int, _ ay1: Int, skip: [Bool]) -> (Int, Int, Int, Int) {
+        var x0 = ax0, x1 = ax1, y0 = ay0, y1 = ay1
+        /// A line's middle brightness, and whether it is one even tone (a black border, a bar, a plain margin) — a row
+        /// through text isn't, so text never passes for an edge. The camera's pixels don't count; a line that is mostly
+        /// camera blocks the way (the camera isn't slide).
+        typealias Line = (m: Int, even: Bool, camera: Bool)
+        func line(_ vals: [UInt8], of total: Int) -> Line {
+            guard vals.count * 5 >= total * 2, !vals.isEmpty else { return (0, false, true) }
+            let m = median(vals)
+            return (m, vals.filter { abs(Int($0) - m) <= 12 }.count * 4 >= vals.count * 3, false)
+        }
+        func col(_ x: Int) -> Line { line((y0..<y1).compactMap { skip[$0 * w + x] ? nil : ref[$0 * w + x] }, of: y1 - y0) }
+        func row(_ y: Int) -> Line { line((x0..<x1).compactMap { skip[y * w + $0] ? nil : ref[y * w + $0] }, of: x1 - x0) }
+        // a border: two even-toned lines clearly different (a margin against a black border or a bar) — or near-black
+        // after anything lighter (a dark slide against black is a small step; a photo reaching the edge isn't even)
+        func border(_ o: Line, _ i: Line) -> Bool {
+            o.camera || (o.even && ((i.even && abs(o.m - i.m) > 28) || (o.m <= 10 && i.m >= o.m + 12)))
+        }
+        // first each side settles onto a border just inside it: changed pixels can spill a pixel past a slide's edge, and
+        // growing from the black side would run on through the black
+        for _ in 0..<4 {
+            if x1 - x0 > 8, let p = (x0 + 1...x0 + 3).first(where: { border(col($0 - 1), col($0)) }) { x0 = p }
+            if x1 - x0 > 8, let p = (x1 - 3...x1 - 1).reversed().first(where: { border(col($0), col($0 - 1)) }) { x1 = p }
+            if y1 - y0 > 8, let p = (y0 + 1...y0 + 3).first(where: { border(row($0 - 1), row($0)) }) { y0 = p }
+            if y1 - y0 > 8, let p = (y1 - 3...y1 - 1).reversed().first(where: { border(row($0), row($0 - 1)) }) { y1 = p }
+        }
+        func px(_ x: Int, _ y: Int) -> Int? {
+            guard x >= 0, x < w, y >= 0, y < h, !skip[y * w + x] else { return nil }
+            return Int(ref[y * w + x])
+        }
+        /// Past a border, is the band beyond still the slide's? A band of the slide's own template — a footer, a banner,
+        /// a sidebar, a rule over footer text, the margin above a table — ends where the slide ends, before the picture's
+        /// edges; a browser's or a site's bar runs on to them. A full-width band followed by a black border is the
+        /// video's own (the lecture letterboxed in the player), so it belongs too. Near-black is never the slide's.
+        func slideRow(_ y: Int, away dy: Int) -> Bool {
+            let o = row(y)
+            guard o.even, o.m > 24 else { return false }
+            var lo = x0, hi = x1 - 1
+            while lo > 0, let v = px(lo - 1, y), abs(v - o.m) <= 20 { lo -= 1 }
+            while hi < w - 1, let v = px(hi + 1, y), abs(v - o.m) <= 20 { hi += 1 }
+            if lo > 1 && hi < w - 2 { return true }
+            var yy = y
+            while yy >= 0, yy < h, abs(row(yy).m - o.m) <= 16 { yy += dy }
+            guard yy >= 0, yy < h, yy + dy >= 0, yy + dy < h else { return false }
+            let b1 = row(yy), b2 = row(yy + dy)
+            return b1.even && b1.m <= 24 && b2.even && b2.m <= 24
+        }
+        func slideCol(_ x: Int, away dx: Int) -> Bool {
+            let o = col(x)
+            guard o.even, o.m > 24 else { return false }
+            var lo = y0, hi = y1 - 1
+            while lo > 0, let v = px(x, lo - 1), abs(v - o.m) <= 20 { lo -= 1 }
+            while hi < h - 1, let v = px(x, hi + 1), abs(v - o.m) <= 20 { hi += 1 }
+            if lo > 1 && hi < h - 2 { return true }
+            var xx = x
+            while xx >= 0, xx < w, abs(col(xx).m - o.m) <= 16 { xx += dx }
+            guard xx >= 0, xx < w, xx + dx >= 0, xx + dx < w else { return false }
+            let b1 = col(xx), b2 = col(xx + dx)
+            return b1.even && b1.m <= 24 && b2.even && b2.m <= 24
+        }
+        for _ in 0..<8 {
+            var moved = false
+            while x0 > 0, !border(col(x0 - 1), col(x0)) || slideCol(x0 - 1, away: -1) { x0 -= 1; moved = true }
+            while x1 < w, !border(col(x1), col(x1 - 1)) || slideCol(x1, away: 1) { x1 += 1; moved = true }
+            while y0 > 0, !border(row(y0 - 1), row(y0)) || slideRow(y0 - 1, away: -1) { y0 -= 1; moved = true }
+            while y1 < h, !border(row(y1), row(y1 - 1)) || slideRow(y1, away: 1) { y1 += 1; moved = true }
+            if !moved { break }
+        }
+        return (x0, x1, y0, y1)
+    }
+
+    private static func median(_ v: [UInt8]) -> Int {                // counted, not sorted: it runs for every line tried
+        guard !v.isEmpty else { return 0 }
+        var hist = [Int](repeating: 0, count: 256)
+        for x in v { hist[Int(x)] += 1 }
+        var seen = 0
+        for (value, n) in hist.enumerated() { seen += n; if seen > v.count / 2 { return value } }
+        return 255
+    }
+
+    /// The box's sides moved onto the exact edges, looking at the full picture (a few pixels either way).
+    private static func snap(_ r: CGRect, _ image: CGImage) -> CGRect {
+        let gw = min(960, image.width), gh = max(1, Int(Double(image.height) * Double(gw) / Double(image.width)))
+        var g = [UInt8](repeating: 0, count: gw * gh)
+        let ok: Bool = g.withUnsafeMutableBytes { raw in
+            guard let ctx = CGContext(data: raw.baseAddress, width: gw, height: gh, bitsPerComponent: 8, bytesPerRow: gw,
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return false }
+            ctx.interpolationQuality = .medium
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: gw, height: gh))
+            return true
+        }
+        guard ok else { return r }
+        var x0 = Int(r.minX * Double(gw)), x1 = Int(r.maxX * Double(gw)), y0 = Int(r.minY * Double(gh)), y1 = Int(r.maxY * Double(gh))
+        let reach = Int((Double(gw) / Double(w) * 2).rounded(.up)) + 1
+        func col(_ x: Int) -> Int { median((y0..<y1).map { g[$0 * gw + x] }) }
+        func row(_ y: Int) -> Int { median((x0..<x1).map { g[y * gw + $0] }) }
+        // each side goes to the strongest step between neighbouring lines nearby (staying put if there is none)
+        func best(_ around: Int, _ lo: Int, _ hi: Int, _ line: (Int) -> Int) -> Int {
+            var at = around, top = 24
+            for p in max(lo, around - reach)...min(hi, around + reach) {
+                let s = abs(line(p) - line(p - 1))
+                if s > top { top = s; at = p }
+            }
+            return at
+        }
+        guard x1 - x0 > 2 * reach, y1 - y0 > 2 * reach else { return r }
+        x0 = best(x0, 1, gw - 1, col); x1 = best(x1, 1, gw - 1, col)
+        y0 = best(y0, 1, gh - 1, row); y1 = best(y1, 1, gh - 1, row)
+        guard x1 > x0, y1 > y0 else { return r }
+        return CGRect(x: Double(x0) / Double(gw), y: Double(y0) / Double(gh), width: Double(x1 - x0) / Double(gw), height: Double(y1 - y0) / Double(gh))
+    }
+}
+
 // MARK: - Detecting slides
 
 /// Decides when the picture shows a new slide. Feed it frames in time order (live: twice a second;
@@ -204,6 +567,9 @@ final class SlideDetector {
     var trace: ((String) -> Void)?
 
     private var trusted: [Bool] { (0..<Signature.tiles).map { now - movedAt[$0] > hold && !cameraTiles[$0] } }
+    /// The tiles that are moving now — a camera, a strip of participants, a playing video — which 깔끔하게 담기 doesn't
+    /// take for slide changes.
+    var moving: [Bool] { trusted.map { !$0 } }
 
     /// The tiles a camera rectangle covers, with a small margin: its edge bleeds into the tiles around it when the frame is
     /// shrunk, so a tile goes with the camera once 5 % of it is inside.
@@ -627,14 +993,25 @@ final class SlideDetector {
 final class SlideCollector: @unchecked Sendable {
     let dir: URL
     var onCount: (@Sendable (Int) -> Void)?
-    /// About once a second: the frame as a small JPEG (base64) and the lecturer's camera, if one was found (0–1, top-left).
-    var onPreview: (@Sendable (String, CGRect?) -> Void)?
+    /// About once a second: the frame as a JPEG (base64), the lecturer's camera if one was found, and the part 깔끔하게
+    /// 담기 keeps once it is clear (both 0–1, top-left).
+    var onPreview: (@Sendable (String, CGRect?, CGRect?) -> Void)?
     private var lastPreview = Date.distantPast
     private let detector: SlideDetector
     private let queue = DispatchQueue(label: "lecture.slides", qos: .utility)
+    /// Each slide's text is read as it is kept (titles for the PDF), on a queue of its own: the first reading loads
+    /// Apple's text recognition, which can take half a minute — during the lecture, not when it is saved.
+    private let reader = DispatchQueue(label: "lecture.slides.titles", qos: .background)
+    private let readLock = NSLock()
+    private var read: [Int: [SlideTitles.Found]] = [:]
     private var timeline: [(slide: Int, from: Double)] = []
     private var count = 0
     private var closed = false
+    /// Each kept slide in small, its size, where the camera was and what was moving then: 깔끔하게 담기 works out the
+    /// slide's part from these — live for the preview, and again from the saved files for the PDF.
+    private struct Kept { let sig: Signature; let width: Int, height: Int; let camera: CGRect?; let moving: [Bool] }
+    private var kept: [Int: Kept] = [:]
+    private var clean: CGRect?
 
     static var root: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("LectureScribe/Slides")
@@ -653,45 +1030,68 @@ final class SlideCollector: @unchecked Sendable {
         queue.async { [self] in
             guard !closed, let sig = Signature(image) else { return }
             let ev = detector.step(t, sig)
+            if let ev {
+                switch ev {
+                case .new(let i, let since):
+                    save(image, i, sig)
+                    timeline.append((i, since))
+                    count += 1
+                    onCount?(count)
+                case .again(let i, let since):
+                    if timeline.last?.slide != i { timeline.append((i, since)) }
+                case .update(let i):
+                    save(image, i, sig)
+                }
+                writeTimeline()
+            }
             if let preview = onPreview, Date().timeIntervalSince(lastPreview) >= 1, let jpeg = SlideCollector.previewJPEG(image) {
                 lastPreview = Date()
-                preview(jpeg, detector.cameraRect)
-            }
-            guard let ev else { return }
-            switch ev {
-            case .new(let i, let since):
-                save(image, i)
-                timeline.append((i, since))
-                count += 1
-                onCount?(count)
-            case .again(let i, let since):
-                if timeline.last?.slide != i { timeline.append((i, since)) }
-            case .update(let i):
-                save(image, i)
+                preview(jpeg, detector.cameraRect, clean)
             }
             writeTimeline()
         }
     }
 
-    /// A small JPEG of a frame, base64 (about 20 KB): what the live preview shows.
+    /// A JPEG of a frame, base64 (about 60 KB): what the live preview shows — big enough for its large view.
     static func previewJPEG(_ image: CGImage) -> String? {
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
-        CGImageDestinationAddImage(dest, scaled(image, max: 480), [kCGImageDestinationLossyCompressionQuality: 0.6] as CFDictionary)
+        CGImageDestinationAddImage(dest, scaled(image, max: 960), [kCGImageDestinationLossyCompressionQuality: 0.6] as CFDictionary)
         guard CGImageDestinationFinalize(dest) else { return nil }
         return (data as Data).base64EncodedString()
     }
 
-    private func save(_ image: CGImage, _ i: Int) {
+    private func save(_ image: CGImage, _ i: Int, _ sig: Signature) {
         let url = dir.appendingPathComponent(String(format: "%04d.jpg", i + 1))
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else { return }
-        CGImageDestinationAddImage(dest, scaled(image, max: 1920), [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
+        let stored = scaled(image, max: 1920)
+        CGImageDestinationAddImage(dest, stored, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
         CGImageDestinationFinalize(dest)
+        kept[i] = Kept(sig: sig, width: stored.width, height: stored.height, camera: detector.cameraRect, moving: detector.moving)
+        writeKept()
+        // the slide's part as it looks now, for pictures of this size (a resized window starts again)
+        let same = kept.keys.sorted().compactMap { kept[$0] }.filter { $0.width == stored.width && $0.height == stored.height }
+        clean = CleanCapture.area(same.map(\.sig), cameras: same.compactMap(\.camera), moving: same.map(\.moving), image: stored)
+        reader.async { [weak self] in                                    // a fuller picture later reads again
+            let lines = SlideTitles.lines(image)
+            guard let self else { return }
+            self.readLock.lock(); self.read[i] = lines; self.readLock.unlock()
+        }
     }
 
     private func writeTimeline() {
         let rows = timeline.map { "\($0.slide)\t\($0.from)" }.joined(separator: "\n")
         try? Data(rows.utf8).write(to: dir.appendingPathComponent("timeline.tsv"), options: .atomic)
+    }
+
+    /// kept.tsv: slide, the camera (x,y,w,h or -) and the moving tiles (0/1 × 144) when it was kept.
+    private func writeKept() {
+        let rows = kept.keys.sorted().map { i -> String in
+            let k = kept[i]!
+            let cam = k.camera.map { String(format: "%.4f,%.4f,%.4f,%.4f", $0.minX, $0.minY, $0.width, $0.height) } ?? "-"
+            return "\(i)\t\(cam)\t" + String(k.moving.map { $0 ? "1" : "0" })
+        }
+        try? Data(rows.joined(separator: "\n").utf8).write(to: dir.appendingPathComponent("kept.tsv"), options: .atomic)
     }
 
     /// Slides turned off mid-session: stop and throw away what was collected (a PDF being written is not kept).
@@ -709,11 +1109,14 @@ final class SlideCollector: @unchecked Sendable {
 
     /// Writes "<name>.pdf" next to the transcript; then the working folder goes. Returns the slide count.
     @discardableResult
-    func makePDF(transcript: URL, lines: [(Double, Double, String)], end: Double) -> Int {
+    func makePDF(transcript: URL, lines: [(Double, Double, String)], end: Double, layout: String, clean: Bool = false) -> Int {
         let n = close()
         defer { try? FileManager.default.removeItem(at: dir) }
         guard n > 0 else { return 0 }
-        return SlidesPDF.build(from: dir, transcript: transcript, lines: lines, end: end, cancelled: { [weak self] in self?.isDiscarded ?? false })
+        reader.sync {}                                                    // the last readings
+        readLock.lock(); let known = read; readLock.unlock()
+        return SlidesPDF.build(from: dir, transcript: transcript, lines: lines, end: end, layout: layout, clean: clean, known: known,
+                               cancelled: { [weak self] in self?.isDiscarded ?? false })
     }
 }
 
@@ -887,15 +1290,15 @@ enum SlidesPDF {
         CTLineDraw(l, ctx)
     }
 
-    private static func footer(_ ctx: CGContext, _ title: String, _ n: Int) {
+    private static func footer(_ ctx: CGContext, _ title: String, _ n: Int, in box: CGRect = page, margin m: CGFloat = margin) {
         let f = font(7.5, "Light")
-        let full = CTLineCreateWithAttributedString(text("강의 받아쓰기 · \(title)", f, muted, kern: 0.3) as CFAttributedString)
-        let room = Double(page.width - margin * 2 - 40)                      // a long title stops short of the page number
+        let full = CTLineCreateWithAttributedString(text("\(L("강의 받아쓰기", "Lecture Transcriber")) · \(title)", f, muted, kern: 0.3) as CFAttributedString)
+        let room = Double(box.width - m * 2 - 40)                            // a long title stops short of the page number
         let l = CTLineGetTypographicBounds(full, nil, nil, nil) <= room ? full
             : CTLineCreateTruncatedLine(full, room, .end, CTLineCreateWithAttributedString(text("…", f, muted) as CFAttributedString)) ?? full
-        ctx.textPosition = CGPoint(x: margin, y: 30)
+        ctx.textPosition = CGPoint(x: m, y: 30)
         CTLineDraw(l, ctx)
-        line(ctx, text("\(n)", f, muted), at: CGPoint(x: page.width - margin, y: 30), alignRight: true)
+        line(ctx, text("\(n)", f, muted), at: CGPoint(x: box.width - m, y: 30), alignRight: true)
     }
 
     /// Splits each line into sentences, each with an estimated start (by its position in the line):
@@ -917,9 +1320,20 @@ enum SlidesPDF {
         return out
     }
 
-    /// Builds the PDF from a collector's folder. Returns the number of slides.
+    /// One session's slides, ready to be laid out: each slide's picture, when it first showed, what was said while it was
+    /// up, and its name ("슬라이드 3 · 수요와 공급" — the title read off the slide, when there is one).
+    struct Deck {
+        struct Slide { let image: CGImage; let shown: Double?; let lines: [(Double, String)]; let name: String }
+        let title: String, header: String, said: Int, end: Double
+        let slides: [Slide]
+    }
+
+    /// Builds the slide PDF from a collector's folder, in the layout chosen in 설정 (`landscape`: every slide filling a
+    /// landscape page with what was said on the next; `split`: a PDF of the slides and a second one of the transcript;
+    /// `classic`: A4, a slide and its sentences per page). Returns the number of slides.
     /// `lines`: (start, end, text); end 0 = unknown.
     static func build(from dir: URL, transcript: URL, lines rawLines: [(Double, Double, String)], end: Double,
+                      layout: String = "landscape", clean: Bool = false, known: [Int: [SlideTitles.Found]] = [:],
                       cancelled: () -> Bool = { false }) -> Int {
         let lines = sentences(rawLines)
         let fm = FileManager.default
@@ -948,61 +1362,288 @@ enum SlidesPDF {
             spans[entry.0, default: []].append((from, to))
         }
         let firstShown = Dictionary(timeline.map { ($0.0, $0.1) }, uniquingKeysWith: { a, _ in a })
-
         let header = (try? String(contentsOf: transcript, encoding: .utf8))?.components(separatedBy: "\n").first ?? ""
         let name = transcript.deletingPathExtension().lastPathComponent.nfc
-        let title = coverTitle(name: name, header: header, file: transcript)
-        let pdfURL = transcript.deletingPathExtension().appendingPathExtension("pdf")
-        let part = transcript.deletingLastPathComponent().appendingPathComponent(".\(pdfURL.lastPathComponent).part")
-        var box = page
-        let info: [CFString: Any] = [kCGPDFContextTitle: title, kCGPDFContextCreator: "강의 받아쓰기",
-                                     kCGPDFContextKeywords: "slides=\(images.count)"]
-        guard let ctx = CGContext(part as CFURL, mediaBox: &box, info as CFDictionary) else { return 0 }
-        var pageNo = 0
+        let crops = clean ? cleanAreas(dir, images) : [:]                      // 깔끔하게 담기: each slide cut to its part
+        let pictures = images.map { entry in crops[entry.0].flatMap { entry.1.cropping(to: pixels($0, entry.1)) } ?? entry.1 }
+        let titles = SlideTitles.read(images.map { known[$0.0] ?? SlideTitles.lines($0.1) },   // read while recording, or now
+                                      within: images.map { crops[$0.0] })
+        let deck = Deck(title: coverTitle(name: name, header: header, file: transcript), header: header,
+                        said: rawLines.filter { !$0.2.isEmpty }.count, end: end,     // as the transcript counts them
+                        slides: images.enumerated().map { n, entry in
+                            Deck.Slide(image: pictures[n], shown: firstShown[entry.0],
+                                       lines: lines.filter { l in (spans[entry.0] ?? []).contains { l.0 >= $0.0 && l.0 < $0.1 } },
+                                       name: [L("슬라이드 \(n + 1)", "Slide \(n + 1)"), titles[n]].compactMap { $0 }.joined(separator: " · "))
+                        })
 
-        // cover
-        ctx.beginPDFPage(nil); pageNo += 1
-        line(ctx, text("강 의 노 트", font(10, "Regular"), accent, kern: 2), at: CGPoint(x: margin, y: page.height - 150))
-        let titleBox = CGRect(x: margin, y: page.height - 260, width: page.width - margin * 2, height: 92)
-        _ = flow(ctx, fitted(title, width: titleBox.width, lines: 2) { text($0, font(26, "Light"), ink, line: 1.3) }, from: 0, in: titleBox)
-        let said = rawLines.filter { !$0.2.isEmpty }.count                // as the transcript counts them (not split sentences)
-        let summary = "\(header.isEmpty ? "" : header + "\n")슬라이드 \(images.count)장 · 문장 \(said)개 · \(fmtTime(end))"
-        _ = flow(ctx, text(summary, font(10.5, "Light"), muted, line: 1.6), from: 0,
-                 in: CGRect(x: margin, y: page.height - 340, width: page.width - margin * 2, height: 70))
-        if let first = images.first?.1 {
-            let w = page.width - margin * 2, h = min(w * CGFloat(first.height) / CGFloat(first.width), 300)
-            let r = CGRect(x: margin, y: 120, width: h * CGFloat(first.width) / CGFloat(first.height), height: h)
+        let pdfURL = transcript.deletingPathExtension().appendingPathExtension("pdf")
+        func part(_ u: URL) -> URL { u.deletingLastPathComponent().appendingPathComponent(".\(u.lastPathComponent).part") }
+        var made: [(part: URL, dest: URL, marks: [(String, Int)])] = []
+        let ok: Bool
+        switch layout {
+        case "split":
+            let text = transcriptPDF(for: transcript)
+            if let a = writeLandscape(deck, to: part(pdfURL), withText: false) { made.append((part(pdfURL), pdfURL, a)) }
+            if let b = writeTranscript(deck, to: part(text)) { made.append((part(text), text, b)) }
+            ok = made.count == 2
+        case "classic":
+            if let a = writeClassic(deck, to: part(pdfURL)) { made.append((part(pdfURL), pdfURL, a)) }
+            ok = made.count == 1
+        default:
+            if let a = writeLandscape(deck, to: part(pdfURL), withText: true) { made.append((part(pdfURL), pdfURL, a)) }
+            ok = made.count == 1
+        }
+        if !ok || cancelled() {                                             // 슬라이드 PDF was turned off meanwhile
+            made.forEach { try? fm.removeItem(at: $0.part) }
+            return 0
+        }
+        for m in made {
+            do {
+                let dest = unused(m.dest)                                     // never replace a PDF that's already there
+                try fm.moveItem(at: m.part, to: dest)
+            } catch {
+                log("slides pdf: \(error)")
+                try? fm.removeItem(at: m.part)
+                return 0
+            }
+        }
+        return images.count
+    }
+
+    /// 깔끔하게 담기 for the PDF, from the collector's files: pictures of one size share one area (a resized window gets
+    /// its own); a picture that shows more than its usual surroundings outside it — a wider slide — keeps everything.
+    static func cleanAreas(_ dir: URL, _ images: [(Int, CGImage)]) -> [Int: CGRect] {
+        var cams: [Int: CGRect] = [:], moving: [Int: [Bool]] = [:]
+        let rows = (try? String(contentsOf: dir.appendingPathComponent("kept.tsv"), encoding: .utf8)) ?? ""
+        for r in rows.split(separator: "\n") {
+            let f = r.split(separator: "\t", omittingEmptySubsequences: false)
+            guard f.count == 3, let i = Int(f[0]) else { continue }
+            let v = f[1].split(separator: ",").compactMap { Double($0) }
+            if v.count == 4 { cams[i] = CGRect(x: v[0], y: v[1], width: v[2], height: v[3]) }
+            if f[2].count == Signature.tiles { moving[i] = f[2].map { $0 == "1" } }
+        }
+        var out: [Int: CGRect] = [:]
+        var sizes: [String] = []
+        for e in images where !sizes.contains("\(e.1.width)x\(e.1.height)") { sizes.append("\(e.1.width)x\(e.1.height)") }
+        for size in sizes {
+            let group = images.filter { "\($0.1.width)x\($0.1.height)" == size }
+            let sigs = group.compactMap { Signature($0.1) }
+            guard sigs.count == group.count, group.count >= 2 else { continue }
+            let cameras = group.compactMap { cams[$0.0] }, movings = group.map { moving[$0.0] ?? [] }
+            guard let area = CleanCapture.area(sigs, cameras: cameras, moving: movings, image: group.last?.1) else { continue }
+            let ref = CleanCapture.reference(sigs)
+            let specific = CleanCapture.pageSpecific(sigs, area: area, reference: ref, cameras: cameras, moving: movings)
+            var kept = 0
+            for (k, e) in group.enumerated() where !specific[k] && !CleanCapture.extends(sigs[k], beyond: area, reference: ref, cameras: cameras, moving: movings[k]) {
+                out[e.0] = area; kept += 1
+            }
+            log(String(format: "slides: clean area %.3f %.3f %.3f %.3f on %d of %d pages (%@)", area.minX, area.minY, area.width, area.height, kept, group.count, size))
+        }
+        return out
+    }
+
+    /// A 0–1 rectangle (top-left origin) in a picture's pixels.
+    private static func pixels(_ r: CGRect, _ image: CGImage) -> CGRect {
+        CGRect(x: (r.minX * Double(image.width)).rounded(), y: (r.minY * Double(image.height)).rounded(),
+               width: (r.width * Double(image.width)).rounded(), height: (r.height * Double(image.height)).rounded())
+    }
+
+    /// The transcript's PDF in the `split` layout: "<name> (받아쓰기).pdf" — or "(Transcript)" in English.
+    static func transcriptPDF(for transcript: URL) -> URL {
+        let name = transcript.deletingPathExtension().lastPathComponent
+        return transcript.deletingLastPathComponent().appendingPathComponent("\(name) (\(L("받아쓰기", "Transcript"))).pdf")
+    }
+
+    /// Every name a session's transcript PDF can have (either language), for 기록's rename, delete and share.
+    static func transcriptPDFNames(_ id: String) -> [String] { ["\(id) (받아쓰기).pdf", "\(id) (Transcript).pdf"] }
+
+    /// `url`, or "<name> (2).pdf", "(3)"… — the first that is free.
+    private static func unused(_ url: URL) -> URL {
+        let fm = FileManager.default, base = url.deletingPathExtension().lastPathComponent
+        var dest = url, k = 2
+        while fm.fileExists(atPath: dest.path) { dest = url.deletingLastPathComponent().appendingPathComponent("\(base) (\(k)).pdf"); k += 1 }
+        return dest
+    }
+
+    /// The slides' names as the PDF's bookmarks — the sidebar of Preview and other viewers. Written by Core Graphics as
+    /// the PDF is made (re-saving it through PDFKit loses the bookmarks and rewrites the slide count 기록 reads).
+    private static func setBookmarks(_ ctx: CGContext, _ marks: [(String, Int)]) {
+        guard !marks.isEmpty else { return }
+        let children: [[CFString: Any]] = marks.map { [kCGPDFOutlineTitle: $0.0 as CFString, kCGPDFOutlineDestination: NSNumber(value: $0.1 + 1)] }
+        CGPDFContextSetOutline(ctx, [kCGPDFOutlineChildren: children] as CFDictionary)   // (a title on the root: nothing is written)
+    }
+
+    private static func context(_ url: URL, _ box: CGRect, _ deck: Deck, keywords: Bool) -> CGContext? {
+        var b = box
+        var info: [CFString: Any] = [kCGPDFContextTitle: deck.title.replacingOccurrences(of: "\u{00A0}", with: " "),   // searchable
+                                     kCGPDFContextCreator: L("강의 받아쓰기", "Lecture Transcriber")]
+        if keywords { info[kCGPDFContextKeywords] = "slides=\(deck.slides.count)" }      // 기록 counts the slides from this
+        return CGContext(url as CFURL, mediaBox: &b, info as CFDictionary)
+    }
+
+    private static func begin(_ ctx: CGContext, _ box: CGRect) {
+        var b = box
+        ctx.beginPDFPage([kCGPDFContextMediaBox: Data(bytes: &b, count: MemoryLayout<CGRect>.size) as CFData] as CFDictionary)
+    }
+
+    /// Landscape pages 960 pt wide, as tall as the slide's own shape (kept within sensible bounds).
+    private static func wideBox(_ image: CGImage) -> CGRect {
+        let h = (960 * CGFloat(image.height) / CGFloat(max(1, image.width))).rounded()
+        return CGRect(x: 0, y: 0, width: 960, height: min(960, max(400, h)))
+    }
+
+    /// The picture filling the page (centred on black if the page had to be a little wider or taller than it).
+    private static func fullBleed(_ ctx: CGContext, _ image: CGImage, _ box: CGRect) {
+        ctx.setFillColor(CGColor(gray: 0, alpha: 1)); ctx.fill(box)
+        let k = min(box.width / CGFloat(image.width), box.height / CGFloat(image.height))
+        let w = CGFloat(image.width) * k, h = CGFloat(image.height) * k
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: (box.width - w) / 2, y: (box.height - h) / 2, width: w, height: h))
+    }
+
+    /// What was said while a slide was up: time, sentence; or a note that nothing was.
+    private static func saidText(_ lines: [(Double, String)], size: CGFloat) -> NSAttributedString {
+        let out = NSMutableAttributedString(), body = font(size, "Light"), time = font(size - 2, "Regular")
+        for (k, l) in lines.enumerated() {
+            out.append(text("\(fmtTime(l.0))   ", time, accent, kern: 0.4, line: 1.75))
+            out.append(text(l.1 + (k + 1 < lines.count ? "\n" : ""), body, ink, line: 1.75))
+        }
+        if lines.isEmpty { out.append(text(L("이 슬라이드가 보이는 동안 받아 적은 말이 없습니다.", "Nothing was transcribed while this slide was up."), body, muted, line: 1.75)) }
+        return out
+    }
+
+    /// `landscape`: a cover, then each slide filling its page with what was said on the page after it.
+    /// `withText: false` (the `split` layout's first file): only the slides.
+    private static func writeLandscape(_ deck: Deck, to url: URL, withText: Bool) -> [(String, Int)]? {
+        let firstBox = wideBox(deck.slides[0].image)
+        guard let ctx = context(url, firstBox, deck, keywords: true) else { return nil }
+        var pageNo = 0, marks: [(String, Int)] = []
+        if withText {                                                      // cover: what this is, and the first slide
+            begin(ctx, firstBox); pageNo += 1
+            let m: CGFloat = 56, colW = firstBox.width * 0.46
+            line(ctx, text(L("강 의 노 트", "LECTURE NOTES"), font(10, "Regular"), accent, kern: 2), at: CGPoint(x: m, y: firstBox.height - 96))
+            let titleBox = CGRect(x: m, y: firstBox.height - 210, width: colW, height: 96)
+            _ = flow(ctx, fitted(deck.title, width: titleBox.width, lines: 2) { text($0, font(26, "Light"), ink, line: 1.3) }, from: 0, in: titleBox)
+            _ = flow(ctx, text(summary(deck), font(10.5, "Light"), muted, line: 1.6), from: 0,
+                     in: CGRect(x: m, y: firstBox.height - 300, width: colW, height: 80))
+            let thumbW = firstBox.width - colW - m * 3, first = deck.slides[0].image
+            let th = thumbW * CGFloat(first.height) / CGFloat(first.width)
+            let r = CGRect(x: firstBox.width - m - thumbW, y: (firstBox.height - th) / 2, width: thumbW, height: th)
             ctx.saveGState(); ctx.addPath(CGPath(roundedRect: r, cornerWidth: 6, cornerHeight: 6, transform: nil)); ctx.clip()
             ctx.draw(first, in: r); ctx.restoreGState()
             ctx.setStrokeColor(hairline); ctx.setLineWidth(0.6)
             ctx.addPath(CGPath(roundedRect: r, cornerWidth: 6, cornerHeight: 6, transform: nil)); ctx.strokePath()
+            footer(ctx, deck.title, pageNo, in: firstBox, margin: m)
+            ctx.endPDFPage()
         }
-        footer(ctx, title, pageNo)
+        for s in deck.slides {
+            let box = wideBox(s.image)
+            begin(ctx, box); pageNo += 1                                    // the slide, the whole page
+            marks.append((s.name, pageNo - 1))
+            fullBleed(ctx, s.image, box)
+            ctx.endPDFPage()
+            guard withText else { continue }
+            let said = saidText(s.lines, size: 11.5), m: CGFloat = 52, gap: CGFloat = 34
+            var start = 0, first = true
+            repeat {                                                        // then what was said, in two columns
+                begin(ctx, box); pageNo += 1
+                let top = box.height - 50
+                let head = first ? s.name : s.name + L(" (계속)", " (continued)")
+                line(ctx, fitted(head, width: box.width - m * 2 - 70, lines: 1) { text($0, font(12.5, "Regular"), accent, kern: 0.6) },
+                     at: CGPoint(x: m, y: top))
+                if let t = s.shown {
+                    line(ctx, text(fmtTime(t), font(9.5, "Light"), muted, kern: 0.6), at: CGPoint(x: box.width - m, y: top), alignRight: true)
+                }
+                ctx.setStrokeColor(hairline); ctx.setLineWidth(0.6)
+                ctx.move(to: CGPoint(x: m, y: top - 14)); ctx.addLine(to: CGPoint(x: box.width - m, y: top - 14)); ctx.strokePath()
+                let colW = (box.width - m * 2 - gap) / 2, colH = max(40, top - 34 - 54)
+                var next = flow(ctx, said, from: start, in: CGRect(x: m, y: 54, width: colW, height: colH))
+                if next < said.length, next > start { next = flow(ctx, said, from: next, in: CGRect(x: m + colW + gap, y: 54, width: colW, height: colH)) }
+                footer(ctx, deck.title, pageNo, in: box, margin: m)
+                ctx.endPDFPage()
+                if next <= start { break }                                 // nothing fitted: don't loop forever
+                start = next
+                first = false
+            } while start < said.length
+        }
+        setBookmarks(ctx, marks)
+        ctx.closePDF()
+        return marks
+    }
+
+    /// `split`'s second file: the whole transcript on A4, grouped under each slide's name and time.
+    private static func writeTranscript(_ deck: Deck, to url: URL) -> [(String, Int)]? {
+        guard let ctx = context(url, page, deck, keywords: false) else { return nil }
+        let all = NSMutableAttributedString(), headFont = font(11, "Regular"), timeFont = font(9, "Light")
+        var heads: [(String, Int)] = []                                    // each slide's name and where it starts in the text
+        for (n, s) in deck.slides.enumerated() {
+            heads.append((s.name, all.length))
+            all.append(text(s.name, headFont, accent, kern: 0.6, line: 1.9))
+            if let t = s.shown { all.append(text("   " + fmtTime(t), timeFont, muted, kern: 0.6, line: 1.9)) }
+            all.append(text("\n", timeFont, muted, line: 1.2))
+            all.append(saidText(s.lines, size: 10.5))
+            if n + 1 < deck.slides.count { all.append(text("\n\n", font(10.5, "Light"), ink, line: 1.4)) }
+        }
+        var pageNo = 0, start = 0, marks: [(String, Int)] = []
+        repeat {
+            ctx.beginPDFPage(nil); pageNo += 1
+            var top = page.height - 56
+            if pageNo == 1 {                                                // the title on the first page
+                line(ctx, text(L("받 아 쓰 기", "TRANSCRIPT"), font(9.5, "Regular"), accent, kern: 2), at: CGPoint(x: margin, y: top))
+                let titleBox = CGRect(x: margin, y: top - 84, width: page.width - margin * 2, height: 70)
+                _ = flow(ctx, fitted(deck.title, width: titleBox.width, lines: 2) { text($0, font(20, "Light"), ink, line: 1.3) }, from: 0, in: titleBox)
+                _ = flow(ctx, text(summary(deck), font(9.5, "Light"), muted, line: 1.6), from: 0,
+                         in: CGRect(x: margin, y: top - 140, width: page.width - margin * 2, height: 50))
+                top -= 160
+            }
+            let next = flow(ctx, all, from: start, in: CGRect(x: margin, y: 54, width: page.width - margin * 2, height: max(40, top - 54)))
+            for h in heads where h.1 >= start && h.1 < next { marks.append((h.0, pageNo - 1)) }
+            footer(ctx, deck.title, pageNo)
+            ctx.endPDFPage()
+            if next <= start { break }
+            start = next
+        } while start < all.length
+        setBookmarks(ctx, marks)
+        ctx.closePDF()
+        return marks
+    }
+
+    /// `classic`: A4 — a cover, then a page (or more) per slide: its picture, its name and time, what was said.
+    private static func writeClassic(_ deck: Deck, to url: URL) -> [(String, Int)]? {
+        guard let ctx = context(url, page, deck, keywords: true) else { return nil }
+        var pageNo = 0, marks: [(String, Int)] = []
+        ctx.beginPDFPage(nil); pageNo += 1                                   // cover
+        line(ctx, text(L("강 의 노 트", "LECTURE NOTES"), font(10, "Regular"), accent, kern: 2), at: CGPoint(x: margin, y: page.height - 150))
+        let titleBox = CGRect(x: margin, y: page.height - 260, width: page.width - margin * 2, height: 92)
+        _ = flow(ctx, fitted(deck.title, width: titleBox.width, lines: 2) { text($0, font(26, "Light"), ink, line: 1.3) }, from: 0, in: titleBox)
+        _ = flow(ctx, text(summary(deck), font(10.5, "Light"), muted, line: 1.6), from: 0,
+                 in: CGRect(x: margin, y: page.height - 340, width: page.width - margin * 2, height: 70))
+        let first = deck.slides[0].image
+        let fw = page.width - margin * 2, fh = min(fw * CGFloat(first.height) / CGFloat(first.width), 300)
+        let fr = CGRect(x: margin, y: 120, width: fh * CGFloat(first.width) / CGFloat(first.height), height: fh)
+        ctx.saveGState(); ctx.addPath(CGPath(roundedRect: fr, cornerWidth: 6, cornerHeight: 6, transform: nil)); ctx.clip()
+        ctx.draw(first, in: fr); ctx.restoreGState()
+        ctx.setStrokeColor(hairline); ctx.setLineWidth(0.6)
+        ctx.addPath(CGPath(roundedRect: fr, cornerWidth: 6, cornerHeight: 6, transform: nil)); ctx.strokePath()
+        footer(ctx, deck.title, pageNo)
         ctx.endPDFPage()
 
-        // one page (or more) per slide
-        let bodyFont = font(10.5, "Light"), timeFont = font(8.5, "Regular")
-        for (n, (i, image)) in images.enumerated() {
-            let mine = lines.filter { l in (spans[i] ?? []).contains { l.0 >= $0.0 && l.0 < $0.1 } }
-            let said = NSMutableAttributedString()
-            for (k, l) in mine.enumerated() {
-                said.append(text("\(fmtTime(l.0))   ", timeFont, accent, kern: 0.4, line: 1.75))
-                said.append(text(l.1 + (k + 1 < mine.count ? "\n" : ""), bodyFont, ink, line: 1.75))
-            }
-            if mine.isEmpty { said.append(text("이 슬라이드가 보이는 동안 받아 적은 말이 없습니다.", bodyFont, muted, line: 1.75)) }
-
-            var start = 0, first = true
+        for s in deck.slides {                                               // one page (or more) per slide
+            let said = saidText(s.lines, size: 10.5)
+            var start = 0, isFirst = true
             repeat {
                 ctx.beginPDFPage(nil); pageNo += 1
+                if isFirst { marks.append((s.name, pageNo - 1)) }
                 let top = page.height - 56
-                let head = first ? "슬라이드 \(n + 1)" : "슬라이드 \(n + 1) (계속)"
-                line(ctx, text(head, font(10, "Regular"), accent, kern: 1.2), at: CGPoint(x: margin, y: top))
-                if let t = firstShown[i] {
+                let head = isFirst ? s.name : s.name + L(" (계속)", " (continued)")
+                line(ctx, fitted(head, width: page.width - margin * 2 - 60, lines: 1) { text($0, font(10, "Regular"), accent, kern: 1.2) },
+                     at: CGPoint(x: margin, y: top))
+                if let t = s.shown {
                     line(ctx, text(fmtTime(t), font(9, "Light"), muted, kern: 0.6), at: CGPoint(x: page.width - margin, y: top), alignRight: true)
                 }
                 var textTop = top - 22
-                if first {
-                    let w = page.width - margin * 2
+                if isFirst {
+                    let image = s.image, w = page.width - margin * 2
                     let h = min(w * CGFloat(image.height) / CGFloat(image.width), 360)
                     let iw = h * CGFloat(image.width) / CGFloat(image.height)
                     let r = CGRect(x: margin + (w - iw) / 2, y: top - 16 - h, width: iw, height: h)
@@ -1011,40 +1652,41 @@ enum SlidesPDF {
                     ctx.setStrokeColor(hairline); ctx.setLineWidth(0.6)
                     ctx.addPath(CGPath(roundedRect: r, cornerWidth: 5, cornerHeight: 5, transform: nil)); ctx.strokePath()
                     textTop = r.minY - 26
-                    line(ctx, text("이 슬라이드에서 한 말", font(8.5, "Regular"), muted, kern: 0.8), at: CGPoint(x: margin, y: textTop + 2))
+                    line(ctx, text(L("이 슬라이드에서 한 말", "Said during this slide"), font(8.5, "Regular"), muted, kern: 0.8), at: CGPoint(x: margin, y: textTop + 2))
                     textTop -= 14
                 }
                 let area = CGRect(x: margin, y: 54, width: page.width - margin * 2, height: max(40, textTop - 54))
                 let next = flow(ctx, said, from: start, in: area)
-                footer(ctx, title, pageNo)
+                footer(ctx, deck.title, pageNo)
                 ctx.endPDFPage()
                 if next <= start { break }                                 // nothing fitted: don't loop forever
                 start = next
-                first = false
+                isFirst = false
             } while start < said.length
         }
+        setBookmarks(ctx, marks)
         ctx.closePDF()
-        if cancelled() { try? fm.removeItem(at: part); return 0 }      // 슬라이드 PDF was turned off meanwhile
-        do {
-            var dest = pdfURL, k = 2                                      // never replace a PDF that's already there
-            while fm.fileExists(atPath: dest.path) { dest = pdfURL.deletingLastPathComponent().appendingPathComponent("\(name) (\(k)).pdf"); k += 1 }
-            try fm.moveItem(at: part, to: dest)
-        } catch {
-            log("slides pdf: \(error)")
-            try? fm.removeItem(at: part)
-            return 0
-        }
-        return images.count
+        return marks
+    }
+
+    /// "강의 녹취 · …\n슬라이드 12장 · 문장 340개 · 1:12:01" — what the cover says under the title.
+    private static func summary(_ deck: Deck) -> String {
+        let counts = L("슬라이드 \(deck.slides.count)장 · 문장 \(deck.said)개 · \(fmtTime(deck.end))",
+                       "\(deck.slides.count) slide\(deck.slides.count == 1 ? "" : "s") · \(deck.said) sentence\(deck.said == 1 ? "" : "s") · \(fmtTime(deck.end))")
+        return deck.header.isEmpty ? counts : deck.header + "\n" + counts
     }
 
     /// "2026년 10월 6일 화요일 오후 2:00 강의" for the app's default names; the name itself otherwise.
     static func coverTitle(name: String, header: String, file: URL) -> String {
-        if name.range(of: #"^\d{4}-\d{2}-\d{2} \d{2}시\d{2}분 강의( \(\d+\))?$"#, options: .regularExpression) != nil {
+        if Library.defaultNameRE.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil {
             let d = Library.date(header: header, file: file), c = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day, .weekday, .hour, .minute], from: d)
-            let h = c.hour ?? 0, days = ["일", "월", "화", "수", "목", "금", "토"]
-            return "\(c.year!)년 \(c.month!)월 \(c.day!)일 \(days[(c.weekday ?? 1) - 1])요일 \(h < 12 ? "오전" : "오후") \(h % 12 == 0 ? 12 : h % 12):\(String(format: "%02d", c.minute ?? 0)) 강의"
+            let h = c.hour ?? 0, mm = String(format: "%02d", c.minute ?? 0), h12 = h % 12 == 0 ? 12 : h % 12
+            let days = ["일", "월", "화", "수", "목", "금", "토"], daysEN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+            let months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+            return L("\(c.year!)년 \(c.month!)월 \(c.day!)일 \(days[(c.weekday ?? 1) - 1])요일 \(h < 12 ? "오전" : "오후") \(h12):\(mm) 강의",
+                     "\(daysEN[(c.weekday ?? 1) - 1]), \(months[(c.month ?? 1) - 1]) \(c.day!), \(c.year!), \(h12):\(mm)\u{00A0}\(h < 12 ? "AM" : "PM")\u{00A0}Lecture")   // "10:43 PM Lecture" stays on one line
         }
-        return name.replacingOccurrences(of: #" 받아쓰기( \(\d+\))?$"#, with: "", options: .regularExpression)
+        return name.replacingOccurrences(of: #" (받아쓰기|transcript)( \(\d+\))?$"#, with: "", options: .regularExpression)
     }
 
     /// How many slides a session's PDF holds (from its keywords), or 0.
@@ -1057,6 +1699,73 @@ enum SlidesPDF {
     }
 }
 
+// MARK: - Slide titles
+
+/// Reads each slide's title off the picture, on this device (Apple's text recognition, Korean and English): the
+/// biggest line of text in the upper part of the slide — not a web address, not a clock, and not something that sits
+/// near the top of most slides alike (the browser's address bar, the course site's banner) — with its second line
+/// when the title runs onto one. No title (a photo, a blank slide): nil, and the slide keeps just its number.
+enum SlideTitles {
+    struct Found { let text: String; let top: Double; let height: Double; let minX: Double; let maxX: Double }
+
+    /// `found`: each slide's lines, as `lines(_:)` read them. `within`: the part of each picture 깔끔하게 담기 keeps
+    /// (nil: all of it) — only text inside it counts, measured against it.
+    static func read(_ found: [[Found]], within crops: [CGRect?] = []) -> [String?] {
+        let images = found
+        var seen: [String: Int] = [:]                                    // what repeats near the top: the window around
+        for f in found { for k in Set(f.filter { $0.top < 0.16 }.map { key($0.text) }) { seen[k, default: 0] += 1 } }
+        let chrome = Set(seen.filter { images.count >= 2 && $0.value >= max(2, (images.count + 1) / 2) }.map(\.key))
+        return found.enumerated().map { n, lines in
+            let own = lines.filter { !($0.top < 0.16 && chrome.contains(key($0.text))) }
+            guard n < crops.count, let c = crops[n] else { return pick(own) }
+            return pick(own.compactMap { l in
+                let cx = (l.minX + l.maxX) / 2, cy = l.top + l.height / 2
+                guard c.contains(CGPoint(x: cx, y: cy)) else { return nil }
+                return Found(text: l.text, top: (l.top - c.minY) / c.height, height: l.height / c.height,
+                             minX: (l.minX - c.minX) / c.width, maxX: (l.maxX - c.minX) / c.width)
+            })
+        }
+    }
+
+    private static func key(_ s: String) -> String { s.lowercased().filter { $0.isLetter || $0.isNumber } }
+
+    /// The lines of text in the upper 45 % of a picture (positions and sizes as fractions of the whole picture, top down).
+    static func lines(_ image: CGImage) -> [Found] {
+        let share = 0.45
+        guard let top = image.cropping(to: CGRect(x: 0, y: 0, width: image.width, height: max(1, Int(Double(image.height) * share)))) else { return [] }
+        let req = VNRecognizeTextRequest()
+        req.recognitionLevel = .accurate
+        req.recognitionLanguages = ["ko-KR", "en-US"]
+        req.usesLanguageCorrection = true
+        do { try VNImageRequestHandler(cgImage: top).perform([req]) } catch { return [] }
+        return (req.results ?? []).compactMap { o in
+            guard let c = o.topCandidates(1).first, c.confidence >= 0.4 else { return nil }
+            let s = c.string.trimmingCharacters(in: .whitespaces)
+            guard s.filter({ $0.isLetter }).count >= 2,
+                  s.range(of: #"(https?://|www\.|\.(com|org|net|kr|edu|io|ac)\b)"#, options: [.regularExpression, .caseInsensitive]) == nil,
+                  s.range(of: #"\d{1,2}:\d{2}"#, options: .regularExpression) == nil else { return nil }
+            let b = o.boundingBox
+            return Found(text: s, top: (1 - b.maxY) * share, height: b.height * share, minX: b.minX, maxX: b.maxX)
+        }
+    }
+
+    /// The title among a slide's lines: the biggest (a near tie goes to the higher one), plus the line right under it
+    /// when that is the title's second line (about as big, just below, overlapping it).
+    static func pick(_ lines: [Found]) -> String? {
+        let tall = lines.filter { $0.height >= 0.022 }
+        guard let biggest = tall.map(\.height).max(),
+              let title = tall.filter({ $0.height >= biggest * 0.88 }).min(by: { $0.top < $1.top }) else { return nil }
+        var text = title.text
+        if let second = tall.filter({ $0.top > title.top && $0.top - (title.top + title.height) < title.height * 0.9
+                                       && $0.height >= title.height * 0.75 && min($0.maxX, title.maxX) > max($0.minX, title.minX) })
+            .min(by: { $0.top < $1.top }) {
+            text += " " + second.text
+        }
+        text = text.split(separator: " ").joined(separator: " ")
+        return text.count > 60 ? String(text.prefix(59)).trimmingCharacters(in: .whitespaces) + "…" : text
+    }
+}
+
 /// A crash or a quit during recording leaves a collector folder behind: turn it into the PDF.
 func recoverSlides() {
     let fm = FileManager.default
@@ -1066,7 +1775,8 @@ func recoverSlides() {
         if let p = try? String(contentsOf: dir.appendingPathComponent("transcript.path"), encoding: .utf8),
            let txt = try? String(contentsOf: URL(fileURLWithPath: p), encoding: .utf8), let parsed = Library.parse(txt) {
             let lines = parsed.lines.map { ($0.t, 0.0, $0.text) }        // ends unknown: up to the next line
-            let n = SlidesPDF.build(from: dir, transcript: URL(fileURLWithPath: p), lines: lines, end: lines.last?.0 ?? 0)
+            let n = SlidesPDF.build(from: dir, transcript: URL(fileURLWithPath: p), lines: lines, end: lines.last?.0 ?? 0,
+                                    layout: Settings.load().pdfLayout, clean: Settings.load().cleanCapture)
             log("recovered \(n) slides for an earlier session")
         }
         try? fm.removeItem(at: dir)

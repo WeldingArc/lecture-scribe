@@ -57,10 +57,7 @@ final class WebController: UIViewController, WKScriptMessageHandler, WKNavigatio
     override func loadView() {
         let cfg = WKWebViewConfiguration()
         cfg.userContentController.add(WeakHandler(self), name: "native")
-        let device = UIDevice.current.userInterfaceIdiom == .pad ? "아이패드" : "아이폰"
-        cfg.userContentController.addUserScript(WKUserScript(
-            source: "window.__NATIVE__ = true; window.__PLATFORM__ = \"ios\"; window.__LIBRARY__ = true; window.__DEVICE__ = \"\(device)\";",
-            injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        cfg.userContentController.addUserScript(pageScript())
         web = WKWebView(frame: .zero, configuration: cfg)
         overrideUserInterfaceStyle = .dark
         web.isOpaque = false
@@ -129,6 +126,22 @@ final class WebController: UIViewController, WKScriptMessageHandler, WKNavigatio
             pending.forEach { web.evaluateJavaScript("window.app && window.app.receive(\($0))", completionHandler: nil) }
         }
         bridge.handle(cmd, body)
+    }
+
+    /// What the page knows before it runs a line, the app's language included (it is drawn in it).
+    private func pageScript() -> WKUserScript {
+        let device = UIDevice.current.userInterfaceIdiom == .pad ? L("아이패드", "iPad") : L("아이폰", "iPhone")
+        return WKUserScript(source: "window.__NATIVE__ = true; window.__PLATFORM__ = \"ios\"; window.__LIBRARY__ = true; window.__DEVICE__ = \"\(device)\"; window.__LANG__ = \"\(appLanguage.value)\";",
+                            injectionTime: .atDocumentStart, forMainFrameOnly: true)
+    }
+
+    /// 설정 › 언어: the page again in the new language; the engine replays its state.
+    func languageChanged() {
+        web.configuration.userContentController.removeAllUserScripts()
+        web.configuration.userContentController.addUserScript(pageScript())
+        pageReady = false
+        queued.removeAll()
+        web.reload()
     }
 
     /// iOS may reclaim the page while the app records in the background: load it again and replay the state.

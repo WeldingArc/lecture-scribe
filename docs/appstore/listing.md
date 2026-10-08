@@ -18,7 +18,7 @@
 | Privacy Policy URL | https://github.com/WeldingArc/lecture-transcriber/blob/main/PRIVACY.md |
 | App Privacy | Data Not Collected |
 | Encryption | No (ITSAppUsesNonExemptEncryption = NO in Info.plist) |
-| Marketing screenshots (2880×1800, upload these) | Korean store: docs/appstore/marketing/ko/01-live.jpg, 02-key-sentences.jpg, 03-slides.jpg, 04-library.jpg, 05-find.jpg, 06-privacy.jpg · English store: the same names in docs/appstore/marketing/en/ (a headline and a line of pitch over each screen; re-render with `tools/make_marketing.sh`) |
+| Marketing screenshots (2880×1800, upload these) | Korean store: docs/appstore/marketing/ko/01-live.jpg, 02-key-sentences.jpg, 03-slides.jpg, 04-library.jpg, 05-find.jpg, 06-privacy.jpg · English store: the same names in docs/appstore/marketing/en/ (the English screens; a headline and a line of pitch over each; re-render with `tools/make_marketing.sh`) |
 | Screenshots (2880×1800), in this order | docs/appstore/screenshots/01-start.png, 02-live.png, 03-library.png, 04-playback.png, 05-saved.png, 06-slide-pdf.png, 07-settings.png (demo data only; re-render with tools/shot.swift and `?shot=start / (none) / library / playing / saved / slidesdemo&t=19.5 / settings` at 1440×900; the 2.0 set is kept in docs/appstore/*.png) |
 
 ## Promotional text
@@ -46,7 +46,8 @@
 • 음성 인식 엔진 선택 — 기본은 Apple, 원하면 공개 모델 Qwen3-ASR(약 1.5GB, 한국어·영어가 섞인 강의에 강합니다)·Whisper(약 575MB)·Parakeet(약 540MB, 영어 강의 전용)를 한 번 내려받아 Mac 안에서 사용합니다
 • 중요 문장 표시 — ‘출석’, ‘시험’, ‘과제’ 같은 단어가 나온 문장에 밑줄을 긋고 파일 끝에 따로 모아 줍니다. 단어는 직접 바꿀 수 있습니다
 • 녹음·영상 파일을 끌어다 놓아도 받아 적습니다 (재생 시간보다 훨씬 빨리)
-• 슬라이드 PDF — 강의 자료가 없을 때, 슬라이드가 바뀔 때마다 한 장씩 모아 그동안 한 말과 함께 PDF로 만듭니다 (보여 줄 강의 창은 직접 선택합니다). 강의자 카메라는 스스로 찾아 테두리로 표시하고 슬라이드 인식에서 제외합니다
+• 슬라이드 PDF — 강의 자료가 없을 때, 슬라이드가 바뀔 때마다 한 장씩 모아 그동안 한 말과 함께 PDF로 만듭니다 (보여 줄 강의 창은 직접 선택합니다). 강의자 카메라는 스스로 찾아 테두리로 표시하고 슬라이드 인식에서 제외합니다. 깔끔하게 담기로 주소창·플레이어·검은 여백은 빼고 슬라이드만 담습니다. PDF 형식은 가로 · 두 파일 · A4 한 쪽 중에서 고르고, 슬라이드마다 화면에서 읽은 제목과 책갈피가 붙습니다
+• 영어 화면 — 앱 전체를 영어로도 쓸 수 있습니다 (처음에는 Mac의 언어를 따르며, 첫 화면의 지구본이나 설정에서 바꿉니다)
 
 ■ 개인정보
 음성 인식은 Apple의 온디바이스 음성 인식으로 Mac 안에서만 처리됩니다. 소리와 글은 어디에도 전송되지 않고, 계정도 필요 없습니다.
@@ -65,6 +66,22 @@
 • 처음 실행할 때 이 내용에 동의해야 사용할 수 있으며, 설정에서 다시 볼 수 있습니다.
 
 오픈소스(MIT)입니다: https://github.com/WeldingArc/lecture-transcriber
+
+## What's New (2.4)
+• 영어 화면 — 화면·메뉴·알림·PDF까지 앱 전체를 영어로도 쓸 수 있습니다. 처음에는 Mac의 언어를 따르며, 첫 화면 왼쪽 위의 지구본이나 설정 › 언어에서 바꿉니다
+• 슬라이드 PDF 형식 선택(설정 › PDF 형식): 가로(슬라이드가 한 쪽을 가득 채우고 다음 쪽에 그때 한 말) · 두 파일(슬라이드 PDF와 받아쓰기 PDF) · A4 한 쪽(이전 방식)
+• 슬라이드마다 화면에서 읽은 제목을 붙이고, PDF 책갈피로 원하는 슬라이드로 바로 이동합니다 (제목 읽기도 Mac 안에서 처리됩니다)
+• 깔끔하게 담기 — 주소창·플레이어·검은 여백처럼 그대로인 부분은 빼고, 슬라이드가 넘어갈 때 바뀌는 부분을 찾아 그 영역을 PDF에 담습니다 (기본으로 켜짐, 받아 적는 화면에서 바로 켜고 끔)
+• 받아 적는 화면 — 강의 화면을 크게 보는 ‘화면’과 글을 크게 보는 ‘글’ 중에서 고릅니다. PDF에 담기는 부분은 빨간 테두리, 강의자 카메라는 흰 테두리로 보이고, 슬라이드를 담을 때마다 스크린샷처럼 반짝입니다
+• 좁은 화면에서 기록의 긴 제목이 잘리지 않고 줄바꿈됩니다
+
+## What's New (2.4, English localization)
+• English interface — the whole app (screens, menus, notices and PDFs) is now available in English. It follows your Mac's language at first; switch it with the globe at the top left of the start screen or in Settings › Language
+• Choose the slide PDF layout (Settings › PDF Layout): Landscape (each slide fills a page, with what was said on the next) · Two Files (a slides PDF and a transcript PDF) · A4 Page (the earlier layout)
+• Each slide is named with the title read from the slide, and PDF bookmarks take you straight to any slide (titles are read on your Mac)
+• Clean capture — parts that never change (the address bar, the player, black borders) stay out of the PDF; the app finds the part that changes when the slide turns and keeps that (on by default; switch it on the recording screen)
+• See it working — choose Screen (the lecture window large) or Text (the transcript large) while recording; what goes into the PDF is outlined in red, the lecturer's camera in white, and each slide taken flashes like a screenshot
+• Long recording names wrap instead of being cut off on narrow screens
 
 ## What's New (2.3)
 • 기록마다 이름 변경·삭제 버튼이 바로 보입니다 (⋯ 또는 우클릭으로 공유)
@@ -95,20 +112,20 @@
 • 영어 구간은 영어 그대로 받아 적습니다
 
 ## Notes for App Review (English)
-Lecture Transcriber transcribes the audio that is playing on the Mac (e.g. an online lecture in a browser) in real time, entirely on-device, using Apple's SpeechAnalyzer/SpeechTranscriber (ko-KR, plus en-US to keep English quotes in English). Optionally (Settings › 음성 인식) the user can download an open speech model — Whisper large-v3-turbo (about 575 MB), Qwen3-ASR 1.7B (about 1.5 GB) or Parakeet 0.6B (English only, about 540 MB), from huggingface.co — and transcribe with it instead, also entirely on-device. The main screen's 강의 언어 switch (한국어 / English) sets the lecture's main language. No account, no server, no network use for content.
+Lecture Transcriber transcribes the audio that is playing on the Mac (e.g. an online lecture in a browser) in real time, entirely on-device, using Apple's SpeechAnalyzer/SpeechTranscriber (ko-KR, plus en-US to keep English quotes in English). Optionally (Settings › Speech Recognition; 설정 › 음성 인식 in Korean) the user can download an open speech model — Whisper large-v3-turbo (about 575 MB), Qwen3-ASR 1.7B (about 1.5 GB) or Parakeet 0.6B (English only, about 540 MB), from huggingface.co — and transcribe with it instead, also entirely on-device. The main screen's lecture-language switch (Korean / English) sets the lecture's main language. The interface is in English or Korean: it follows the Mac's language, and the globe at the top left of the start screen (or Settings › Language) switches it. No account, no server, no network use for content.
 
 How to test:
-1. Launch the app. On first launch it shows a usage notice and disclaimer (이용 안내 및 면책 고지: personal study use only; recorded lectures, slides and transcripts stay the copyright of their owners and must not be shared or distributed; check the course's recording policy first; the user bears any legal responsibility; transcripts can contain errors) — click "동의하고 시작" (Agree and start); it can be reopened from Settings › 정보 or Help › 이용 안내 및 면책 고지. Then wait for "준비됨" (Ready).
+1. Launch the app. On first launch it shows a usage notice and disclaimer (이용 안내 및 면책 고지: personal study use only; recorded lectures, slides and transcripts stay the copyright of their owners and must not be shared or distributed; check the course's recording policy first; the user bears any legal responsibility; transcripts can contain errors) — click "Agree and Start" (동의하고 시작); it can be reopened from Settings › About or Help › Usage Notice and Disclaimer. Then wait for "Ready" (준비됨).
 2. Play any video with speech (Korean works best; English is also transcribed) in Safari or another app.
 3. Click the round button (시작 / Start). macOS asks for "System Audio Recording" permission (NSAudioCaptureUsageDescription) — allow it.
-4. Text appears live. Click it again (정지 / Stop): a .txt transcript and .m4a recording are saved to ~/Downloads/강의기록. "전체 복사" copies the whole transcript.
-5. "기록" (Library) lists every session; open one to see its transcript with the recording — click any sentence to play from there.
-6. You can also drag an audio/video file onto the window (or use 파일 불러오기) to transcribe it.
-7. Optional: Settings (⌘,) › 음성 인식 › Whisper, Qwen3-ASR or Parakeet › "내려받기 · …MB" downloads that model (checked against its SHA-256); it is then selected, and the next recording uses it. "삭제" removes it again. (Parakeet transcribes English only: with 강의 언어 set to 한국어 the app uses Apple's recognizer and says so, and a Parakeet download then doesn't replace an already chosen engine that writes Korean.)
-8. Optional "슬라이드 PDF" checkbox: when recording starts, macOS's own content-sharing picker (SCContentSharingPicker) asks which window to watch; the app captures only that window, about twice a second, to detect slide changes and builds a PDF of the slides with the transcript. Nothing leaves the Mac, and no Screen Recording permission is requested.
+4. Text appears live. Click it again (정지 / Stop): a .txt transcript and .m4a recording are saved to ~/Downloads/Lecture Transcriber (or ~/Downloads/강의기록, chosen when the app first opens: Korean, or that folder already there). "Copy All" (전체 복사) copies the whole transcript.
+5. "Library" (기록) lists every session; open one to see its transcript with the recording — click any sentence to play from there.
+6. You can also drag an audio/video file onto the window (or use Open File… / 파일 불러오기) to transcribe it.
+7. Optional: Settings (⌘,) › Speech Recognition › Whisper, Qwen3-ASR or Parakeet › "Download · …MB" downloads that model (checked against its SHA-256); it is then selected, and the next recording uses it. "Delete" removes it again. (Parakeet transcribes English only: with the lecture language set to Korean the app uses Apple's recognizer and says so, and a Parakeet download then doesn't replace an already chosen engine that writes Korean.)
+8. Optional "Slide PDF" (슬라이드 PDF) checkbox: when recording starts, macOS's own content-sharing picker (SCContentSharingPicker) asks which window to watch; the app captures only that window, about twice a second, to detect slide changes and builds a PDF of the slides with the transcript. Nothing leaves the Mac, and no Screen Recording permission is requested. Settings › PDF Layout chooses Landscape, Two Files or A4 Page; each slide's title is read on-device with Vision text recognition. "Clean Capture" (on by default, a switch on the recording screen) crops each page to the slide: the area is found from which pixels change between captured slides, on the Mac, so the browser's bar and the player's controls stay out.
 
 Entitlements:
 - com.apple.security.device.audio-input: required to read the Core Audio process tap (AudioHardwareCreateProcessTap) that captures the system's audio output. The app never opens the microphone.
-- com.apple.security.files.downloads.read-write: saves transcripts and recordings to ~/Downloads/강의기록.
+- com.apple.security.files.downloads.read-write: saves transcripts and recordings to ~/Downloads/Lecture Transcriber (or ~/Downloads/강의기록).
 - com.apple.security.files.user-selected.read-only: reads a file the user picks or drops to transcribe it.
 - com.apple.security.network.client: needed by the WKWebView that renders the app's local interface, and for the optional, user-initiated download of speech model files (Whisper, Qwen3-ASR, Parakeet) from huggingface.co (plain HTTPS GET requests). No user data is ever sent.

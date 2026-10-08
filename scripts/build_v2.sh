@@ -5,17 +5,19 @@
 #   scripts/build_v2.sh                       # ad-hoc signed, sandboxed → build/v2/강의 받아쓰기.app
 #                                             #   and dist/v2/LectureScribe-mac.zip
 #   SIGN_ID="Developer ID Application: …" scripts/build_v2.sh     # signed for GitHub (then notarize)
+#   OUT=/some/dir DIST=/some/dir scripts/build_v2.sh               # build elsewhere (a copy may be running from build/v2)
 #
 # Needs Xcode Command Line Tools (swiftc, codesign, iconutil) and, once, cmake for scripts/build_whisper.sh and
 # scripts/build_transcribe.sh.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${VERSION:-2.3.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-230}"
+VERSION="${VERSION:-2.4.0}"
+BUILD_NUMBER="${BUILD_NUMBER:-240}"
 SIGN_ID="${SIGN_ID:--}"
 ENTITLEMENTS="${ENTITLEMENTS:-$ROOT/app/LectureScribe.entitlements}"
-OUT="$ROOT/build/v2"
+OUT="${OUT:-$ROOT/build/v2}"
+DIST="${DIST:-$ROOT/dist/v2}"
 APP="$OUT/강의 받아쓰기.app"
 RES="$APP/Contents/Resources"
 mkdir -p "$OUT" "$ROOT/dist"
@@ -39,8 +41,8 @@ if ! swiftc -O -swift-version 5 -target arm64-apple-macos26.0 -file-prefix-map "
   cat "$OUT/swiftc.log"; exit 1
 fi
 grep -E "warning:" "$OUT/swiftc.log" || true
-# the bare binary (tests, no sandbox) finds the runtime where the bundle has it: build/v2/../Frameworks
-mkdir -p "$ROOT/build/Frameworks" && ln -sf "$ROOT/vendor/transcribe/lib/libtranscribe.dylib" "$ROOT/build/Frameworks/libtranscribe.dylib"
+# the bare binary (tests, no sandbox) finds the runtime where the bundle has it: $OUT/../Frameworks (build/Frameworks)
+mkdir -p "$OUT/../Frameworks" && ln -sf "$ROOT/vendor/transcribe/lib/libtranscribe.dylib" "$OUT/../Frameworks/libtranscribe.dylib"
 
 step "icon"
 if [ ! -f "$OUT/AppIcon.icns" ] || [ "$ROOT/app/make_icon.swift" -nt "$OUT/AppIcon.icns" ]; then
@@ -64,6 +66,7 @@ sed -e "s|\$(MARKETING_VERSION)|$VERSION|" -e "s|\$(CURRENT_PROJECT_VERSION)|$BU
 cp "$OUT/AppIcon.icns" "$RES/AppIcon.icns"
 cmp -s "$OUT/AppIcon.icns" "$ROOT/app/Resources/AppIcon.icns" || cp "$OUT/AppIcon.icns" "$ROOT/app/Resources/AppIcon.icns"
 cp "$ROOT/app/PrivacyInfo.xcprivacy" "$RES/"
+cp -R "$ROOT/app/Resources/en.lproj" "$ROOT/app/Resources/ko.lproj" "$RES/"       # name and permission prompts per Mac language
 cp "$ROOT/ui/index.html" "$RES/ui/"
 cp -R "$ROOT/ui/fonts" "$RES/ui/fonts"
 cp -R "$ROOT/ui/icons" "$RES/ui/icons"
@@ -85,7 +88,7 @@ codesign --verify --strict "$APP"
 echo "  minimum macOS: $(vtool -show-build "$APP/Contents/MacOS/LectureScribe" | awk '/minos/ {print $2; exit}')  ·  size: $(du -sh "$APP" | cut -f1)"
 
 step "zip"
-ZIP="$ROOT/dist/v2/LectureScribe-mac.zip"      # the release asset name the installer expects
-mkdir -p "$ROOT/dist/v2"; rm -f "$ZIP"
+ZIP="$DIST/LectureScribe-mac.zip"      # the release asset name the installer expects
+mkdir -p "$DIST"; rm -f "$ZIP"
 ditto -c -k --norsrc --keepParent "$APP" "$ZIP"
 echo "  → $ZIP ($(du -h "$ZIP" | cut -f1))"

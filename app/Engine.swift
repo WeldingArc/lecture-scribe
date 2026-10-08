@@ -46,6 +46,9 @@ struct Settings {
     var icon: String                       // app icon: navy | ivory | brass | charcoal | sage
     var engine: String                     // 설정 › 음성 인식: apple | whisper | qwen3 | parakeet (Mac, once downloaded)
     var language: String                   // 강의 언어 (main screen): ko | en — the lecture's main language
+    var uiLanguage: String                 // the app's own language (설정, the start screen's globe): ko | en
+    var pdfLayout: String                  // 슬라이드 PDF: landscape (slide page, then its transcript) | split (two PDFs) | classic
+    var cleanCapture: Bool                 // 깔끔하게 담기: the PDF keeps only the slide (not the browser, the player, black borders)
     static func load() -> Settings {
         let d = UserDefaults.standard
         func pick(_ k: String, _ allowed: [String], _ dflt: String) -> String { allowed.contains(d.string(forKey: k) ?? "") ? d.string(forKey: k)! : dflt }
@@ -57,21 +60,67 @@ struct Settings {
                         size: pick("size", ["s", "m", "l", "xl"], "m"),
                         icon: pick("icon", appIcons, "navy"),
                         engine: env["LECTURE_ENGINE"] ?? pick("engine", speechEngines, "apple"),
-                        language: env["LECTURE_LANGUAGE"] ?? pick("language", ["ko", "en"], "ko"))
+                        language: env["LECTURE_LANGUAGE"] ?? pick("language", ["ko", "en"], "ko"),
+                        uiLanguage: AppLanguage.initial(d),
+                        pdfLayout: env["LECTURE_PDF_LAYOUT"] ?? pick("pdfLayout", pdfLayouts, "landscape"),
+                        cleanCapture: env["LECTURE_CLEAN_CAPTURE"].map { $0 != "0" } ?? (d.object(forKey: "cleanCapture") as? Bool ?? true))
     }
     func save() {
         let d = UserDefaults.standard
         d.set(keywords, forKey: "keywords"); d.set(timestamps, forKey: "timestamps"); d.set(slides, forKey: "slides")
         d.set(theme, forKey: "theme"); d.set(accent, forKey: "accent"); d.set(size, forKey: "size"); d.set(icon, forKey: "icon")
-        d.set(engine, forKey: "engine"); d.set(language, forKey: "language")
+        d.set(engine, forKey: "engine"); d.set(language, forKey: "language"); d.set(uiLanguage, forKey: "uiLanguage")
+        d.set(pdfLayout, forKey: "pdfLayout"); d.set(cleanCapture, forKey: "cleanCapture")
     }
     /// What the page needs to show them.
     var event: [String: Any] {
         ["ev": "settings", "keywords": keywords, "timestamps": timestamps, "slides": slides, "theme": theme, "accent": accent,
-         "size": size, "icon": icon, "engine": engine, "language": language,
+         "size": size, "icon": icon, "engine": engine, "language": language, "uiLanguage": uiLanguage, "pdfLayout": pdfLayout, "cleanCapture": cleanCapture,
          "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"]
     }
 }
+
+let pdfLayouts = ["landscape", "split", "classic"]
+
+/// The app's own language — every message, menu and PDF follows it. Any thread.
+final class AppLanguage: @unchecked Sendable {
+    private let lock = NSLock()
+    private var v = AppLanguage.initial()      // right from the start: menus are built before the engine (and not via
+                                               // Settings.load(): that reads the engine list, whose text needs this)
+    var value: String {
+        get { lock.lock(); defer { lock.unlock() }; return v }
+        set { lock.lock(); v = newValue == "en" ? "en" : "ko"; lock.unlock() }
+    }
+    /// Before anyone chooses: the Mac's (iPhone's) own language — Korean if that comes first, English otherwise.
+    static var system: String { (Locale.preferredLanguages.first ?? "ko").hasPrefix("ko") ? "ko" : "en" }
+    /// macOS's own words in this app — the menu bar's app name, the Open window, the Edit menu's extras, the About
+    /// window — follow the app's language from its next launch (this app's setting only, not the Mac's).
+    static func pinSystem(_ v: String) {
+        let d = UserDefaults.standard
+        if d.stringArray(forKey: "AppleLanguages") != [v] { d.set([v], forKey: "AppleLanguages") }
+    }
+    /// The language to start in: the one chosen; someone who used an earlier version (which was Korean only) keeps
+    /// Korean; a new user gets the Mac's language.
+    static func initial(_ d: UserDefaults = .standard) -> String {
+        if let v = env["LECTURE_UI_LANGUAGE"] { return v == "en" ? "en" : "ko" }
+        if let v = d.string(forKey: "uiLanguage"), ["ko", "en"].contains(v) { return v }
+        return usedBefore(d) ? "ko" : system
+    }
+    /// A setting an earlier version saved, or its recordings (someone who never changed a setting still has those).
+    private static func usedBefore(_ d: UserDefaults) -> Bool {
+        if ["language", "slides", "theme", "keywords", "engine", "timestamps", "size"].contains(where: { d.object(forKey: $0) != nil }) { return true }
+        #if os(macOS)
+        return FileManager.default.fileExists(atPath: realHome.appendingPathComponent("Downloads/강의기록").path)
+        #else
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return ((try? FileManager.default.contentsOfDirectory(atPath: docs.path)) ?? []).contains { $0.hasSuffix(".txt") }
+        #endif
+    }
+}
+let appLanguage = AppLanguage()
+
+/// The same text in the app's language: L("한국어", "English").
+func L(_ ko: String, _ en: String) -> String { appLanguage.value == "en" ? en : ko }
 
 let appIcons = ["navy", "ivory", "brass", "charcoal", "sage"]
 
@@ -206,10 +255,16 @@ final class Engine {
     var keywords: NSRegularExpression?
     let outDir: URL = env["LECTURE_OUT_DIR"].map { URL(fileURLWithPath: $0) } ?? Engine.defaultOutDir
 
-    /// Mac: 다운로드/강의기록. iPhone/iPad: the app's own folder in the Files app.
+    /// Mac: 다운로드/강의기록 — or Downloads/Lecture Transcriber for someone who starts in English; chosen once, so a
+    /// later change of language never moves the library. iPhone/iPad: the app's own folder in the Files app.
     static var defaultOutDir: URL {
         #if os(macOS)
-        realHome.appendingPathComponent("Downloads/강의기록")
+        let downloads = realHome.appendingPathComponent("Downloads"), d = UserDefaults.standard
+        if let name = d.string(forKey: "outFolder"), !name.isEmpty { return downloads.appendingPathComponent(name) }
+        let korean = FileManager.default.fileExists(atPath: downloads.appendingPathComponent("강의기록").path)
+        let name = korean || Settings.load().uiLanguage == "ko" ? "강의기록" : "Lecture Transcriber"
+        d.set(name, forKey: "outFolder")
+        return downloads.appendingPathComponent(name)
         #else
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         #endif
@@ -242,13 +297,13 @@ final class Engine {
         if m.spec.languages.contains(settings.language) { selectEngine(id); return }
         if let current = model(settings.engine), current.state == .ready, current.spec.languages.contains(settings.language) {
             emit(["ev": "notice", "code": "engine_language",
-                  "msg": "\(name) 모델을 내려받았습니다. 영어 강의 전용이라 지금은 \(current.spec.name) 모델을 그대로 사용합니다 — 영어 강의에 사용하려면 설정 › 음성 인식에서 선택하십시오."])
+                  "msg": L("\(name) 모델을 내려받았습니다. 영어 강의 전용이라 지금은 \(current.spec.name) 모델을 그대로 사용합니다 — 영어 강의에 사용하려면 설정 › 음성 인식에서 선택하십시오.", "Downloaded the \(name) model. It's for English lectures only, so the \(current.spec.name) model stays in use for now — to use it for English lectures, choose it in Settings › Speech Recognition.")])
             emit(enginesEvent)
             return
         }
         selectEngine(id)
         emit(["ev": "notice", "code": "engine_language",
-              "msg": "\(name) 모델은 영어 강의 전용입니다. 강의 언어를 English로 바꾸면 \(name) 모델로 받아 적습니다."])
+              "msg": L("\(name) 모델은 영어 강의 전용입니다. 강의 언어를 English로 바꾸면 \(name) 모델로 받아 적습니다.", "The \(name) model is for English lectures only. Switch the lecture language to English to transcribe with the \(name) model.")])
     }
 
     /// A shared file (the voice detector) may have gone with another engine's check.
@@ -261,7 +316,7 @@ final class Engine {
     /// 설정 › 음성 인식: every engine this app offers and its state. The page draws whatever is listed, so another
     /// platform (a Windows build, say) can offer its own engines through the same events and commands.
     var enginesEvent: [String: Any] {
-        var list: [[String: Any]] = [["id": "apple", "name": "Apple 음성 인식", "desc": "기본 · 추가 다운로드 없이 가볍고 빠릅니다",
+        var list: [[String: Any]] = [["id": "apple", "name": L("Apple 음성 인식", "Apple Speech Recognition"), "desc": L("기본 · 추가 다운로드 없이 가볍고 빠릅니다", "Default · Light and fast, with no extra download"),
                                       "state": "ready", "bytes": 0]]
         #if WHISPER
         for m in models {                                 // a ready engine's size: what 삭제 frees (the shared detector stays
@@ -298,7 +353,7 @@ final class Engine {
         guard let m = model(id) else { return }
         if let other = models.first(where: { $0 !== m && ($0.downloading || $0.state == .verifying) }) {   // one at a time
             emit(["ev": "notice", "code": "engine_downloading",
-                  "msg": "\(other.spec.name) 모델을 내려받는 중입니다. 끝난 뒤에 내려받을 수 있습니다."])
+                  "msg": L("\(other.spec.name) 모델을 내려받는 중입니다. 끝난 뒤에 내려받을 수 있습니다.", "The \(other.spec.name) model is downloading. You can download this one when it finishes.")])
             return
         }
         m.download()
@@ -315,7 +370,7 @@ final class Engine {
         #if WHISPER
         guard let m = model(id) else { return }
         if session?.engineID == id || savingSessions.contains(where: { !$0.done && $0.engineID == id }) {
-            emit(["ev": "notice", "code": "engine_busy", "msg": "지금 \(m.spec.name) 모델로 받아 적는 중입니다. 끝난 뒤에 삭제할 수 있습니다."])
+            emit(["ev": "notice", "code": "engine_busy", "msg": L("지금 \(m.spec.name) 모델로 받아 적는 중입니다. 끝난 뒤에 삭제할 수 있습니다.", "The \(m.spec.name) model is transcribing right now. You can delete it when that's finished.")])
             return
         }
         // the voice detector stays while another engine has it
@@ -332,15 +387,15 @@ final class Engine {
             let name = m.spec.name
             if !m.spec.languages.contains(settings.language) {
                 emit(["ev": "notice", "code": "engine_language",
-                      "msg": "\(name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적습니다."])
+                      "msg": L("\(name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적습니다.", "The \(name) model is for English lectures only, so Korean lectures are transcribed with Apple Speech Recognition.")])
             } else if m.state == .ready {
                 let r = WhisperRecognizer(live: live, major: settings.language, spec: m.spec)
                 r.onFallback = { [weak m] in m?.recheck() }
                 return (r, m.spec.id)
             } else {
                 emit(["ev": "notice", "code": "engine_missing", "msg": m.downloading || m.state == .verifying
-                      ? "\(name) 모델을 아직 준비하는 중이라 이번에는 Apple 음성 인식으로 받아 적습니다."
-                      : "\(name) 모델이 없어서 Apple 음성 인식으로 받아 적습니다. 설정 › 음성 인식에서 내려받을 수 있습니다."])
+                      ? L("\(name) 모델을 아직 준비하는 중이라 이번에는 Apple 음성 인식으로 받아 적습니다.", "The \(name) model is still getting ready, so Apple Speech Recognition will transcribe this time.")
+                      : L("\(name) 모델이 없어서 Apple 음성 인식으로 받아 적습니다. 설정 › 음성 인식에서 내려받을 수 있습니다.", "The \(name) model isn't downloaded, so Apple Speech Recognition will transcribe. You can download it in Settings › Speech Recognition.")])
             }
         }
         #endif
@@ -361,7 +416,7 @@ final class Engine {
     func replay() {
         emit(settings.event)
         emit(enginesEvent)
-        emit(ready ? ["ev": "engine", "state": "ready", "msg": "준비됨"] : ["ev": "engine", "state": "loading", "msg": "엔진 준비 중"])
+        emit(ready ? ["ev": "engine", "state": "ready", "msg": L("준비됨", "Ready")] : ["ev": "engine", "state": "loading", "msg": L("엔진 준비 중", "Getting the engine ready")])
         if let s = session { s.replay() }
         else if let s = savingSessions.first(where: { !$0.done }) {
             emit(["ev": "rec", "state": "finishing", "mode": s.mode == .live ? "live" : "file"])
@@ -373,18 +428,18 @@ final class Engine {
         booting = true
         emit(settings.event)
         emit(enginesEvent)
-        emit(["ev": "engine", "state": "loading", "msg": "엔진 준비 중"])
+        emit(["ev": "engine", "state": "loading", "msg": L("엔진 준비 중", "Getting the engine ready")])
         Task {
             do {
                 try await Recognizer.prepare { fraction in
                     Task { @MainActor in
                         self.emit(["ev": "engine", "state": "downloading", "done": Int(fraction * 100), "total": 100,
-                                   "label": "음성 인식 모델 준비 중"])
+                                   "label": L("음성 인식 모델 준비 중", "Getting the speech model ready")])
                     }
                 }
                 ready = true
                 booting = false
-                emit(["ev": "engine", "state": "ready", "msg": "준비됨"])
+                emit(["ev": "engine", "state": "ready", "msg": L("준비됨", "Ready")])
                 log("engine ready")
                 #if WHISPER
                 for m in models { m.warmUpIfUpdated(selected: settings.engine == m.spec.id) }
@@ -408,7 +463,7 @@ final class Engine {
                 booting = false
                 log("engine boot failed: \(error)")
                 emit(["ev": "engine", "state": "error", "retry": true,
-                      "msg": (error as NSError).localizedDescription.isEmpty ? "음성 인식을 시작하지 못했습니다." : "음성 인식을 시작하지 못했습니다. \((error as NSError).localizedDescription)"])
+                      "msg": (error as NSError).localizedDescription.isEmpty ? L("음성 인식을 시작하지 못했습니다.", "Couldn't start speech recognition.") : L("음성 인식을 시작하지 못했습니다. \((error as NSError).localizedDescription)", "Couldn't start speech recognition. \((error as NSError).localizedDescription)")])
             }
         }
     }
@@ -422,17 +477,17 @@ final class Engine {
 
     func start(_ mode: Session.Mode, file: URL? = nil) {
         guard session == nil else {
-            if mode == .file { emit(["ev": "notice", "code": "busy_recording", "msg": "지금 받아 적는 중입니다. 끝난 뒤에 다시 시도하십시오."]) }
+            if mode == .file { emit(["ev": "notice", "code": "busy_recording", "msg": L("지금 받아 적는 중입니다. 끝난 뒤에 다시 시도하십시오.", "Transcription is already in progress. Try again when it's finished.")]) }
             discardIfTemp(file)
             return
         }
         guard savingSessions.allSatisfy({ $0.done }) else {
-            emit(["ev": "notice", "code": "busy_saving", "msg": "저장이 끝나면 다시 시작할 수 있습니다."])
+            emit(["ev": "notice", "code": "busy_saving", "msg": L("저장이 끝나면 다시 시작할 수 있습니다.", "You can start again once saving has finished.")])
             discardIfTemp(file)
             return
         }
         guard ready else {
-            emit(["ev": "notice", "code": "not_ready", "msg": "엔진이 아직 준비 중입니다. 준비되면 다시 시도하십시오."])
+            emit(["ev": "notice", "code": "not_ready", "msg": L("엔진이 아직 준비 중입니다. 준비되면 다시 시도하십시오.", "The engine is still getting ready. Try again once it's ready.")])
             discardIfTemp(file)
             return
         }
@@ -447,17 +502,17 @@ final class Engine {
                     if mode == .file {
                         let ce = error as? CaptureError
                         emit(["ev": "notice", "code": "file_error", "msg": ce?.status == -3
-                              ? "파일을 여는 데 너무 오래 걸립니다. iCloud나 네트워크에 있는 파일이면 먼저 이 기기에 내려받은 뒤 다시 시도하십시오."
-                              : ce?.step == "no audio track" ? "이 파일에는 소리가 없어서 받아 적을 수 없습니다."
-                              : "이 파일에서 소리를 읽을 수 없습니다. 녹음이나 영상 파일인지 확인하십시오."])
+                              ? L("파일을 여는 데 너무 오래 걸립니다. iCloud나 네트워크에 있는 파일이면 먼저 이 기기에 내려받은 뒤 다시 시도하십시오.", "Opening the file is taking too long. If it's in iCloud or on a network, download it to this device first, then try again.")
+                              : ce?.step == "no audio track" ? L("이 파일에는 소리가 없어서 받아 적을 수 없습니다.", "This file has no sound, so it can't be transcribed.")
+                              : L("이 파일에서 소리를 읽을 수 없습니다. 녹음이나 영상 파일인지 확인하십시오.", "Can't read any sound from this file. Make sure it's an audio or video file.")])
                     } else {
-                        emit(["ev": "notice", "code": "tap_error", "msg": "소리를 가져오지 못했습니다."])
+                        emit(["ev": "notice", "code": "tap_error", "msg": L("소리를 가져오지 못했습니다.", "Couldn't capture the sound.")])
                     }
                     stop()
                 }
             }
         } catch {
-            emit(["ev": "notice", "code": "file_missing", "msg": "파일을 만들거나 열 수 없습니다."])
+            emit(["ev": "notice", "code": "file_missing", "msg": L("파일을 만들거나 열 수 없습니다.", "Can't create or open the file.")])
             discardIfTemp(file)
         }
     }
@@ -493,12 +548,15 @@ final class Engine {
         if let v = msg["accent"] as? String, ["brass", "sage", "rose", "blue", "lavender"].contains(v) { settings.accent = v }
         if let v = msg["size"] as? String, ["s", "m", "l", "xl"].contains(v) { settings.size = v }
         if let v = msg["icon"] as? String, appIcons.contains(v) { settings.icon = v }
+        if let v = msg["pdfLayout"] as? String, pdfLayouts.contains(v) { settings.pdfLayout = v }
+        if let v = msg["cleanCapture"] as? Bool { settings.cleanCapture = v }
+        if let v = msg["uiLanguage"] as? String, ["ko", "en"].contains(v) { settings.uiLanguage = v; appLanguage.value = v; AppLanguage.pinSystem(v) }
         if let v = msg["language"] as? String, ["ko", "en"].contains(v), v != settings.language {
             settings.language = v
             #if WHISPER
             if let m = model(settings.engine), m.state == .ready, !m.spec.languages.contains(v) {   // Parakeet: English only
                 emit(["ev": "notice", "code": "engine_language",
-                      "msg": "\(m.spec.name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적습니다."])
+                      "msg": L("\(m.spec.name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적습니다.", "The \(m.spec.name) model is for English lectures only, so Korean lectures are transcribed with Apple Speech Recognition.")])
             }
             #endif
         }
@@ -563,6 +621,7 @@ func silence(seconds: Double) -> AVAudioPCMBuffer? {
 // MARK: - Session
 
 private let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+private let weekdaysEN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 @MainActor
 final class Session {
@@ -631,11 +690,13 @@ final class Session {
         try FileManager.default.createDirectory(at: engine.outDir, withIntermediateDirectories: true)
         let now = Date(), cal = Calendar(identifier: .gregorian), c = cal.dateComponents([.year, .month, .day, .hour, .minute, .weekday], from: now)
         let stamp = String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
-        let title = mode == .live ? String(format: "%@ %02d시%02d분 강의", stamp, c.hour!, c.minute!)
-                                  : "\(file!.deletingPathExtension().lastPathComponent) 받아쓰기"
+        let title = mode == .live ? L(String(format: "%@ %02d시%02d분 강의", stamp, c.hour!, c.minute!), String(format: "%@ %02d.%02d Lecture", stamp, c.hour!, c.minute!))
+                                  : "\(file!.deletingPathExtension().lastPathComponent) \(L("받아쓰기", "transcript"))"
         txtURL = Session.unique(engine.outDir.appendingPathComponent("\(title).txt"))
-        header = mode == .live ? String(format: "강의 녹취 · %@ (%@) %02d:%02d 시작", stamp, weekdays[c.weekday! - 1], c.hour!, c.minute!)
-                               : "파일 받아쓰기 · \(file!.lastPathComponent) · \(stamp)"
+        header = mode == .live
+            ? L(String(format: "강의 녹취 · %@ (%@) %02d:%02d 시작", stamp, weekdays[c.weekday! - 1], c.hour!, c.minute!),
+                String(format: "Lecture transcript · %@ (%@) %02d:%02d", stamp, weekdaysEN[c.weekday! - 1], c.hour!, c.minute!))
+            : L("파일 받아쓰기 · \(file!.lastPathComponent) · \(stamp)", "File transcription · \(file!.lastPathComponent) · \(stamp)")
         wav = try WavWriter(url: txtURL.deletingPathExtension().appendingPathExtension("wav"))   // files too: every session keeps its audio
         FileManager.default.createFile(atPath: txtURL.path, contents: (header + "\n\n").data(using: .utf8))
         handle = try FileHandle(forWritingTo: txtURL)
@@ -659,7 +720,7 @@ final class Session {
         recognizer.onError = { [weak self] e in
             log("recognizer error: \(e)")
             self?.engine.emit(["ev": "notice", "code": "recognizer",
-                               "msg": (e as? EngineError)?.message ?? "음성 인식이 잠시 멈췄습니다. 녹음은 계속됩니다."])
+                               "msg": (e as? EngineError)?.message ?? L("음성 인식이 잠시 멈췄습니다. 녹음은 계속됩니다.", "Speech recognition stopped for a moment. Recording continues.")])
         }
         try await recognizer.start()
         if stopping { return }                       // 정지 already pressed: don't open the microphone/tap at all
@@ -725,7 +786,7 @@ final class Session {
         guard !stopping else { return }                       // 정지 came while starting
         if let fs = fileSource { duration = fs.duration }
         if mode == .file, engine.settings.slides, let f = fileURL, !(await VideoSlides.hasVideo(f)) {
-            engine.emit(["ev": "notice", "code": "slides_note", "msg": "소리만 있는 파일이라 슬라이드 PDF는 만들지 않습니다."])
+            engine.emit(["ev": "notice", "code": "slides_note", "msg": L("소리만 있는 파일이라 슬라이드 PDF는 만들지 않습니다.", "This file has audio only, so no Slide PDF will be made.")])
         }
         if mode == .file, engine.settings.slides, let f = fileURL, await VideoSlides.hasVideo(f), !stopping {   // slides from the video
             let c = try SlideCollector(settle: 1, transcript: txtURL)     // one frame a second: two alike
@@ -790,11 +851,15 @@ final class Session {
         slideProgress = nil
     }
 
-    /// The live preview for the page: the frame (small JPEG) and the lecturer's camera, if one was found.
-    private func previewSender() -> @Sendable (String, CGRect?) -> Void {
-        { [weak self] jpeg, cam in
-            let camera: Any = cam.map { [Double($0.minX), Double($0.minY), Double($0.width), Double($0.height)] } ?? NSNull()
-            DispatchQueue.main.async { MainActor.assumeIsolated { self?.engine.emit(["ev": "slidePreview", "img": "data:image/jpeg;base64," + jpeg, "camera": camera]) } }
+    /// The live preview for the page: the frame (JPEG), the lecturer's camera if one was found, and the part 깔끔하게 담기
+    /// keeps once it is clear (both 0–1, top-left).
+    private func previewSender() -> @Sendable (String, CGRect?, CGRect?) -> Void {
+        { [weak self] jpeg, cam, clean in
+            func box(_ r: CGRect?) -> Any { r.map { [Double($0.minX), Double($0.minY), Double($0.width), Double($0.height)] } ?? NSNull() }
+            let camera = box(cam), area = box(clean)
+            DispatchQueue.main.async { MainActor.assumeIsolated {
+                self?.engine.emit(["ev": "slidePreview", "img": "data:image/jpeg;base64," + jpeg, "camera": camera, "clean": area])
+            } }
         }
     }
 
@@ -816,10 +881,10 @@ final class Session {
         guard !notified, !paused else { return }
         if stats.samples == 0 && elapsed > 20 {
             notified = true
-            engine.emit(["ev": "notice", "code": "no_input", "msg": "아직 소리가 들어오지 않습니다."])
+            engine.emit(["ev": "notice", "code": "no_input", "msg": L("아직 소리가 들어오지 않습니다.", "No sound is coming in yet.")])
         } else if stats.samples > 0 && !stats.nonzero && elapsed > 20 {
             notified = true
-            engine.emit(["ev": "notice", "code": "no_audio", "msg": "20초째 소리가 들어오지 않습니다."])
+            engine.emit(["ev": "notice", "code": "no_audio", "msg": L("20초째 소리가 들어오지 않습니다.", "No sound for 20 seconds.")])
         }
     }
 
@@ -854,7 +919,7 @@ final class Session {
         var text = header + "\n\n" + finals.map { "[\(fmtTime($0.start))] \($0.text)\n" }.joined()
         if let kw = engine.keywords {
             let hits = finals.filter { kw.firstMatch(in: $0.text, range: NSRange($0.text.startIndex..., in: $0.text)) != nil }
-            if !hits.isEmpty { text += "\n── 중요 문장 ──\n" + hits.map { "[\(fmtTime($0.start))] \($0.text)\n" }.joined() }
+            if !hits.isEmpty { text += "\n── \(L("중요 문장", "Key Sentences")) ──\n" + hits.map { "[\(fmtTime($0.start))] \($0.text)\n" }.joined() }
         }
         try? handle?.close()
         try? text.data(using: .utf8)?.write(to: txtURL, options: .atomic)
@@ -867,8 +932,9 @@ final class Session {
         }
         var slideCount = 0
         if let c = slides {                  // the slide PDF, next to the transcript (with what was said per slide)
-            let lines = finals.map { ($0.start, $0.end, $0.text) }, txt = txtURL, end = seconds
-            slideCount = await Task.detached(priority: .userInitiated) { c.makePDF(transcript: txt, lines: lines, end: end) }.value
+            let lines = finals.map { ($0.start, $0.end, $0.text) }, txt = txtURL, end = seconds, layout = engine.settings.pdfLayout
+            let clean = engine.settings.cleanCapture                     // as the switch is when the lecture ends: the whole PDF
+            slideCount = await Task.detached(priority: .userInitiated) { c.makePDF(transcript: txt, lines: lines, end: end, layout: layout, clean: clean) }.value
         }
         if finals.isEmpty && seconds < 3 && slideCount == 0 {        // accidental start/stop, unreadable file: no clutter
             try? FileManager.default.removeItem(at: txtURL)
@@ -909,7 +975,7 @@ func hasOurTranscript(_ url: URL) -> Bool {
     defer { try? h.close() }
     guard var d = try? h.read(upToCount: 64) else { return false }
     if d.starts(with: [0xEF, 0xBB, 0xBF]) { d = d.dropFirst(3) }                  // byte-order mark
-    return d.starts(with: Data("강의 녹취 · ".utf8)) || d.starts(with: Data("파일 받아쓰기 · ".utf8))
+    return Library.headerPrefixes.contains { d.starts(with: Data($0.utf8)) }
 }
 
 /// Moves a file out of the way, recoverably (Mac: Trash; iPhone: the app's holding folder).

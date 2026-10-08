@@ -1,0 +1,5 @@
+/* iPhone/iPad app — 한국어 */
+"CFBundleDisplayName" = "강의 받아쓰기";
+"CFBundleName" = "강의 받아쓰기";
+"NSMicrophoneUsageDescription" = "강의 소리를 녹음해 받아 적으려면 마이크가 필요합니다. 녹음과 글은 이 기기에만 저장됩니다.";
+"NSSpeechRecognitionUsageDescription" = "녹음한 강의를 이 기기 안에서 Apple 음성 인식으로 받아 적습니다. 소리와 글은 밖으로 보내지 않습니다.";

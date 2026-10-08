@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
 
     func applicationDidFinishLaunching(_ n: Notification) {
         clearQuarantine()
+        AppLanguage.pinSystem(appLanguage.value)
         buildMenu()
         bridge = Bridge { [weak self] ev in self?.toPage(ev) }
         bridge.platform = self
@@ -43,11 +44,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             Timer.scheduledTimer(withTimeInterval: s, repeats: false) { [weak self] _ in   // a run-loop timer, like a key press
                 MainActor.assumeIsolated {
                     guard let self else { return }
-                    for item in NSApp.mainMenu?.items.first(where: { $0.submenu?.title == "녹음" })?.submenu?.items ?? [] where !item.isSeparatorItem {
+                    for item in NSApp.mainMenu?.items.first(where: { $0.submenu?.title == L("녹음", "Record") })?.submenu?.items ?? [] where !item.isSeparatorItem {
                         let on = self.validateMenuItem(item)
                         log("test menu: \(item.title) [\(on ? "on" : "off")] \(item.keyEquivalentModifierMask.contains(.shift) ? "⇧" : "")⌘\(item.keyEquivalent.uppercased())")
                     }
                     NSApp.terminate(nil)
+                }
+            }
+        }
+        if let spec = env["LECTURE_TEST_SNAP"], let dir = env["LECTURE_OUT_DIR"] {   // tests: the page as the window shows it, at these
+            for t in spec.split(separator: ",").compactMap({ Double($0) }) {             // seconds (WebKit's own picture: no screen access)
+                Timer.scheduledTimer(withTimeInterval: t, repeats: false) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        self?.web.takeSnapshot(with: nil) { img, _ in
+                            guard let img, let tiff = img.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { return }
+                            try? png.write(to: URL(fileURLWithPath: dir).appendingPathComponent(String(format: "snap-%05.1f.png", t)))
+                        }
+                    }
+                }
+            }
+        }
+        for (key, cmd) in [("LECTURE_TEST_START", "start"), ("LECTURE_TEST_STOP", "stop"),            // tests: 시작 / 정지 / 일시정지 /
+                           ("LECTURE_TEST_PAUSE", "pauseRec"), ("LECTURE_TEST_RESUME", "resumeRec")] {   // 계속 as the page presses
+            guard let s = Double(env[key] ?? "") else { continue }                        // them (시작 with 슬라이드 PDF if on)
+            Timer.scheduledTimer(withTimeInterval: s, repeats: false) { [weak self] _ in MainActor.assumeIsolated { self?.bridge.handle(cmd, [:]) } }
+        }
+        if let spec = env["LECTURE_TEST_LANG"], let colon = spec.firstIndex(of: ":"), let s = Double(spec[..<colon]) {   // tests: "3:en" switches
+            let to = String(spec[spec.index(after: colon)...])                  // the language as the page would, then reports what changed
+            let report = { (when: String) in
+                log("test lang \(when): window \(self.window.title)")
+                for top in NSApp.mainMenu?.items ?? [] {
+                    let items = (top.submenu?.items ?? []).filter { !$0.isSeparatorItem }.map { $0.title + ($0.isHidden ? "[hidden]" : "") + ($0.isAlternate ? "[alt]" : "") }
+                    log("test lang \(when): menu \(top.submenu?.title ?? top.title) | \(items.joined(separator: " | "))")
+                }
+            }
+            Timer.scheduledTimer(withTimeInterval: s, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    report("before")
+                    self?.bridge.handle("settings", ["uiLanguage": to])
+                    Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { [weak self] _ in
+                        MainActor.assumeIsolated {
+                            guard let self else { return }
+                            report("after")
+                            let js = env["LECTURE_TEST_JS"] ?? "[location.pathname.split('/').pop(), document.readyState, document.documentElement.lang, document.title, (document.querySelector('.brand') || {}).textContent, (document.getElementById('headline') || {}).textContent].join(' | ')"
+                            self.web.evaluateJavaScript(js) { r, e in
+                                log("test lang after: page \(r as? String ?? "?") \(e.map { "\($0)" } ?? "")")
+                                NSApp.terminate(nil)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -105,11 +150,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         guard !askingQuit, let window else { return }
         askingQuit = true
         let a = NSAlert()
-        a.messageText = live ? "녹음 중입니다" : "파일을 받아 적는 중입니다"
-        a.informativeText = live ? "지금 종료하면 녹음과 받아쓰기가 여기서 끝납니다. 지금까지 녹음하고 받아 적은 내용은 저장됩니다."
-                                 : "지금 종료하면 받아쓰기가 여기서 끝납니다. 지금까지 받아 적은 내용은 저장됩니다."
-        a.addButton(withTitle: "취소")
-        let quitButton = a.addButton(withTitle: "종료")
+        a.messageText = live ? L("녹음 중입니다", "Recording in progress") : L("파일을 받아 적는 중입니다", "File transcription in progress")
+        a.informativeText = live ? L("지금 종료하면 녹음과 받아쓰기가 여기서 끝납니다. 지금까지 녹음하고 받아 적은 내용은 저장됩니다.", "If you quit now, recording and transcription end here. Everything recorded and transcribed so far will be saved.")
+                                 : L("지금 종료하면 받아쓰기가 여기서 끝납니다. 지금까지 받아 적은 내용은 저장됩니다.", "If you quit now, transcription ends here. Everything transcribed so far will be saved.")
+        a.addButton(withTitle: L("취소", "Cancel"))
+        let quitButton = a.addButton(withTitle: L("종료", "Quit"))
         quitButton.hasDestructiveAction = true
         NSApp.unhide(nil)                   // Dock › 종료 while hidden: the question has to be seen
         NSApp.activate()
@@ -227,13 +272,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     }
 
     func openLink(_ url: URL) { NSWorkspace.shared.open(url) }
+
+    /// What the page knows before it runs a line: the platform, test hooks — and the app's language, so it is drawn in it.
+    func pageScript() -> WKUserScript {
+        let testOpen = env["LECTURE_TEST_OPEN"].map { " window.__TEST_OPEN__ = \(jsString($0));" } ?? ""
+            + (env.keys.contains { $0.hasPrefix("LECTURE_TEST_") } ? " window.__TEST__ = true;" : "")   // tests: no first-run notice
+        return WKUserScript(source: "window.__NATIVE__ = true; window.__PLATFORM__ = \"mac\"; window.__LIBRARY__ = true; window.__LANG__ = \"\(appLanguage.value)\";" + testOpen,
+                            injectionTime: .atDocumentStart, forMainFrameOnly: true)
+    }
+
+    /// 설정 › 언어 (or the globe on the start screen): menus and page in the new language; the engine replays its state.
+    func languageChanged() {
+        buildMenu()
+        window.title = L("강의 받아쓰기", "Lecture Transcriber")
+        web.configuration.userContentController.removeAllUserScripts()
+        web.configuration.userContentController.addUserScript(pageScript())
+        pageReady = false
+        queued.removeAll()
+        web.reload()
+        if Bundle.main.preferredLocalizations.first?.hasPrefix(appLanguage.value) == false {   // macOS's own words: next launch
+            toPage(["ev": "notice", "code": "lang_restart",
+                    "msg": L("메뉴 막대의 앱 이름과 열기 창 같은 시스템 화면은 앱을 다시 열면 바뀝니다.", "The app's name in the menu bar and system windows such as Open change the next time you open the app.")])
+        }
+    }
     func startScreenSlides() { screenSlides.start() }
     func stopScreenSlides() { screenSlides.stop() }
 
     func pickFile() {
         let panel = NSOpenPanel()
-        panel.title = "받아쓸 녹음·영상 파일"
-        panel.prompt = "받아쓰기"
+        panel.title = L("받아쓸 녹음·영상 파일", "Audio or Video File to Transcribe")
+        panel.prompt = L("받아쓰기", "Transcribe")
         panel.allowedContentTypes = [.audio, .movie, .audiovisualContent]
         panel.beginSheetModal(for: window) { [weak self] resp in
             if resp == .OK, let url = panel.url { self?.engine.start(.file, file: url) }
@@ -248,9 +316,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         if url.isFileURL {
             let media = UTType(filenameExtension: url.pathExtension)?.conforms(to: .audiovisualContent) ?? false
             if !media {
-                toPage(["ev": "notice", "code": "file_error", "msg": "녹음이나 영상 파일만 받아 적을 수 있습니다."])
+                toPage(["ev": "notice", "code": "file_error", "msg": L("녹음이나 영상 파일만 받아 적을 수 있습니다.", "Only audio or video files can be transcribed.")])
             } else if !FileManager.default.isReadableFile(atPath: url.path) {      // the sandbox didn't grant this drop
-                toPage(["ev": "notice", "code": "file_error", "msg": "이 파일은 아래쪽 [파일 불러오기]로 열어야 합니다."])
+                toPage(["ev": "notice", "code": "file_error", "msg": L("이 파일은 아래쪽 [파일 불러오기]로 열어야 합니다.", "Use Open File… at the bottom of the window to open this file.")])
             } else {
                 engine.start(.file, file: url)               // busy → the engine says so
             }
@@ -274,7 +342,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 780),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
-        window.title = "강의 받아쓰기"
+        window.title = L("강의 받아쓰기", "Lecture Transcriber")
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.backgroundColor = NSColor(srgbRed: 13 / 255, green: 18 / 255, blue: 32 / 255, alpha: 1)
@@ -285,9 +353,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         window.setFrameAutosaveName("MainWindow")
         let cfg = WKWebViewConfiguration()
         cfg.userContentController.add(self, name: "native")
-        let testOpen = env["LECTURE_TEST_OPEN"].map { " window.__TEST_OPEN__ = \(jsString($0));" } ?? ""
-        cfg.userContentController.addUserScript(WKUserScript(source: "window.__NATIVE__ = true; window.__PLATFORM__ = \"mac\"; window.__LIBRARY__ = true;" + testOpen,
-                                                             injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        cfg.userContentController.addUserScript(pageScript())
         let container = NSView(frame: window.contentView!.bounds)
         container.autoresizingMask = [.width, .height]
         web = WKWebView(frame: container.bounds, configuration: cfg)
@@ -321,45 +387,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             i.keyEquivalentModifierMask = mods
             return i
         }
-        let appMenu = sub("강의 받아쓰기", [
-            it("강의 받아쓰기 정보", #selector(NSApplication.orderFrontStandardAboutPanel(_:)), ""), .separator(),
-            it("설정…", #selector(openSettings), ","), .separator(),
-            it("강의 받아쓰기 가리기", #selector(NSApplication.hide(_:)), "h"),
-            it("기타 가리기", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]), .separator(),
-            it("강의 받아쓰기 종료", #selector(NSApplication.terminate(_:)), "q"),
+        let appMenu = sub(L("강의 받아쓰기", "Lecture Transcriber"), [
+            it(L("강의 받아쓰기 정보", "About Lecture Transcriber"), #selector(showAbout), ""), .separator(),
+            it(L("설정…", "Settings…"), #selector(openSettings), ","), .separator(),
+            it(L("강의 받아쓰기 가리기", "Hide Lecture Transcriber"), #selector(NSApplication.hide(_:)), "h"),
+            it(L("기타 가리기", "Hide Others"), #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]), .separator(),
+            it(L("강의 받아쓰기 종료", "Quit Lecture Transcriber"), #selector(NSApplication.terminate(_:)), "q"),
         ])
-        let edit = sub("편집", [
-            it("실행 취소", Selector(("undo:")), "z"), it("실행 복귀", Selector(("redo:")), "z", [.command, .shift]), .separator(),
-            it("잘라내기", #selector(NSText.cut(_:)), "x"), it("복사하기", #selector(NSText.copy(_:)), "c"),
-            it("붙여넣기", #selector(NSText.paste(_:)), "v"), it("전체 선택", #selector(NSText.selectAll(_:)), "a"), .separator(),
-            it("찾기", #selector(findInPage), "f"),
+        let edit = sub(L("편집", "Edit"), [
+            it(L("실행 취소", "Undo"), Selector(("undo:")), "z"), it(L("실행 복귀", "Redo"), Selector(("redo:")), "z", [.command, .shift]), .separator(),
+            it(L("잘라내기", "Cut"), #selector(NSText.cut(_:)), "x"), it(L("복사하기", "Copy"), #selector(NSText.copy(_:)), "c"),
+            it(L("붙여넣기", "Paste"), #selector(NSText.paste(_:)), "v"), it(L("전체 선택", "Select All"), #selector(NSText.selectAll(_:)), "a"), .separator(),
+            it(L("찾기", "Find…"), #selector(findInPage), "f"),
         ])
         // 녹음: the page decides what each does (the start button's own rules: the notice first, the engine ready…)
-        let record = sub("녹음", [
-            it("받아쓰기 시작", #selector(toggleRecording), "r"),
-            it("일시정지", #selector(togglePause), "p"), .separator(),
-            it("파일 불러오기…", #selector(openFile), "o"), .separator(),
-            it("전체 복사", #selector(copyAll), "c", [.command, .shift]),
+        let record = sub(L("녹음", "Record"), [
+            it(L("받아쓰기 시작", "Start Transcribing"), #selector(toggleRecording), "r"),
+            it(L("일시정지", "Pause"), #selector(togglePause), "p"), .separator(),
+            it(L("파일 불러오기…", "Open File…"), #selector(openFile), "o"), .separator(),
+            it(L("전체 복사", "Copy All"), #selector(copyAll), "c", [.command, .shift]),
         ])
         edit.submenu?.items.last?.target = self
         record.submenu?.items.forEach { $0.target = self }
-        let win = sub("윈도우", [
-            it("최소화", #selector(NSWindow.performMiniaturize(_:)), "m"), it("확대/축소", #selector(NSWindow.performZoom(_:)), ""),
-            .separator(), it("닫기", #selector(NSWindow.performClose(_:)), "w"),
+        let win = sub(L("윈도우", "Window"), [
+            it(L("최소화", "Minimize"), #selector(NSWindow.performMiniaturize(_:)), "m"), it(L("확대/축소", "Zoom"), #selector(NSWindow.performZoom(_:)), ""),
+            .separator(), it(L("닫기", "Close"), #selector(NSWindow.performClose(_:)), "w"),
         ])
-        let help = sub("도움말", [
-            it("이용 안내 및 면책 고지", #selector(openLegal), ""),
-            it("GitHub 페이지 열기", #selector(openRepo), ""),
-            it("로그 폴더 열기 (문제 신고용)", #selector(openLogs), ""),
+        let help = sub(L("도움말", "Help"), [
+            it(L("이용 안내 및 면책 고지", "Usage Notice and Disclaimer"), #selector(openLegal), ""),
+            it(L("GitHub 페이지 열기", "Open GitHub Page"), #selector(openRepo), ""),
+            it(L("로그 폴더 열기 (문제 신고용)", "Open Log Folder (for Reporting Problems)"), #selector(openLogs), ""),
         ])
         help.submenu?.items.forEach { $0.target = self }
         appMenu.submenu?.items.first { $0.action == #selector(openSettings) }?.target = self
+        appMenu.submenu?.items.first { $0.action == #selector(showAbout) }?.target = self
         NSApp.mainMenu = main
         NSApp.windowsMenu = win.submenu
         NSApp.helpMenu = help.submenu
     }
 
     @objc func openRepo() { if let u = URL(string: repoURL) { NSWorkspace.shared.open(u) } }
+    /// The About window in the app's language (macOS would use the Mac's).
+    @objc func showAbout() {
+        let credits = NSAttributedString(string: L("Apple 온디바이스 음성 인식으로 이 Mac 안에서 받아 적습니다.", "Transcribes on this Mac with Apple's on-device speech recognition."),
+                                         attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: L("강의 받아쓰기", "Lecture Transcriber"), .credits: credits])
+        NSApp.activate()
+    }
     @objc func openSettings() { toPage(["ev": "openSettings"]) }
     @objc func openLegal() { toPage(["ev": "openLegal"]) }
     @objc func openLogs() { NSWorkspace.shared.open(logURL.deletingLastPathComponent()) }
@@ -376,10 +450,10 @@ extension AppDelegate: NSMenuItemValidation {
         let session = bridge?.engine.session
         switch item.action {
         case #selector(toggleRecording):
-            item.title = session == nil ? "받아쓰기 시작" : session?.mode == .file ? "받아쓰기 중지" : "받아쓰기 정지"
+            item.title = session == nil ? L("받아쓰기 시작", "Start Transcribing") : session?.mode == .file ? L("받아쓰기 중지", "Stop Transcribing") : L("받아쓰기 정지", "Stop Transcribing")
             return true
         case #selector(togglePause):
-            item.title = session?.paused == true ? "계속" : "일시정지"
+            item.title = session?.paused == true ? L("계속", "Resume") : L("일시정지", "Pause")
             return session?.mode == .live
         case #selector(openFile): return session == nil
         default: return true
