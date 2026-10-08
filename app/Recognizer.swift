@@ -97,7 +97,7 @@ final class Recognizer: SpeechRecognizer {
         let (ko, en) = transcribers()
         let supported = await SpeechTranscriber.supportedLocales
         guard supported.contains(where: { $0.identifier(.bcp47) == "ko-KR" }) else {
-            throw NSError(domain: "LectureScribe", code: 1, userInfo: [NSLocalizedDescriptionKey: "이 기기에서 한국어 음성 인식을 지원하지 않습니다."])
+            throw NSError(domain: "LectureScribe", code: 1, userInfo: [NSLocalizedDescriptionKey: L("이 기기에서 한국어 음성 인식을 지원하지 않습니다.", "This device doesn't support Korean speech recognition.")])
         }
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [ko, en]) {
             let watcher = Task {

@@ -22,10 +22,11 @@ struct ModelFile: Sendable {
 /// An optional engine: what 설정 › 음성 인식 shows, the files it needs and the runtime that runs it.
 struct EngineSpec: Sendable {
     enum Runtime: Sendable { case whisper, transcribe }
-    let id: String, name: String, model: String, desc: String
+    let id: String, name: String, model: String, descKo: String, descEn: String
     let files: [ModelFile]                     // the voice detector first (one copy, shared), then the model
     let languages: [String]                    // the lecture languages (강의 언어) it writes
     let runtime: Runtime
+    var desc: String { L(descKo, descEn) }         // in the app's language as it is now (it can change while running)
     var bytes: Int64 { files.reduce(0) { $0 + $1.bytes } }
     var modelFile: ModelFile { files[files.count - 1] }
 }
@@ -40,19 +41,19 @@ let vadFile = ModelFile(name: "ggml-silero-v5.1.2.bin",
 /// Pinned to a commit: a file can't change under its checksum.
 let engineSpecs = [
     EngineSpec(id: "whisper", name: "Whisper", model: "large-v3 turbo",
-               desc: "OpenAI의 공개 모델을 이 Mac에서 실행합니다 · Apple보다 전력을 더 사용합니다",
+               descKo: "OpenAI의 공개 모델을 이 Mac에서 실행합니다 · Apple보다 전력을 더 사용합니다", descEn: "Runs OpenAI's open model on this Mac · Uses more power than Apple's",
                files: [vadFile, ModelFile(name: "ggml-large-v3-turbo-q5_0.bin",
                                           url: hf("ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin"),
                                           bytes: 574_041_195, sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2")],
                languages: ["ko", "en"], runtime: .whisper),
     EngineSpec(id: "qwen3", name: "Qwen3-ASR", model: "1.7B",
-               desc: "Alibaba의 공개 모델 · 한국어와 영어가 섞여도, 억양이 강한 영어도 정확합니다",
+               descKo: "Alibaba의 공개 모델 · 한국어와 영어가 섞여도, 억양이 강한 영어도 정확합니다", descEn: "Alibaba's open model · Accurate even when Korean and English are mixed, and with strongly accented English",
                files: [vadFile, ModelFile(name: "Qwen3-ASR-1.7B-Q5_K_M.gguf",
                                           url: hf("handy-computer/Qwen3-ASR-1.7B-gguf/resolve/3555bd238a8572bbace3ebf60d23b036dc0a5dbe/Qwen3-ASR-1.7B-Q5_K_M.gguf"),
                                           bytes: 1_517_290_464, sha256: "034c557fe92ff8fcd9a9c041cbdaad347be0a86a58d3a348f63cf3f0180879d0")],
                languages: ["ko", "en"], runtime: .transcribe),
     EngineSpec(id: "parakeet", name: "Parakeet", model: "0.6B",
-               desc: "NVIDIA의 공개 모델 · 영어 강의 전용 — 한국어로 한 말은 빠지거나 엉뚱한 영어로 적힙니다 · 내려받는 엔진 중 가장 빠르고 가볍습니다",
+               descKo: "NVIDIA의 공개 모델 · 영어 강의 전용 — 한국어로 한 말은 빠지거나 엉뚱한 영어로 적힙니다 · 내려받는 엔진 중 가장 빠르고 가볍습니다", descEn: "NVIDIA's open model · For English lectures only — anything said in Korean is dropped or written as made-up English · The fastest and lightest of the downloadable engines",
                files: [vadFile, ModelFile(name: "parakeet-unified-en-0.6b-Q5_K_M.gguf",
                                           url: hf("handy-computer/parakeet-unified-en-0.6b-gguf/resolve/d5249700b2382bf5c5024c2421d101b8db54a629/parakeet-unified-en-0.6b-Q5_K_M.gguf"),
                                           bytes: 540_795_264, sha256: "f9def6f9b4e83ab7d006df3e1b676dfa1f973a3b6da232a9c99fcaa66bcd2836")],
@@ -114,11 +115,12 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate {
         let free = (try? URL(fileURLWithPath: NSHomeDirectory())
             .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage) ?? need
         guard free >= need else {
-            state = .failed("저장 공간이 부족합니다. \(String(format: "%.1f", Double(need) / 1e9))GB 이상 비운 뒤 다시 시도하십시오.")
+            let gb = String(format: "%.1f", Double(need) / 1e9)
+            state = .failed(L("저장 공간이 부족합니다. \(gb)GB 이상 비운 뒤 다시 시도하십시오.", "Not enough free space. Free up at least \(gb) GB, then try again."))
             return
         }
         do { try FileManager.default.createDirectory(at: modelDir, withIntermediateDirectories: true) } catch {
-            state = .failed("모델을 저장할 폴더를 만들지 못했습니다."); return
+            state = .failed(L("모델을 저장할 폴더를 만들지 못했습니다.", "Couldn't create a folder for the model.")); return
         }
         let cfg = URLSessionConfiguration.ephemeral
         cfg.timeoutIntervalForRequest = 60
@@ -151,7 +153,7 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate {
     private func finished() {
         session?.finishTasksAndInvalidate()
         session = nil; task = nil
-        guard installed else { state = .failed("모델을 내려받지 못했습니다. 다시 시도하십시오."); return }
+        guard installed else { state = .failed(L("모델을 내려받지 못했습니다. 다시 시도하십시오.", "Couldn't download the model. Try again.")); return }
         // The very first load compiles the model's GPU programs (up to a minute, once; macOS keeps them): do it now,
         // while the page still says "확인 중", so the first recording with this engine starts at once.
         state = .verifying
@@ -211,7 +213,7 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate {
                 guard self.state == .ready, self.task == nil else { return }
                 for f in bad { try? FileManager.default.removeItem(atPath: modelPath(f)) }
                 log("\(spec.id): removed damaged or missing files: \(bad.map(\.name).joined(separator: ", "))")
-                self.state = .failed(missing ? "모델 파일이 없어졌습니다. 다시 내려받으십시오." : "모델 파일이 손상되어 삭제했습니다. 다시 내려받으십시오.")
+                self.state = .failed(missing ? L("모델 파일이 없어졌습니다. 다시 내려받으십시오.", "The model file is missing. Download it again.") : L("모델 파일이 손상되어 삭제했습니다. 다시 내려받으십시오.", "The model file was damaged and has been deleted. Download it again."))
             }
         }
     }
@@ -269,14 +271,14 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate {
                 self.resumeData = data; self.resumeIndex = self.index
             }
             self.fail((error as NSError).code == NSURLErrorNotConnectedToInternet
-                      ? "인터넷에 연결되어 있지 않습니다. 연결한 뒤 다시 시도하십시오." : "모델을 내려받지 못했습니다. 잠시 후 다시 시도하십시오.")
+                      ? L("인터넷에 연결되어 있지 않습니다. 연결한 뒤 다시 시도하십시오.", "You're not connected to the internet. Connect, then try again.") : L("모델을 내려받지 못했습니다. 잠시 후 다시 시도하십시오.", "Couldn't download the model. Try again in a moment."))
         }
     }
 
     private func received(_ t: URLSessionDownloadTask, part: URL?, status: Int) {
         guard t === task, let part, status == 200 else {
             if let part { try? FileManager.default.removeItem(at: part) }
-            if t === task { log("\(spec.id): download HTTP \(status)"); fail("모델을 내려받지 못했습니다. 잠시 후 다시 시도하십시오.") }
+            if t === task { log("\(spec.id): download HTTP \(status)"); fail(L("모델을 내려받지 못했습니다. 잠시 후 다시 시도하십시오.", "Couldn't download the model. Try again in a moment.")) }
             return
         }
         let f = spec.files[index]
@@ -288,11 +290,11 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate {
                 guard ok else {
                     try? FileManager.default.removeItem(at: part)
                     log("\(self.spec.id): \(f.name) failed its checksum")
-                    self.fail("내려받은 파일이 올바르지 않습니다. 다시 시도하십시오."); return
+                    self.fail(L("내려받은 파일이 올바르지 않습니다. 다시 시도하십시오.", "The downloaded file isn't valid. Try again.")); return
                 }
                 try? FileManager.default.removeItem(atPath: modelPath(f))
                 do { try FileManager.default.moveItem(atPath: part.path, toPath: modelPath(f)) } catch {
-                    self.fail("모델을 저장하지 못했습니다."); return
+                    self.fail(L("모델을 저장하지 못했습니다.", "Couldn't save the model.")); return
                 }
                 self.index += 1
                 self.doneBytes += f.bytes
@@ -367,12 +369,12 @@ final class WhisperRecognizer: SpeechRecognizer {
                 try await apple.start()
                 core.handOver { apple.push($0) }
                 log("\(core.spec.id): Apple's recognizer took over")
-                self?.onError?(EngineError(message: "\(core.spec.name) 모델을 열지 못해서 이번 녹음은 Apple 음성 인식으로 받아 적습니다. 지금까지 들린 내용도 빠짐없이 받아 적습니다."))
+                self?.onError?(EngineError(message: L("\(core.spec.name) 모델을 열지 못해서 이번 녹음은 Apple 음성 인식으로 받아 적습니다. 지금까지 들린 내용도 빠짐없이 받아 적습니다.", "Couldn't open the \(core.spec.name) model, so Apple Speech Recognition will transcribe this recording. Everything heard so far will be transcribed too, with nothing left out.")))
             } catch {
                 core.abandon()
                 self?.apple = nil
                 log("\(core.spec.id): Apple's recognizer couldn't take over: \(error)")
-                self?.onError?(EngineError(message: "음성 인식을 시작하지 못했습니다. 녹음은 계속됩니다."))
+                self?.onError?(EngineError(message: L("음성 인식을 시작하지 못했습니다. 녹음은 계속됩니다.", "Couldn't start speech recognition. Recording continues.")))
             }
         }
     }
@@ -622,7 +624,7 @@ private final class WhisperCore: @unchecked Sendable {
     private func work() {
         let slow = DispatchWorkItem { [weak self] in
             guard let self, !self.isClosing else { return }
-            self.failed(EngineError(message: "\(self.spec.name) 모델을 준비하는 중입니다. 처음 한 번은 1분쯤 걸립니다 — 그동안에도 녹음은 계속되고, 준비되면 이어서 받아 적습니다."))
+            self.failed(EngineError(message: L("\(self.spec.name) 모델을 준비하는 중입니다. 처음 한 번은 1분쯤 걸립니다 — 그동안에도 녹음은 계속되고, 준비되면 이어서 받아 적습니다.", "Getting the \(self.spec.name) model ready. The first time takes about a minute — recording continues meanwhile, and transcription picks up once it's ready.")))
         }
         DispatchQueue.global().asyncAfter(deadline: .now() + 5, execute: slow)
         defer { slow.cancel() }

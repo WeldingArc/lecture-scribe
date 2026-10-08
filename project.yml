@@ -9,8 +9,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "2.3.0"
-    CURRENT_PROJECT_VERSION: "230"
+    MARKETING_VERSION: "2.4.0"
+    CURRENT_PROJECT_VERSION: "240"
     CODE_SIGN_STYLE: Automatic
     ENABLE_HARDENED_RUNTIME: YES
     DEAD_CODE_STRIPPING: YES
@@ -27,6 +27,10 @@ targets:
       - path: app/Resources/AppIcon.icns
         buildPhase: resources
       - path: app/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      - path: app/Resources/en.lproj
+        buildPhase: resources
+      - path: app/Resources/ko.lproj
         buildPhase: resources
       - path: licenses/Pretendard-OFL.txt          # → Contents/Resources/licenses/, like build_v2.sh
         buildPhase:

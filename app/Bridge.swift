@@ -23,6 +23,8 @@ protocol Platform: AnyObject {
     func setAppIcon(_ name: String)
     func openLink(_ url: URL)
     func openLogs()
+    /// The app's language changed: menus (Mac) and the page in the new one.
+    func languageChanged()
 }
 
 @MainActor
@@ -90,8 +92,8 @@ final class Bridge {
         let id = (body["id"] as? String)?.nfc
         let editable = id.map { !engine.busyIDs.contains($0) } ?? false     // not while recording or saving
         if !editable, id != nil, ["play", "rename", "delete", "share", "revealSession", "saveLines"].contains(cmd) {
-            notice("busy_saving", id == recordingID ? "지금 녹음 중인 기록입니다. 녹음을 마친 뒤에 다시 시도하십시오."
-                                                    : "이 기록은 아직 저장하는 중입니다. 잠시 후에 다시 시도하십시오.")
+            notice("busy_saving", id == recordingID ? L("지금 녹음 중인 기록입니다. 녹음을 마친 뒤에 다시 시도하십시오.", "This recording is still in progress. Try again once the recording has finished.")
+                                                    : L("이 기록은 아직 저장하는 중입니다. 잠시 후에 다시 시도하십시오.", "This recording is still being saved. Try again in a moment."))
             if cmd == "rename", let id { send(["ev": "renamed", "from": id, "to": id]) }                // put the old name back
             return
         }
@@ -101,7 +103,7 @@ final class Bridge {
             player.stop()
             platform?.requestRecording { [weak self] ok in
                 guard let self else { return }
-                guard ok else { self.notice("mic_denied", "마이크 권한이 꺼져 있습니다."); return }
+                guard ok else { self.notice("mic_denied", L("마이크 권한이 꺼져 있습니다.", "Microphone access is turned off.")); return }
                 self.engine.start(.live)
                 if self.engine.session != nil, self.engine.settings.slides { self.platform?.startScreenSlides() }
             }
@@ -110,8 +112,9 @@ final class Bridge {
         case "resumeRec": engine.session?.setPaused(false)
         case "retry": engine.boot()
         case "settings":
-            let icon = engine.settings.icon, slides = engine.settings.slides
+            let icon = engine.settings.icon, slides = engine.settings.slides, lang = engine.settings.uiLanguage
             engine.updateSettings(body)
+            if engine.settings.uiLanguage != lang { player.pause(); platform?.languageChanged() }   // no sound left without its controls
             if body["keywords"] != nil { refreshLibrary() }
             if engine.settings.icon != icon { platform?.setAppIcon(engine.settings.icon) }
             if engine.settings.slides != slides {                                   // 슬라이드 PDF switched mid-recording
@@ -135,7 +138,7 @@ final class Bridge {
                 let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles])) ?? []
                 let bytes = items.reduce(0) { $0 + ((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
                 let count = items.filter { $0.pathExtension == "txt" && Library.parse((try? String(contentsOf: $0, encoding: .utf8)) ?? "") != nil }.count
-                await MainActor.run { self.send(["ev": "storage", "count": count, "bytes": bytes]) }
+                await MainActor.run { self.send(["ev": "storage", "count": count, "bytes": bytes, "folder": dir.path]) }
             }
         case "copy":
             let text = body["text"] as? String ?? ""
@@ -159,7 +162,7 @@ final class Bridge {
                 let s = Library.session(dir, id: id, recording: rec, busy: busy)
                 await MainActor.run {
                     guard let s else {
-                        self.notice("session_missing", "이 기록을 찾을 수 없습니다. 파일이 옮겨졌거나 삭제되었을 수 있습니다.")
+                        self.notice("session_missing", L("이 기록을 찾을 수 없습니다. 파일이 옮겨졌거나 삭제되었을 수 있습니다.", "Can't find this recording. Its files may have been moved or deleted."))
                         self.refreshLibrary()
                         return
                     }
@@ -170,7 +173,7 @@ final class Bridge {
         case "play":
             guard let id, editable else { return }
             if engine.session?.mode == .live {
-                notice("busy_recording", "녹음 중에는 재생할 수 없습니다. 녹음을 마친 뒤에 들으십시오.")
+                notice("busy_recording", L("녹음 중에는 재생할 수 없습니다. 녹음을 마친 뒤에 들으십시오.", "Playback isn't available while recording. Listen after the recording has finished."))
                 return
             }
             if player.id != id {
@@ -190,10 +193,10 @@ final class Bridge {
                 send(["ev": "renamed", "from": id, "to": new])
                 refreshLibrary()
             } catch Library.Problem.exists {
-                notice("rename", "같은 이름의 기록이 이미 있습니다.")
+                notice("rename", L("같은 이름의 기록이 이미 있습니다.", "A recording with that name already exists."))
                 send(["ev": "renamed", "from": id, "to": id])
             } catch {
-                notice("rename", "이름을 변경하지 못했습니다.")
+                notice("rename", L("이름을 변경하지 못했습니다.", "Couldn't rename the recording."))
                 send(["ev": "renamed", "from": id, "to": id])
             }
         case "saveLines":                                     // 글 편집: the page sends every line as it is now
@@ -209,7 +212,7 @@ final class Bridge {
                 refreshLibrary()
             } catch {
                 log("edit failed: \(error)")
-                notice("edit", "고친 내용을 저장하지 못했습니다.")
+                notice("edit", L("고친 내용을 저장하지 못했습니다.", "Couldn't save your changes."))
                 send(["ev": "linesSaved", "id": id, "failed": true])
             }
         case "delete":
@@ -221,7 +224,7 @@ final class Bridge {
                 scheduleFinalize()
             } catch {
                 log("delete failed: \(error)")
-                notice("delete", "기록을 삭제하지 못했습니다.")
+                notice("delete", L("기록을 삭제하지 못했습니다.", "Couldn't delete the recording."))
             }
             refreshLibrary()
         case "undoDelete":
@@ -234,9 +237,9 @@ final class Bridge {
                 log("undo failed: \(error)")
                 Library.finalize(d.bin)                                    // Mac: still recoverable from the Trash
                 #if os(macOS)
-                notice("undo", "되돌리지 못했습니다. Finder의 휴지통에서 꺼낼 수 있습니다.")
+                notice("undo", L("되돌리지 못했습니다. Finder의 휴지통에서 꺼낼 수 있습니다.", "Couldn't undo. You can restore it from the Trash in Finder."))
                 #else
-                notice("undo", "되돌리지 못했습니다.")
+                notice("undo", L("되돌리지 못했습니다.", "Couldn't undo."))
                 #endif
             }
             refreshLibrary()
@@ -248,7 +251,7 @@ final class Bridge {
             guard let id else { return }
             let pdf = engine.outDir.appendingPathComponent("\(id).pdf")
             if FileManager.default.fileExists(atPath: pdf.path) { platform?.openDocument(pdf) }
-            else { notice("slides_missing", "슬라이드 PDF를 찾을 수 없습니다.") }
+            else { notice("slides_missing", L("슬라이드 PDF를 찾을 수 없습니다.", "Can't find the Slide PDF.")) }
         case "revealSession":
             guard let id, editable else { return }
             if let f = Library.files(engine.outDir, id).first { platform?.reveal(f) }

@@ -10,13 +10,17 @@ enum Library {
 
     enum Problem: Error { case empty, exists, missing }
 
+    /// How a transcript's first line starts — in either of the app's languages (live recording, file).
+    static let headerPrefixes = ["강의 녹취 · ", "파일 받아쓰기 · ", "Lecture transcript · ", "File transcription · "]
+    static func isFileHeader(_ h: String) -> Bool { h.hasPrefix("파일 받아쓰기") || h.hasPrefix("File transcription") }
+
     /// A transcript written by Session: header line, "[mm:ss] text" lines, optional "── 중요 문장 ──" tail.
     static func parse(_ text: String) -> (header: String, lines: [Line])? {
         // tolerate files re-saved by other editors: a byte-order mark, Windows line endings
         let rows = (text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text)
             .replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
         guard let header = rows.first?.trimmingCharacters(in: .whitespacesAndNewlines),
-              header.hasPrefix("강의 녹취 · ") || header.hasPrefix("파일 받아쓰기 · ") else { return nil }
+              headerPrefixes.contains(where: { header.hasPrefix($0) }) else { return nil }
         var lines: [Line] = []
         for row in rows.dropFirst() {
             if row.hasPrefix("──") { break }                 // the tail: "── 중요 문장 ──" (v1: "── 출석 문구 후보 ──")
@@ -30,13 +34,14 @@ enum Library {
         return (header, lines)
     }
 
-    private static let dateRE = try! NSRegularExpression(pattern: #"(\d{4})-(\d{2})-(\d{2})(?: \(.\) (\d{2}):(\d{2}))?"#)
-    private static let defaultNameRE = try! NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2} \d{2}시\d{2}분 강의( \(\d+\))?$"#)
+    private static let dateRE = try! NSRegularExpression(pattern: #"(\d{4})-(\d{2})-(\d{2})(?: \([^)]{1,4}\) (\d{2}):(\d{2}))?"#)
+    /// The names the app gives a recording itself ("2026-10-07 22시43분 강의", "2026-10-07 22.43 Lecture").
+    static let defaultNameRE = try! NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2} (\d{2}시\d{2}분 강의|\d{2}\.\d{2} Lecture)( \(\d+\))?$"#)
 
     /// When the session happened: the header's date and time (file transcriptions: the file's time of day).
     static func date(header: String, file: URL) -> Date {
         let created = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date(timeIntervalSince1970: 0)
-        let part = header.hasPrefix("파일 받아쓰기") ? (header.components(separatedBy: " · ").last ?? header) : header
+        let part = isFileHeader(header) ? (header.components(separatedBy: " · ").last ?? header) : header
         guard let m = dateRE.firstMatch(in: part, range: NSRange(part.startIndex..., in: part)) else { return created }
         func n(_ i: Int) -> Int? { Range(m.range(at: i), in: part).flatMap { Int(part[$0]) } }
         var c = DateComponents()
@@ -86,7 +91,7 @@ enum Library {
     /// `busy`: sessions still being written (recording, or saving after 정지) — not playable, not editable.
     private static func common(_ dir: URL, _ id: String, _ p: (header: String, lines: [Line], txt: URL),
                                recording: String?, busy: Set<String>) -> [String: Any] {
-        let live = p.header.hasPrefix("강의 녹취")
+        let live = !isFileHeader(p.header)
         let audio = busy.contains(id) ? nil : audioURL(dir, id)
         let seconds = audio.map { durations.get($0) } ?? (p.lines.last?.t ?? 0)
         let custom = live && defaultNameRE.firstMatch(in: id, range: NSRange(id.startIndex..., in: id)) == nil
@@ -132,12 +137,14 @@ enum Library {
         guard let p = load(dir, id) else { throw Problem.missing }
         var text = p.header + "\n\n" + lines.map { "[\(fmtTime($0.t))] \($0.text)\n" }.joined()
         let hits = cues(lines, keywords)
-        if !hits.isEmpty { text += "\n── 중요 문장 ──\n" + hits.map { "[\(fmtTime($0.t))] \($0.text)\n" }.joined() }
+        let english = ["Lecture transcript · ", "File transcription · "].contains { p.header.hasPrefix($0) }   // the file's own language
+        if !hits.isEmpty { text += "\n── \(english ? "Key Sentences" : "중요 문장") ──\n" + hits.map { "[\(fmtTime($0.t))] \($0.text)\n" }.joined() }
         try Data(text.utf8).write(to: p.txt, options: .atomic)
     }
 
     static func files(_ dir: URL, _ id: String) -> [URL] {
-        ["txt", "m4a", "wav", "pdf"].map { dir.appendingPathComponent("\(id).\($0)") }
+        (["txt", "m4a", "wav", "pdf"].map { dir.appendingPathComponent("\(id).\($0)") }
+            + SlidesPDF.transcriptPDFNames(id).map { dir.appendingPathComponent($0) })      // 슬라이드 PDF's second file
             .filter { FileManager.default.fileExists(atPath: $0.path) }
     }
 
@@ -158,6 +165,12 @@ enum Library {
         return "\(base) (\(i))"
     }
 
+    /// What follows a session's name in one of its files: ".txt", ".m4a", " (받아쓰기).pdf"…
+    static func suffix(_ file: URL, _ id: String) -> String {
+        let n = file.lastPathComponent.nfc
+        return n.hasPrefix(id) ? String(n.dropFirst(id.count)) : "." + file.pathExtension
+    }
+
     /// Renames the transcript and its recording together. Returns the new id.
     static func rename(_ dir: URL, id: String, to raw: String) throws -> String {
         let name = clean(raw)
@@ -173,7 +186,7 @@ enum Library {
         var done: [(URL, URL)] = []
         do {
             for from in mine.sorted(by: { $0.pathExtension != "txt" && $1.pathExtension == "txt" }) {   // transcript last
-                let to = dir.appendingPathComponent("\(name).\(from.pathExtension)")
+                let to = dir.appendingPathComponent(name + suffix(from, id))
                 if viaTemp {
                     let tmp = dir.appendingPathComponent(".\(UUID().uuidString).\(from.pathExtension)")
                     try fm.moveItem(at: from, to: tmp)
@@ -228,7 +241,7 @@ enum Library {
         var back: [(URL, URL)] = []
         do {
             for (from, held) in d.moved {
-                let target = dir.appendingPathComponent("\(name).\(from.pathExtension)")
+                let target = dir.appendingPathComponent(name + suffix(from, d.id))
                 try fm.moveItem(at: held, to: target)
                 back.append((held, target))
             }

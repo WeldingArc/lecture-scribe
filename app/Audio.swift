@@ -155,7 +155,7 @@ final class SystemAudioSource: AudioSource {
             self.teardown()
             do { try self.startLocked() } catch {
                 log("capture: rebuild after output change failed: \(error)")
-                self.onProblem?("capture_stopped", "출력 장치가 바뀐 뒤 소리를 다시 가져오지 못했습니다. [정지]를 누른 뒤 다시 시작하십시오.")
+                self.onProblem?("capture_stopped", L("출력 장치가 바뀐 뒤 소리를 다시 가져오지 못했습니다. [정지]를 누른 뒤 다시 시작하십시오.", "Couldn't get the sound back after the output device changed. Click Stop, then start again."))
             }
         }
         listener = block
@@ -240,7 +240,7 @@ final class MicAudioSource: AudioSource {
                 log("capture: interrupted")
                 self.interrupted = true
                 self.interruptedAt = Date()
-                self.tell("capture_paused", "전화나 다른 앱 때문에 녹음이 잠시 멈췄습니다. 끝나면 이어서 녹음합니다.")
+                self.tell("capture_paused", L("전화나 다른 앱 때문에 녹음이 잠시 멈췄습니다. 끝나면 이어서 녹음합니다.", "Recording paused for a moment because of a call or another app. It will resume when that ends."))
             } else {
                 log("capture: interruption ended, resuming")
                 self.interrupted = false
@@ -299,7 +299,7 @@ final class MicAudioSource: AudioSource {
             try configureSession()
             try startEngine()
             attempt = 0
-            if troubled { tell("capture_resumed", "녹음을 다시 이어서 진행합니다.") }
+            if troubled { tell("capture_resumed", L("녹음을 다시 이어서 진행합니다.", "Recording has resumed.")) }
         } catch {
             attempt += 1
             log("capture: restart failed (\(attempt)): \(error)")
@@ -309,7 +309,7 @@ final class MicAudioSource: AudioSource {
                 DispatchQueue.main.asyncAfter(deadline: .now() + [1.0, 3.0, 10.0][attempt - 1], execute: work)
             } else if attempt == 4 {
                 lastQuietTry = Date()
-                tell("capture_stopped", "마이크 녹음이 멈췄습니다. [정지]를 누른 뒤 다시 시작하십시오. 지금까지의 녹음은 저장됩니다.")
+                tell("capture_stopped", L("마이크 녹음이 멈췄습니다. [정지]를 누른 뒤 다시 시작하십시오. 지금까지의 녹음은 저장됩니다.", "Microphone recording stopped. Tap Stop, then start again. Everything recorded so far will be saved."))
             }
         }
     }
@@ -439,11 +439,11 @@ final class FileAudioSource: AudioSource {
             let got = Double(sent) / sampleRate
             if reader.status == .failed {
                 log("file read failed: \(String(describing: reader.error))")
-                self?.onProblem?("file_error", got > 1 ? "파일을 끝까지 읽지 못했습니다. 파일이 손상되었을 수 있습니다 — 읽은 부분까지만 받아 적었습니다."
-                                                       : "이 파일에서 소리를 읽을 수 없습니다. 파일이 손상되었을 수 있습니다.")
+                self?.onProblem?("file_error", got > 1 ? L("파일을 끝까지 읽지 못했습니다. 파일이 손상되었을 수 있습니다 — 읽은 부분까지만 받아 적었습니다.", "Couldn't read the file to the end. It may be damaged — only the part that could be read was transcribed.")
+                                                       : L("이 파일에서 소리를 읽을 수 없습니다. 파일이 손상되었을 수 있습니다.", "Can't read any sound from this file. It may be damaged."))
             } else if let me = self, !me.cancelled, me.duration > 5, got < me.duration * 0.9 {   // e.g. a WAV cut short
                 log("file ended early: \(Int(got)) of \(Int(me.duration)) s")
-                me.onProblem?("file_error", "파일이 중간에 끊겨 있습니다 — 앞부분(\(fmtTime(got)))까지만 받아 적었습니다.")
+                me.onProblem?("file_error", L("파일이 중간에 끊겨 있습니다 — 앞부분(\(fmtTime(got)))까지만 받아 적었습니다.", "The file is cut off partway — only the first part (\(fmtTime(got))) was transcribed."))
             }
             self?.onBuffer?(nil)
         }
