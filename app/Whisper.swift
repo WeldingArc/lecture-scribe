@@ -115,7 +115,8 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate {
         let free = (try? URL(fileURLWithPath: NSHomeDirectory())
             .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage) ?? need
         guard free >= need else {
-            let gb = String(format: "%.1f", Double(need) / 1e9)
+            let gb = ["ko", "en"].contains(appLanguage.value) ? String(format: "%.1f", Double(need) / 1e9)       // "2,5" where the
+                : (Double(need) / 1e9).formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: appLanguage.value)))   // language says so
             state = .failed(L("저장 공간이 부족합니다. \(gb)GB 이상 비운 뒤 다시 시도하십시오.", "Not enough free space. Free up at least \(gb) GB, then try again."))
             return
         }

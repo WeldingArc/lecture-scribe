@@ -12,8 +12,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${VERSION:-2.4.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-240}"
+VERSION="${VERSION:-2.5.0}"
+BUILD_NUMBER="${BUILD_NUMBER:-250}"
 SIGN_ID="${SIGN_ID:--}"
 ENTITLEMENTS="${ENTITLEMENTS:-$ROOT/app/LectureScribe.entitlements}"
 OUT="${OUT:-$ROOT/build/v2}"
@@ -66,8 +66,9 @@ sed -e "s|\$(MARKETING_VERSION)|$VERSION|" -e "s|\$(CURRENT_PROJECT_VERSION)|$BU
 cp "$OUT/AppIcon.icns" "$RES/AppIcon.icns"
 cmp -s "$OUT/AppIcon.icns" "$ROOT/app/Resources/AppIcon.icns" || cp "$OUT/AppIcon.icns" "$ROOT/app/Resources/AppIcon.icns"
 cp "$ROOT/app/PrivacyInfo.xcprivacy" "$RES/"
-cp -R "$ROOT/app/Resources/en.lproj" "$ROOT/app/Resources/ko.lproj" "$RES/"       # name and permission prompts per Mac language
+cp -R "$ROOT"/app/Resources/*.lproj "$RES/"       # name and permission prompts per Mac language (the app's 12)
 cp "$ROOT/ui/index.html" "$RES/ui/"
+cp -R "$ROOT/ui/i18n" "$RES/ui/i18n"              # the other languages' words (page and app)
 cp -R "$ROOT/ui/fonts" "$RES/ui/fonts"
 cp -R "$ROOT/ui/icons" "$RES/ui/icons"
 cp "$ROOT/LICENSE" "$ROOT/licenses/Pretendard-OFL.txt" "$ROOT/licenses/whisper.cpp-MIT.txt" \

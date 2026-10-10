@@ -9,8 +9,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "2.4.0"
-    CURRENT_PROJECT_VERSION: "240"
+    MARKETING_VERSION: "2.5.0"
+    CURRENT_PROJECT_VERSION: "250"
     CODE_SIGN_STYLE: Automatic
     ENABLE_HARDENED_RUNTIME: YES
     DEAD_CODE_STRIPPING: YES
@@ -31,6 +31,26 @@ targets:
       - path: app/Resources/en.lproj
         buildPhase: resources
       - path: app/Resources/ko.lproj
+        buildPhase: resources
+      - path: app/Resources/zh-Hans.lproj
+        buildPhase: resources
+      - path: app/Resources/zh-Hant.lproj
+        buildPhase: resources
+      - path: app/Resources/ja.lproj
+        buildPhase: resources
+      - path: app/Resources/es.lproj
+        buildPhase: resources
+      - path: app/Resources/fr.lproj
+        buildPhase: resources
+      - path: app/Resources/de.lproj
+        buildPhase: resources
+      - path: app/Resources/pt-BR.lproj
+        buildPhase: resources
+      - path: app/Resources/it.lproj
+        buildPhase: resources
+      - path: app/Resources/vi.lproj
+        buildPhase: resources
+      - path: app/Resources/ru.lproj
         buildPhase: resources
       - path: licenses/Pretendard-OFL.txt          # → Contents/Resources/licenses/, like build_v2.sh
         buildPhase:

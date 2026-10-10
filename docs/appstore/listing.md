@@ -47,7 +47,7 @@
 • 중요 문장 표시 — ‘출석’, ‘시험’, ‘과제’ 같은 단어가 나온 문장에 밑줄을 긋고 파일 끝에 따로 모아 줍니다. 단어는 직접 바꿀 수 있습니다
 • 녹음·영상 파일을 끌어다 놓아도 받아 적습니다 (재생 시간보다 훨씬 빨리)
 • 슬라이드 PDF — 강의 자료가 없을 때, 슬라이드가 바뀔 때마다 한 장씩 모아 그동안 한 말과 함께 PDF로 만듭니다 (보여 줄 강의 창은 직접 선택합니다). 강의자 카메라는 스스로 찾아 테두리로 표시하고 슬라이드 인식에서 제외합니다. 깔끔하게 담기로 주소창·플레이어·검은 여백은 빼고 슬라이드만 담습니다. PDF 형식은 가로 · 두 파일 · A4 한 쪽 중에서 고르고, 슬라이드마다 화면에서 읽은 제목과 책갈피가 붙습니다
-• 영어 화면 — 앱 전체를 영어로도 쓸 수 있습니다 (처음에는 Mac의 언어를 따르며, 첫 화면의 지구본이나 설정에서 바꿉니다)
+• 12개 언어 화면 — 한국어 · English · 简体中文 · 繁體中文 · 日本語 · Español · Français · Deutsch · Português (Brasil) · Italiano · Tiếng Việt · Русский (Mac의 언어를 따르며 — 지원하지 않는 언어이면 영어 — 첫 화면의 지구본이나 설정에서 바꿉니다)
 
 ■ 개인정보
 음성 인식은 Apple의 온디바이스 음성 인식으로 Mac 안에서만 처리됩니다. 소리와 글은 어디에도 전송되지 않고, 계정도 필요 없습니다.
@@ -66,6 +66,16 @@
 • 처음 실행할 때 이 내용에 동의해야 사용할 수 있으며, 설정에서 다시 볼 수 있습니다.
 
 오픈소스(MIT)입니다: https://github.com/WeldingArc/lecture-transcriber
+
+## What's New (2.5)
+• 12개 언어 화면 — 한국어 · English에 简体中文 · 繁體中文 · 日本語 · Español · Français · Deutsch · Português (Brasil) · Italiano · Tiếng Việt · Русский가 더해졌습니다. 화면·메뉴·알림·PDF가 그 언어로 바뀌고, 권한 안내도 12개 언어로 준비되어 있습니다(macOS가 표시하므로 Mac의 언어 설정을 따릅니다). 강의 언어는 지금처럼 한국어 · English입니다
+• 처음에는 Mac의 언어를 따릅니다 (지원하지 않는 언어이면 영어). 첫 화면 왼쪽 위의 지구본이나 설정 › 언어에서 고른 언어는 그대로 유지됩니다 (2.4에서 고른 언어는 이어지지 않으니 필요하면 다시 고르십시오)
+• 2.4에서는 이전 버전을 쓰던 Mac이면 화면이 한국어로 고정되었습니다 — 이제 직접 고르기 전까지는 Mac의 언어를 따릅니다
+
+## What's New (2.5, English localization)
+• 12 interface languages — Simplified Chinese, Traditional Chinese, Japanese, Spanish, French, German, Portuguese (Brazil), Italian, Vietnamese and Russian join Korean and English: screens, menus, notices and PDFs; the permission prompts are translated too (macOS shows them, following the Mac's language settings). The lecture language is still Korean or English
+• The app starts in your Mac's language (English for any language it doesn't speak); a language picked with the globe on the start screen or in Settings › Language stays (a choice made in 2.4 isn't carried over — pick it again if needed)
+• In 2.4 the app stayed in Korean on Macs that had used an earlier version; it now follows the Mac's language until you choose one
 
 ## What's New (2.4)
 • 영어 화면 — 화면·메뉴·알림·PDF까지 앱 전체를 영어로도 쓸 수 있습니다. 처음에는 Mac의 언어를 따르며, 첫 화면 왼쪽 위의 지구본이나 설정 › 언어에서 바꿉니다
@@ -112,7 +122,7 @@
 • 영어 구간은 영어 그대로 받아 적습니다
 
 ## Notes for App Review (English)
-Lecture Transcriber transcribes the audio that is playing on the Mac (e.g. an online lecture in a browser) in real time, entirely on-device, using Apple's SpeechAnalyzer/SpeechTranscriber (ko-KR, plus en-US to keep English quotes in English). Optionally (Settings › Speech Recognition; 설정 › 음성 인식 in Korean) the user can download an open speech model — Whisper large-v3-turbo (about 575 MB), Qwen3-ASR 1.7B (about 1.5 GB) or Parakeet 0.6B (English only, about 540 MB), from huggingface.co — and transcribe with it instead, also entirely on-device. The main screen's lecture-language switch (Korean / English) sets the lecture's main language. The interface is in English or Korean: it follows the Mac's language, and the globe at the top left of the start screen (or Settings › Language) switches it. No account, no server, no network use for content.
+Lecture Transcriber transcribes the audio that is playing on the Mac (e.g. an online lecture in a browser) in real time, entirely on-device, using Apple's SpeechAnalyzer/SpeechTranscriber (ko-KR, plus en-US to keep English quotes in English). Optionally (Settings › Speech Recognition; 설정 › 음성 인식 in Korean) the user can download an open speech model — Whisper large-v3-turbo (about 575 MB), Qwen3-ASR 1.7B (about 1.5 GB) or Parakeet 0.6B (English only, about 540 MB), from huggingface.co — and transcribe with it instead, also entirely on-device. The main screen's lecture-language switch (Korean / English) sets the lecture's main language. The interface is in 12 languages (Korean, English, Simplified and Traditional Chinese, Japanese, Spanish, French, German, Portuguese (Brazil), Italian, Vietnamese, Russian): it follows the Mac's language (English for any other), and the globe at the top left of the start screen (or Settings › Language) switches it. The lecture language is Korean or English. No account, no server, no network use for content.
 
 How to test:
 1. Launch the app. On first launch it shows a usage notice and disclaimer (이용 안내 및 면책 고지: personal study use only; recorded lectures, slides and transcripts stay the copyright of their owners and must not be shared or distributed; check the course's recording policy first; the user bears any legal responsibility; transcripts can contain errors) — click "Agree and Start" (동의하고 시작); it can be reopened from Settings › About or Help › Usage Notice and Disclaimer. Then wait for "Ready" (준비됨).

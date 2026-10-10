@@ -1,0 +1,5 @@
+/* iPhone/iPad app — 日本語 */
+"CFBundleDisplayName" = "Lecture Transcriber";
+"CFBundleName" = "Lecture Transcriber";
+"NSMicrophoneUsageDescription" = "講義を録音して文字起こしするためにマイクを使用します。録音とテキストはこのデバイスにのみ保存されます。";
+"NSSpeechRecognitionUsageDescription" = "Appleの音声認識を使って、録音した講義をこのデバイス上で文字起こしします。音声とテキストがこのデバイスの外に送信されることはありません。";

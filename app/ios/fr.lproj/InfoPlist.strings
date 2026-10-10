@@ -1,0 +1,5 @@
+/* iPhone/iPad app — Français */
+"CFBundleDisplayName" = "Lecture Transcriber";
+"CFBundleName" = "Lecture Transcriber";
+"NSMicrophoneUsageDescription" = "Le micro est nécessaire pour enregistrer et transcrire le cours. Les enregistrements et le texte restent uniquement sur cet appareil.";
+"NSSpeechRecognitionUsageDescription" = "Transcrit les cours enregistrés sur cet appareil avec la reconnaissance vocale d’Apple. Le son et le texte ne le quittent jamais.";

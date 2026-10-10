@@ -13,7 +13,7 @@ Apple on-device speech recognition · free · open source · everything stays on
 
 <img src="docs/appstore/screenshots/2.4/en/03-library.png" width="760" alt="Library — each lecture's transcript and recording together">
 
-<sub>The app is in English and Korean — it follows your Mac's language, and the globe on the start screen switches it.</sub>
+<sub>The app speaks 12 languages — Korean, English, Simplified and Traditional Chinese, Japanese, Spanish, French, German, Portuguese (Brazil), Italian, Vietnamese and Russian. It follows your Mac's language (English for any other), and the globe on the start screen switches it.</sub>
 
 </div>
 
@@ -40,7 +40,7 @@ Apple on-device speech recognition · free · open source · everything stays on
 - **PDF layout.** Choose it in Settings › PDF Layout: **Landscape** (the default — each slide fills a landscape page, and what was said follows on the next page) · **Two Files** (a PDF of the slides and a separate transcript PDF) · **A4 Page** (slide and transcript together on an A4 page, the earlier layout). Each slide is named with the title read from the slide (for example "Slide 3 · Supply and Demand"), and the PDF's bookmarks take you straight to any slide. The titles are read on your Mac, too.
 - **Clean capture (on by default).** Parts that stay the same all lecture long — the browser's address bar, the player's controls, black borders — are left out: the app finds the part that changes when the slide turns and puts only that into the PDF. If a new place starts changing later, the area grows again, and a page with content outside the area (a slide wider than the others, say) keeps its whole picture. Turn it on or off right on the recording screen (or Settings › Clean Capture).
 - **See it working.** With Slide PDF on, choose **Screen** (the lecture window large, the transcript below) or **Text** (the transcript large, the window as a card) with the switch at the top. What goes into the PDF is outlined in red and the lecturer's camera in white, and each slide taken flashes like a screenshot and flies into the page count.
-- **English or Korean interface.** The whole app — screens, menus, notices and PDFs — is available in English and Korean. It follows your Mac's language at first; switch it with the globe at the top left of the start screen or in Settings › Language. (The lecture language is set separately.)
+- **12 interface languages.** The whole app — screens, menus, notices and PDFs — is available in 한국어 · English · 简体中文 · 繁體中文 · 日本語 · Español · Français · Deutsch · Português (Brasil) · Italiano · Tiếng Việt · Русский. It follows your Mac's (iPhone's) language at first — English when the device is set to a language the app doesn't speak — and the globe at the top left of the start screen or Settings › Language switches it. (The lecture language — what is being transcribed — is set separately: Korean or English. Saved file names and headers are Korean in the Korean interface and English in every other.)
 
 <p align="center"><img src="docs/slides-demo.gif" width="600" alt="How the slide PDF works"></p>
 
@@ -71,7 +71,7 @@ Run the same line again to update.
 
 ### Option 2 · Download
 
-Download `LectureScribe-mac.zip` from the [latest release](https://github.com/WeldingArc/lecture-transcriber/releases/latest), unzip it, and move `강의 받아쓰기.app` (Finder shows it as Lecture Transcriber on a Mac set to English) to your Applications folder. The app is not notarized yet, so if you downloaded it with a browser, right-click the app and choose **Open** the first time.
+Download `LectureScribe-mac.zip` from the [latest release](https://github.com/WeldingArc/lecture-transcriber/releases/latest), unzip it, and move `강의 받아쓰기.app` (Finder shows it as Lecture Transcriber on a Mac set to any language but Korean) to your Applications folder. The app is not notarized yet, so if you downloaded it with a browser, right-click the app and choose **Open** the first time.
 
 ## First launch
 
@@ -87,7 +87,7 @@ On first launch the app shows a **Usage Notice and Disclaimer**. Read it and cli
 - **Change the key words:** **Key Words** at the bottom
 - **Slide PDF layout:** Settings › PDF Layout (Landscape · Two Files · A4 Page)
 - **While recording:** the **Screen · Text** switch at the top (Screen for the large view, Text for the small card)
-- **Interface language:** the globe at the top left of the start screen, or Settings › Language (한국어 · English)
+- **Interface language:** the globe at the top left of the start screen, or Settings › Language (12 languages)
 - **Shortcuts:** ⌘R start/stop · ⌘P pause/resume · ⌘F find in a session · ⌘O open a file · ⌘⇧C copy everything (also in the menu bar: Record, and Edit › Find…)
 
 ## Good to know
@@ -116,7 +116,7 @@ Make sure the lecture is actually playing. If text still doesn't appear, open **
 <details>
 <summary>I updated from v1</summary>
 
-Transcripts made with v1 stay in the `강의기록` folder in your home folder. From v2 on, they are saved in your Downloads folder (because of Apple's sandbox): `Downloads/강의기록`, or `Downloads/Lecture Transcriber` when the app first opens in English.
+Transcripts made with v1 stay in the `강의기록` folder in your home folder. From v2 on, they are saved in your Downloads folder (because of Apple's sandbox): `Downloads/강의기록`, or `Downloads/Lecture Transcriber` when the app first opens in any language but Korean.
 
 The Whisper model v1 used (570 MB) is no longer needed. To free the space, run this in Terminal:
 
@@ -148,7 +148,7 @@ Mac system audio ─▶ Core Audio tap (macOS 14.2+) ─▶ Apple SpeechAnalyzer
 
 When you choose another engine, a small runtime inside the app — **whisper.cpp** for Whisper, **transcribe.cpp** for Qwen3-ASR and Parakeet — transcribes with the downloaded model instead of SpeechAnalyzer. A voice-activity detector (Silero VAD) splits the audio at pauses, English quotes stay in English (Qwen3-ASR reads a piece again in two halves when it looks translated or seems to have dropped words), and made-up phrases (such as "Thank you for watching") and repeats are filtered out.
 
-It is a single native Swift app (AppKit + WKWebView) that runs in Apple's sandbox. The app is about 16 MB (speech models are downloaded only if you choose one). To build it yourself, see [DEVELOPMENT.md](DEVELOPMENT.md).
+It is a single native Swift app (AppKit + WKWebView) that runs in Apple's sandbox. The app is about 17 MB (speech models are downloaded only if you choose one). To build it yourself, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 **v1** ran OpenAI Whisper large-v3-turbo with whisper.cpp. It remains available for macOS 14.2–15 as the [v1.0.0 release](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0).
 

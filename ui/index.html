@@ -4,12 +4,42 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>강의 받아쓰기</title>
+<script>
+  // The app's language, decided before anything is drawn: the app says which (__LANG__); the browser demo takes ?lang=,
+  // then what it remembers, then the device's language — English for any language the app doesn't speak. Korean and
+  // English are written into the page; any other language brings its words from i18n/<language>.js.
+  (() => {
+    const of = (tag) => {
+      const t = String(tag || "").toLowerCase();
+      if (/^yue-hans/.test(t)) return "zh-Hans";                     // Cantonese written in Simplified
+      if (/^(zh-(hant|tw|hk|mo)|yue)/.test(t)) return "zh-Hant";   // Cantonese reads Traditional Chinese
+      if (/^zh/.test(t)) return "zh-Hans";
+      if (/^pt/.test(t)) return "pt-BR";
+      const p = t.split("-")[0];
+      return ["ko", "en", "ja", "es", "fr", "de", "it", "vi", "ru"].includes(p) ? p : null;
+    };
+    let saved = null;
+    try { saved = localStorage.getItem("uiLang"); } catch (e) {}
+    const v = of(window.__LANG__) || of(new URLSearchParams(location.search).get("lang")) || of(saved) || of(navigator.language) || "en";
+    window.__UI_LANG__ = v;
+    document.documentElement.lang = v;
+    if (v !== "ko" && v !== "en") document.write(`<script src="i18n/${v}.js"><\/script>`);
+  })();
+</script>
 <style>
   @font-face { font-family: "Pretendard"; font-weight: 200; font-display: swap;
     src: local("Pretendard ExtraLight"), local("Pretendard-ExtraLight"), url("fonts/Pretendard-ExtraLight.otf") format("opentype"); }
   @font-face { font-family: "Pretendard"; font-weight: 300; font-display: swap;
     src: local("Pretendard Light"), local("Pretendard-Light"), url("fonts/Pretendard-Light.otf") format("opentype"); }
   @font-face { font-family: "Pretendard"; font-weight: 400; font-display: swap;
+    src: local("Pretendard Regular"), local("Pretendard-Regular"), url("fonts/Pretendard-Regular.otf") format("opentype"); }
+  /* Chinese and Japanese pages: Latin letters, digits and ASCII punctuation from Pretendard (PingFang's "-" looks like a dash),
+     everything else from PingFang / Hiragino */
+  @font-face { font-family: "Pretendard Latin"; font-weight: 200; font-display: swap; unicode-range: U+0020-007E, U+00A0-00FF;
+    src: local("Pretendard ExtraLight"), local("Pretendard-ExtraLight"), url("fonts/Pretendard-ExtraLight.otf") format("opentype"); }
+  @font-face { font-family: "Pretendard Latin"; font-weight: 300; font-display: swap; unicode-range: U+0020-007E, U+00A0-00FF;
+    src: local("Pretendard Light"), local("Pretendard-Light"), url("fonts/Pretendard-Light.otf") format("opentype"); }
+  @font-face { font-family: "Pretendard Latin"; font-weight: 400; font-display: swap; unicode-range: U+0020-007E, U+00A0-00FF;
     src: local("Pretendard Regular"), local("Pretendard-Regular"), url("fonts/Pretendard-Regular.otf") format("opentype"); }
   :root {
     --bg: #0d1220;
@@ -48,6 +78,20 @@
     --overlay: rgba(244, 241, 234, 0.75); --veil: rgba(244, 241, 234, 0.9); --bar-bg: rgba(244, 241, 234, 0.95);
     --shadow: rgba(40, 44, 60, 0.16);
   }
+  :lang(zh-Hans) { font-family: "Pretendard Latin", "PingFang SC", var(--font); }
+  :lang(zh-Hant) { font-family: "Pretendard Latin", "PingFang TC", var(--font); }
+  :lang(ja) { font-family: "Pretendard Latin", "Hiragino Sans", var(--font); }
+  [lang]:not(:lang(zh-Hans)):not(:lang(zh-Hant)):not(:lang(ja)) { font-family: var(--font); }   /* "Русский" in a Japanese page */
+  /* keep-all is for Korean: in Chinese and Japanese it makes a whole sentence one unbreakable word, and in the other
+     languages WebKit then breaks right after an apostrophe or an opening quote ("dall’ | accento", "“ | Frases").
+     The transcript itself (Korean or English) keeps Korean's word breaks. */
+  html:not([lang="ko"]) * { word-break: normal !important; }
+  html:not([lang="ko"]) .ko { word-break: keep-all !important; }   /* "(강의 받아쓰기)" inside a notice stays whole */
+  .ko.whole, .nobr { white-space: nowrap; }
+  html:not([lang="ko"]) .ko { overflow-wrap: anywhere; }       /* a Korean word longer than the line still breaks */
+  html:lang(zh-Hans) *, html:lang(zh-Hant) *, html:lang(ja) * { line-break: strict; }
+  html:not([lang="ko"]) :is(.seg p, .srow-text, .cue-line, .saved .cues),
+  html:not([lang="ko"]) :is(.seg p, .srow-text, .cue-line, .saved .cues) * { word-break: keep-all !important; overflow-wrap: anywhere; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
@@ -77,7 +121,10 @@
     font-size: 12.5px; font-weight: 400; letter-spacing: 0.42em; text-indent: 0.42em;
     color: rgba(var(--tint-rgb), 0.56);
   }
-  @media (max-width: 440px) { html[lang="en"] .brand { letter-spacing: 0.22em; text-indent: 0.22em; } }   /* phones: the longer English name clears the globe */
+  html .brand { font-family: var(--font); }   /* the wordmark looks the same in every language (not PingFang/Hiragino) */
+  @media (max-width: 440px) { html:not([lang="ko"]) .brand { letter-spacing: 0.22em; text-indent: 0.22em; } }   /* phones: the longer English name */
+  .langbtn.icon-only #langBtnText { display: none; }    /* the language's name would touch the wordmark: only the globe */
+  .langbtn.icon-only { padding-right: 10px; }
   .status {
     margin-top: 12px; height: 20px;
     display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -107,7 +154,7 @@
   main {
     position: absolute; inset: 0;
     overflow-y: auto; overflow-x: hidden;
-    padding: calc(150px + var(--top-extra)) 16px calc(230px + var(--sab));
+    padding: calc(150px + var(--top-extra)) 16px calc(230px + var(--sab) + var(--dock-extra, 0px));   /* + a wrapped dock row */
     scroll-behavior: smooth;
   }
   main::-webkit-scrollbar { width: 9px; }
@@ -245,6 +292,7 @@
   }
   .card .rn-input:focus { border-color: rgba(var(--accent-rgb), 0.5); }
   #legal { z-index: 45; overflow-y: auto; padding: 16px 0; }   /* above everything: at first launch nothing works before it */
+  @media (max-width: 520px) { #legal { padding-top: calc(72px + var(--top-extra)); } }   /* the globe stays above it: start below */
   body.legal-first .langbtn { z-index: 46; }                     /* …but the language: the notice comes back in the other one */
   .legal-card { width: min(560px, calc(100% - 32px)); margin: auto; text-align: left; }
   .legal-card h2 { text-align: center; }
@@ -264,7 +312,9 @@
     position: fixed; inset: auto 0 0 0; z-index: 5;
     padding: 64px 16px calc(26px + var(--sab)); text-align: center;
     background: linear-gradient(to top, var(--bg) 58%, rgba(var(--bg-rgb), 0));
+    pointer-events: none;                    /* its fading top doesn't catch clicks meant for what scrolls under it */
   }
+  .dock > * { pointer-events: auto; }
   .row { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 4vw, 34px); }
   /* 슬라이드 PDF while recording: the lecture window the app watches — big above the transcript (화면) or as a card beside
      it (글) — with what goes into the PDF in a red frame (깔끔하게 담기) and the lecturer's camera in a white glow */
@@ -278,6 +328,7 @@
   .viewsw button {
     display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 13px 0 11px; border-radius: 999px;
     font-size: 12px; font-weight: 400; letter-spacing: 0.03em; color: var(--muted); transition: color 0.2s, background 0.3s, box-shadow 0.3s;
+    white-space: nowrap;
   }
   .viewsw button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; }
   .viewsw button.on { color: var(--ink); background: rgba(var(--tint-rgb), 0.11); box-shadow: inset 0 0 0 1px var(--line-2); }
@@ -384,13 +435,15 @@
   .lv-pages { font-variant-numeric: tabular-nums; }
   .lv-pages .short, .lv-bar.tight .lv-pages .full { display: none; }   /* tight: "PDF 4" */
   .lv-bar.tight .lv-pages .short { display: inline; }
+  .lv-bar.tighter .ccsw > span:first-child { display: none; }        /* its name (깔끔하게 담기) is the switch's title */
   .lv-pages.bump { animation: lv-bump 0.55s cubic-bezier(0.3, 1.6, 0.5, 1); }
   @keyframes lv-bump { 45% { transform: scale(1.22); background: rgba(var(--cc-rgb), 0.55); } }
   .ccsw { cursor: pointer; padding-right: 7px; }
   .ccsw .toggle .sw { background: rgba(255, 255, 255, 0.22); }
   .ccsw .toggle input:checked + .sw { background: rgb(var(--cc-rgb)); box-shadow: 0 0 10px rgba(var(--cc-rgb), 0.6); }
   .campv {                                                        /* 글: a card beside the transcript */
-    position: absolute; left: 24px; bottom: calc(74px + var(--sab)); width: clamp(200px, calc(50vw - 232px), 400px);   /* clear of the buttons */
+    position: absolute; left: 24px; bottom: calc(74px + var(--sab) + var(--dock-extra, 0px));   /* clear of the buttons (fitCampv) */
+    width: var(--campv-w, clamp(200px, calc(50vw - 232px), 400px));
     display: none; flex-direction: column; align-items: center; gap: 9px; text-align: center;
   }
   body.live-on.view-text .campv { display: flex; animation: rise 0.5s ease; }
@@ -403,7 +456,9 @@
   .lv.paused .lv-frame > img { filter: saturate(0.4) brightness(0.7); transition: filter 0.4s; }   /* 일시정지: the last frame, dimmed */
   .lv.paused .lv-scan, .lv.paused .lv-state i { display: none; }
   @media (max-width: 819px), (max-height: 560px) { .campv { display: none !important; } }      /* narrower: it would cover 전체 복사 */
-  @media (min-width: 820px) and (min-height: 561px) { body.live-on.view-text main { padding-bottom: calc(330px + var(--sab)); } }
+  body.campv-none .campv { display: none !important; }        /* a longer 전체 복사 (other languages) leaves no room */
+  body.live-on.view-screen main { padding-bottom: calc(230px + var(--sab)); }   /* 화면: as in 2.4 (the stage can't give room back) */
+  @media (min-width: 820px) and (min-height: 561px) { body.live-on.view-text main { padding-bottom: calc(330px + var(--sab) + var(--dock-extra, 0px)); } }
   body.live-on.view-text .cuechip { top: calc(134px + var(--top-extra)); }                         /* under the view switch */
   @media (prefers-reduced-motion: reduce) {
     .viewsw, .stage, .campv, .cc-box, .cam-box, .lv-tag i, .lv-state i, .lv-pages.bump { animation: none !important; }
@@ -418,6 +473,11 @@
   .ghost:hover:not(:disabled) { background: rgba(var(--tint-rgb), 0.05); border-color: rgba(var(--tint-rgb), 0.32); }
   .ghost:disabled { opacity: 0.32; cursor: default; }
   .ghost.small { min-width: 0; padding: 7px 14px; font-size: 13px; }
+  @media (max-width: 430px) {   /* phones: a dialog's three buttons stay on one row in the longer languages */
+    html:not([lang="ko"]) .card .acts { gap: 6px; }
+    html:not([lang="ko"]) .card .acts .ghost.small { padding: 7px 11px; letter-spacing: 0.01em; }
+  }
+  @media (max-width: 390px) { html:not([lang="ko"]) .card .acts .ghost.small { padding: 7px 9px; letter-spacing: 0; } }
   .recwrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .rec {
     width: 76px; height: 76px; border-radius: 50%;
@@ -438,6 +498,9 @@
   body.recording .rec .core { width: 22px; height: 22px; border-radius: 5px; }
   body.finishing .rec .core { background: var(--accent); width: 18px; height: 18px; border-radius: 50%; animation: pulse 1s ease-in-out infinite; }
   .reclabel { font-size: 12px; letter-spacing: 0.26em; text-indent: 0.26em; color: var(--muted); font-weight: 400; }
+  @media (max-width: 440px) {   /* phones: a long caption ("Erneut versuchen") wraps under the button instead of widening the row */
+    html:not([lang="ko"]) .reclabel { letter-spacing: 0.12em; text-indent: 0.12em; max-width: 86px; text-align: center; line-height: 1.35; }
+  }
   /* 일시정지 / 계속: under the round button while a live recording runs, in the place of the "정지" label */
   .pausebtn {
     display: none; align-items: center; gap: 7px; margin-top: -4px; padding: 4px 13px 5px; border-radius: 999px;
@@ -473,6 +536,7 @@
   }
   .check:hover .box { border-color: rgba(var(--tint-rgb), 0.5); }
   .row2 { flex-wrap: wrap; row-gap: 10px; }
+  .row2 .grp { display: inline-flex; align-items: center; gap: 22px; }    /* a "?" wraps with what it explains */
   .link { font-size: 12.5px; color: var(--muted); font-weight: 300; border-bottom: 1px solid transparent; transition: color 0.2s, border-color 0.2s; }
   .link:hover:not(:disabled) { color: var(--ink-2); border-color: var(--line-2); }
   .link:disabled { opacity: 0.35; cursor: default; }
@@ -494,7 +558,7 @@
   }
   .latest.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
   .toast {
-    position: fixed; left: 50%; bottom: calc(196px + var(--sab)); z-index: 30;
+    position: fixed; left: 50%; bottom: calc(196px + var(--sab) + var(--dock-extra, 0px)); z-index: 30;
     transform: translate(-50%, 10px); opacity: 0; pointer-events: none;
     padding: 11px 20px; border-radius: 20px; width: max-content; max-width: min(560px, calc(100% - 32px));
     font-size: 13.5px; font-weight: 300; color: var(--ink); text-align: center;
@@ -620,6 +684,33 @@
   .langbtn:hover { color: var(--ink); background: rgba(var(--tint-rgb), 0.06); }
   .langbtn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.3; }
   body.recording .langbtn, body.finishing .langbtn, body.has-text .langbtn { display: none; }
+  .langbtn .chev { width: 9px; height: 9px; margin-left: -1px; opacity: 0.7; stroke-width: 1.5; transition: transform 0.2s; }
+  .langbtn[aria-expanded="true"] { color: var(--ink); background: rgba(var(--tint-rgb), 0.06); }
+  .langbtn[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  /* the 12 languages, each in its own words: a card under the globe */
+  .langmenu {
+    position: fixed; top: calc(68px + var(--top-extra)); left: 12px; z-index: 47; max-height: calc(100% - 84px - var(--top-extra)); overflow-y: auto;
+    display: grid; grid-template-columns: repeat(2, minmax(118px, auto)); gap: 2px; padding: 6px;
+    border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 12px 36px var(--shadow);
+    animation: langmenu-in 0.16s ease-out;
+  }
+  .langmenu[hidden] { display: none; }
+  @keyframes langmenu-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .langmenu button, .langgrid button {
+    position: relative; padding: 8px 16px; border-radius: 10px; font-size: 13.5px; font-weight: 300; color: var(--ink-2);
+    text-align: center; white-space: nowrap; transition: background 0.15s, color 0.15s;
+  }
+  .langmenu button:hover, .langmenu button:focus-visible { background: rgba(var(--tint-rgb), 0.06); color: var(--ink); outline: none; }
+  .langmenu button.on { color: var(--ink); font-weight: 400; background: rgba(var(--accent-rgb), 0.14); }
+  body.recording .langmenu, body.finishing .langmenu, body.has-text .langmenu { display: none; }
+  body.legal-first .langmenu { z-index: 47; }
+  /* 설정 › 언어 */
+  .set-row.lang-row { align-items: flex-start; }
+  .set-row.lang-row > span { padding-top: 7px; }
+  .langgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 3px; border-radius: 16px; background: rgba(var(--tint-rgb), 0.06); width: min(100%, 444px); }
+  .langgrid button { padding: 7px 6px; border-radius: 999px; font-size: 13px; }
+  .langgrid button:hover:not(.on) { color: var(--ink); }
+  .langgrid button.on { background: var(--card); color: var(--ink); font-weight: 400; box-shadow: 0 1px 6px var(--shadow); }
   .set-row.pdf-row > span small { max-width: 330px; }
   .gear svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.4; }
   .set-group { margin: 22px 0 0; border-radius: 16px; border: 1px solid var(--line); background: rgba(var(--tint-rgb), 0.022); overflow: hidden; }
@@ -685,6 +776,8 @@
     .set-row.wide { flex-direction: column; align-items: stretch; gap: 10px; }
     .set-row.wide .seg3 { justify-content: space-between; }
     .set-row.wide .seg3 button { flex: 1; padding: 7px 6px; }
+    .set-row.lang-row > span { padding-top: 0; }
+    .langgrid { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .set-row.wide .swatches { justify-content: space-between; padding: 2px 6px; }
   }
 
@@ -719,6 +812,8 @@
   .back svg { width: 8px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
   .bar-title { text-align: center; min-width: 0; }
   .bar-title b { display: block; font-size: 12.5px; font-weight: 400; letter-spacing: 0.42em; text-indent: 0.42em; color: rgba(var(--tint-rgb), 0.6); white-space: nowrap; }
+  @media (max-width: 440px) { html:not([lang="ko"]) .bar-title b { letter-spacing: 0.22em; text-indent: 0.22em; } }   /* phones, longer titles */
+  .back.icon-only span { display: none; }      /* a long back label would touch the title: the chevron alone */
   .bar-title small { display: block; margin-top: 6px; font-size: 12px; font-weight: 300; color: var(--muted); font-variant-numeric: tabular-nums; }
   .bar-title small:empty { display: none; }
   .sheet-body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 16px 48px; overscroll-behavior: contain; }
@@ -922,8 +1017,12 @@
   @media (max-width: 520px) {
     .cuechip { top: calc(106px + var(--top-extra)); }
     .top { padding-top: calc(34px + var(--top-extra)); }
-    main { padding-top: calc(136px + var(--top-extra)); padding-bottom: calc(216px + var(--sab)); }
+    main { padding-top: calc(136px + var(--top-extra)); padding-bottom: calc(216px + var(--sab) + var(--dock-extra, 0px)); }
+    body.live-on.view-screen main { padding-bottom: calc(216px + var(--sab)); }
     .ghost { min-width: 0; padding: 9px 14px; font-size: 13px; }
+    html:not([lang="ko"]) .dock .row { gap: 12px; }
+    html:not([lang="ko"]) .dock .row .ghost { padding: 9px 11px; white-space: nowrap; }
+    html:not([lang="ko"]) .pausebtn { padding: 4px 10px 5px; white-space: nowrap; letter-spacing: 0.04em; }
     .rec { width: 68px; height: 68px; }
     .row2 { gap: 10px 18px; }
     .row2 .dotsep { display: none; }
@@ -960,7 +1059,8 @@
     </div>
   </section>
 
-  <button class="langbtn" id="langBtn"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.6"/><path d="M2.4 10h15.2M10 2.4c2.3 2.2 3.4 4.8 3.4 7.6s-1.1 5.4-3.4 7.6c-2.3-2.2-3.4-4.8-3.4-7.6S7.7 4.6 10 2.4z"/></svg><span id="langBtnText"></span></button>
+  <button class="langbtn" id="langBtn"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.6"/><path d="M2.4 10h15.2M10 2.4c2.3 2.2 3.4 4.8 3.4 7.6s-1.1 5.4-3.4 7.6c-2.3-2.2-3.4-4.8-3.4-7.6S7.7 4.6 10 2.4z"/></svg><span id="langBtnText"></span><svg class="chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.6l3 3 3-3"/></svg></button>
+  <div class="langmenu" id="langMenu" role="menu" translate="no" hidden></div>
   <button class="gear" id="gear" aria-label="설정"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4z"/></svg></button>
 
   <main id="scroller">
@@ -1048,7 +1148,7 @@
     <div class="sheet-body" id="setBody">
       <div class="col">
         <div class="set-group"><em>화 면</em>
-          <div class="set-row wide"><span id="setLangLabel">언어 · Language</span><div class="seg3" id="setLang" translate="no"><button data-v="ko" lang="ko">한국어</button><button data-v="en" lang="en">English</button></div></div>
+          <div class="set-row wide lang-row"><span id="setLangLabel">언어 · Language</span><div class="langgrid" id="setLang" translate="no" role="radiogroup"></div></div>
           <div class="set-row wide"><span>테마</span><div class="seg3" id="setTheme"><button data-v="system">시스템</button><button data-v="dark">다크</button><button data-v="light">라이트</button></div></div>
           <div class="set-row wide"><span>강조 색</span><div class="swatches" id="setAccent"></div></div>
           <div class="set-row wide"><span>글자 크기</span><div class="seg3" id="setSize"><button data-v="s">작게</button><button data-v="m">보통</button><button data-v="l">크게</button><button data-v="xl">아주 크게</button></div></div>
@@ -1245,11 +1345,11 @@
       <button class="ghost" id="folder">기록</button>
     </div>
     <div class="row2">
-      <span class="langseg" id="lang" role="radiogroup" aria-label="강의 언어"><button data-lang="ko" class="on" role="radio" aria-checked="true">한국어</button><button data-lang="en" role="radio" aria-checked="false">English</button></span>
-      <button class="helpdot" id="langhelp" aria-label="강의 언어 도움말">?</button>
+      <span class="grp"><span class="langseg" id="lang" role="radiogroup" aria-label="강의 언어"><button data-lang="ko" class="on" role="radio" aria-checked="true">한국어</button><button data-lang="en" role="radio" aria-checked="false">English</button></span>
+      <button class="helpdot" id="langhelp" aria-label="강의 언어 도움말">?</button></span>
       <span class="dotsep">·</span>
-      <label class="check" id="slwrap"><input type="checkbox" id="sl"><span class="box"></span><span>슬라이드 PDF</span></label>
-      <button class="helpdot" id="slhelp" aria-label="슬라이드 PDF 도움말">?</button>
+      <span class="grp"><label class="check" id="slwrap"><input type="checkbox" id="sl"><span class="box"></span><span>슬라이드 PDF</span></label>
+      <button class="helpdot" id="slhelp" aria-label="슬라이드 PDF 도움말">?</button></span>
       <span class="dotsep">·</span>
       <label class="toggle"><input type="checkbox" id="ts" checked><span class="sw"></span><span>시간 표시</span></label>
       <span class="dotsep">·</span>
@@ -1263,20 +1363,49 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const body = document.body;
-  // ---------- the app's language (설정 › 언어, the globe on the start screen). The app says which before the page runs;
-  // the browser demo remembers it, or takes ?lang=en; otherwise the device's own language.
-  const LANG = (() => {
-    let saved = null;
-    try { saved = localStorage.getItem("uiLang"); } catch (e) {}
-    const v = window.__LANG__ || new URLSearchParams(location.search).get("lang") || saved
-      || ((navigator.language || "ko").toLowerCase().startsWith("ko") ? "ko" : "en");
-    return v === "en" ? "en" : "ko";
-  })();
-  const IN_EN = LANG === "en";
+  // ---------- the app's language (설정 › 언어, the globe on the start screen) — decided in <head> (window.__UI_LANG__)
+  /// The 12 languages, each in its own words.
+  const LANGS = [["ko", "한국어"], ["en", "English"], ["zh-Hans", "简体中文"], ["zh-Hant", "繁體中文"], ["ja", "日本語"],
+                 ["es", "Español"], ["fr", "Français"], ["de", "Deutsch"], ["pt-BR", "Português (Brasil)"], ["it", "Italiano"],
+                 ["vi", "Tiếng Việt"], ["ru", "Русский"]];
+  const LANG = LANGS.some(([v]) => v === window.__UI_LANG__) ? window.__UI_LANG__ : "en";
+  const IN_EN = LANG === "en", IN_KO = LANG === "ko";
   document.documentElement.lang = LANG;
-  /// The same text in the app's language: L("한국어", "English").
-  const L = (ko, en) => (IN_EN ? en : ko);
-  const nEN = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;   // "1 slide", "3 slides"
+  /// Any other language's words (ui/i18n/<lang>.js): English → theirs. "{0}", "{1}"… stand for what the code puts in.
+  const PACK = (window.I18N || {})[LANG] || { text: {}, plural: {} };
+  const TEMPLATES = Object.keys(PACK.text).filter((k) => /\{\d+\}/.test(k))
+    .sort((a, b) => b.replace(/\{\d+\}/g, "").length - a.replace(/\{\d+\}/g, "").length)     // the most specific first
+    .map((k) => {
+      const parts = k.split(/\{(\d+)\}/), order = [];
+      const re = parts.map((x, i) => (i % 2 ? (order.push(+x), "([\\s\\S]*?)") : x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))).join("");
+      return [new RegExp("^" + re + "$"), order, k];
+    });
+  /// English → the app's language, when that is neither Korean nor English. What fills a "{0}" is translated too when
+  /// the pack has it ("Korean" in "…lectures are transcribed as {0}."); anything the pack lacks stays English.
+  function tr(en) {
+    if (PACK.text[en] != null) return PACK.text[en];
+    for (const [re, order, k] of TEMPLATES) {
+      const m = re.exec(en);
+      if (!m) continue;
+      const v = [];
+      order.forEach((n, j) => (v[n] = m[j + 1]));
+      return PACK.text[k].replace(/\{(\d+)\}/g, (_, n) => { const x = v[n] ?? ""; return PACK.text[x] ?? x; });
+    }
+    return en;
+  }
+  /// The same text in the app's language: L("한국어", "English") — any other language is looked up from the English.
+  const L = (ko, en) => (IN_KO ? ko : IN_EN ? en : tr(en));
+  /// A count with its noun in the app's language: "1 slide", "3 slides", "3 слайда", "5 слайдов", "3 枚のスライド"
+  /// (the pack's forms per plural category; Korean callers write their own).
+  const PLURAL = IN_KO || IN_EN ? null : new Intl.PluralRules(LANG);
+  const nEN = (n, one, many = one + "s") => {
+    const forms = PLURAL && (PACK.plural || {})[one];
+    if (forms) return (forms[LANG === "pt-BR" && n === 0 ? "other" : PLURAL.select(n)] || forms.other)   // pt-BR: "0 gravações"
+      .replace("{n} ", "{n}\u00A0").replace(" {n}", "\u00A0{n}").replace("{n}", n);                    // a count stays with its noun
+    return `${n} ${n === 1 ? one : many}`;
+  };
+  /// File names and the headers inside saved files: Korean or English only, so 기록 reads every file in any language.
+  const LF = (ko, en) => (IN_KO ? ko : en);
   /// The page's own wording (what is written in the markup), Korean → English; everything set later goes through L().
   const EN_TEXT = {
     "보기 방식": "View",
@@ -1407,27 +1536,52 @@
     "화 면": "APPEARANCE",
     "확인": "OK",
   };
+  // The dock's lower row wraps in longer languages and narrow windows: --dock-extra is how much taller that makes the dock
+  // (0 where it doesn't wrap — the layout of 2.4), so the transcript's end and the 글 card stay above it.
+  function fitDock() {
+    const r2 = document.querySelector(".dock .row2");
+    const one = Math.max(0, ...[...r2.children].map((c) => c.offsetHeight));
+    document.documentElement.style.setProperty("--dock-extra", Math.max(0, r2.offsetHeight - one) + "px");
+  }
+  // 글 view's card: as wide as the room left of 전체 복사 allows, 24 px clear of it (the button is longer in other languages,
+  // and the caption under the round button changes), 200–400 px; none when even 200 px would come within 8 px of it.
+  function campvWidth() {
+    const c = document.getElementById("copy").getBoundingClientRect();
+    if (!c.width) return null;
+    const room = Math.round(c.left - 24);              // from the card's left edge to the button
+    document.body.classList.toggle("campv-none", room < 208);    // at least 8 px clear of the button
+    return Math.min(400, Math.max(200, room - 24));
+  }
+  function fitCampv() {
+    const w = campvWidth();
+    if (w != null) document.documentElement.style.setProperty("--campv-w", w + "px");
+  }
+  const dockWatch = new ResizeObserver(() => { fitDock(); fitCampv(); try { live.layout(); } catch (e) {} });
+  for (const e of [document.querySelector(".dock .row2"), document.getElementById("copy"), document.querySelector(".dock .recwrap")]) dockWatch.observe(e);
+  addEventListener("resize", () => { fitDock(); fitCampv(); });
   function translatePage(root) {
-    if (!IN_EN) return;
+    if (IN_KO) return;
+    const T = {};
+    for (const k in EN_TEXT) T[k] = IN_EN ? EN_TEXT[k] : tr(EN_TEXT[k]);
     const norm = (t) => t.replace(/\s+/g, " ").trim();
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     const nodes = [];
     while (walk.nextNode()) if (!walk.currentNode.parentElement.closest("[translate=no]")) nodes.push(walk.currentNode);   // the language picker keeps 한국어
     for (const n of nodes) {
       const t = norm(n.nodeValue);
-      if (t && EN_TEXT[t] != null) n.nodeValue = n.nodeValue.replace(/\S[\s\S]*\S|\S/, EN_TEXT[t]);
+      if (t && T[t] != null) n.nodeValue = n.nodeValue.replace(/\S[\s\S]*\S|\S/, T[t]);
     }
     for (const e of root.querySelectorAll("[placeholder],[title],[aria-label],[alt]")) {
       for (const a of ["placeholder", "title", "aria-label", "alt"]) {
         const v = e.getAttribute(a);
-        if (v && EN_TEXT[norm(v)] != null) e.setAttribute(a, EN_TEXT[norm(v)]);
+        if (v && T[norm(v)] != null) e.setAttribute(a, T[norm(v)]);
       }
     }
   }
   translatePage(document.body);
   function folderLabel(path) {
     const KO = { Downloads: "다운로드", Documents: "문서", Desktop: "데스크탑" };
-    return path.replace(/\/+$/, "").split("/").slice(-2).map((x, i) => (i === 0 && !IN_EN && KO[x]) || x).join("/");
+    return path.replace(/\/+$/, "").split("/").slice(-2).map((x, i) => (i === 0 && (IN_KO ? KO[x] : L(x, x))) || x).join("/");
   }
   document.title = L("강의 받아쓰기", "Lecture Transcriber");
   const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.native;
@@ -1508,15 +1662,21 @@
       $("stage").classList.toggle("small", parseFloat($("stageFrame").style.width) < 360);
       body.style.setProperty("--stage-top", `${Math.min(top, cover)}px`);
       body.style.setProperty("--stage-h", `${Math.max(0, top - cover) + 36 + ph + 30}px`);
-      fit($("campvFrame"), Math.max(200, Math.min(400, innerWidth / 2 - 232)), 220);   // the card's own width (as in the CSS)
+      fit($("campvFrame"), campvWidth() ?? Math.max(200, Math.min(400, innerWidth / 2 - 232)), 220);   // the card's own width
       this.fitBar();
     },
     /// the chips in one row: when they don't fit, the page count gets short and the stage drops its state chip (the
     /// red frame shows the state) — 깔끔하게 담기 stays at hand
     fitBar() {
       for (const bar of [$("stageBar"), $("campv").querySelector(".lv-bar")]) {
-        bar.classList.remove("tight");
+        bar.classList.remove("tight", "tighter");
         if (bar.scrollWidth > bar.clientWidth + 1) bar.classList.add("tight");
+        if (bar.scrollWidth > bar.clientWidth + 1) bar.classList.add("tighter");   // still not (long names): the switch alone,
+        for (const l of bar.querySelectorAll(".ccsw")) {                          // which then carries the name
+          const input = l.querySelector("input"), name = l.querySelector("span").textContent.trim();
+          if (bar.classList.contains("tighter")) { input.setAttribute("aria-label", name); if (!l.title) { l.title = name; l.dataset.autotitle = "1"; } }
+          else { input.removeAttribute("aria-label"); if (l.dataset.autotitle) { l.removeAttribute("title"); delete l.dataset.autotitle; } }
+        }
       }
     },
     paint() {
@@ -1615,7 +1775,7 @@
   }
   function recStatus() {
     const what = state.paused ? L("일시정지 중", "Paused") : state.mode === "file" ? L("파일 받아 적는 중", "Transcribing the file") : L("받아 적는 중", "Transcribing");
-    return slideCount ? L(`${what} · 슬라이드 ${slideCount}장`, `${what} · ${slideCount} ${slideCount === 1 ? "slide" : "slides"}`) : what;
+    return slideCount ? L(`${what} · 슬라이드 ${slideCount}장`, `${what} · ${nEN(slideCount, "slide")}`) : what;
   }
 
   function send(cmd, extra = {}) {
@@ -1637,9 +1797,26 @@
     return h ? L(`${h}시간 ${m}분`, `${h} hr ${m} min`) : m ? L(`${m}분 ${s}초`, `${m} min ${s} sec`) : L(`${s}초`, `${s} sec`);
   };
   let toastTimer;
+  /// Text into an element; in other languages Korean inside it ("Lecture Transcriber (강의 받아쓰기)", a recording's name)
+  /// keeps Korean's word breaks — the page breaks between characters elsewhere, which would split it mid-word. `whole`: a
+  /// short Korean name never splits (notices); `dates`: "2026-09-28" stays on one line (titles).
+  function setText(e, msg, { whole = true, dates = false } = {}) {
+    msg = String(msg);
+    const korean = !IN_KO && /[가-힣]/.test(msg), date = dates && !IN_KO && /\d{4}-\d{2}-\d{2}/.test(msg);   // Korean UI: as in 2.4
+    if (!korean && !date) { e.textContent = msg; return; }
+    e.textContent = "";
+    const re = new RegExp("(" + [korean && "[가-힣][가-힣\\s]*[가-힣]|[가-힣]", date && "\\d{4}-\\d{2}-\\d{2}"].filter(Boolean).join("|") + ")");
+    for (const part of msg.split(re)) {
+      if (!part) continue;
+      const span = (cls) => { const k = document.createElement("span"); k.className = cls; k.textContent = part; e.appendChild(k); return k; };
+      if (date && /^\d{4}-\d{2}-\d{2}$/.test(part)) span("nobr");
+      else if (korean && /[가-힣]/.test(part)) span(whole && part.length <= 14 ? "ko whole" : "ko").lang = "ko";
+      else e.appendChild(document.createTextNode(part));
+    }
+  }
   function toast(msg, ms = 2600, action = null) {
     const t = $("toast");
-    t.textContent = msg;
+    setText(t, msg);
     t.classList.toggle("has-act", !!action);
     if (action) {
       const b = document.createElement("button");
@@ -1654,7 +1831,7 @@
   let noticeCode = "";
   function notice(msg, actions = [], code = "") {
     noticeCode = code;
-    $("noticeText").textContent = msg;
+    setText($("noticeText"), msg);
     const acts = $("noticeActs");
     acts.innerHTML = "";
     for (const [label, fn] of [...actions, [L("닫기", "Close"), null]]) {
@@ -1765,7 +1942,7 @@
     const chip = $("cuechip");
     if (!cues.length) { chip.classList.remove("show"); return; }
     const last = cues[cues.length - 1];
-    chip.textContent = L(`중요 문장${cues.length > 1 ? " " + cues.length : ""} · ${fmt(last.t)} — ${last.text}`, `Key Sentence${cues.length > 1 ? "s " + cues.length : ""} · ${fmt(last.t)} — ${last.text}`);
+    chip.textContent = `${cues.length > 1 ? L(`중요 문장 ${cues.length}`, `Key Sentences ${cues.length}`) : L("중요 문장", "Key Sentence")} · ${fmt(last.t)} — ${last.text}`;
     chip.classList.add("show");
   }
   function jumpToCue() {
@@ -1805,7 +1982,10 @@
     if (!ev.txt) { refreshControls(); return; }
     const box = document.createElement("div");
     box.className = "saved";
-    const what = (ev.audio ? L("텍스트와 녹음", "Text and recording") : L("텍스트", "Text")) + (ev.slides ? L(`, 슬라이드 ${ev.slides}장 PDF가`, `, plus a ${ev.slides}-slide PDF, `) : L("이", " ")) + L(" 저장되었습니다", "saved");
+    const what = ev.audio ? (ev.slides ? L(`텍스트와 녹음, 슬라이드 ${ev.slides}장 PDF가 저장되었습니다`, `Text and recording, plus a ${ev.slides}-slide PDF, saved`)
+                                       : L("텍스트와 녹음이 저장되었습니다", "Text and recording saved"))
+                          : ev.slides ? L(`텍스트, 슬라이드 ${ev.slides}장 PDF가 저장되었습니다`, `Text, plus a ${ev.slides}-slide PDF, saved`)
+                                      : L("텍스트가 저장되었습니다", "Text saved");   // whole sentences: each language words them its own way
     box.innerHTML = L(`<b>저장됨</b><span>${human(ev.seconds)} · ${ev.count}문장 · ${what}</span><div class="acts"></div>`, `<b>Saved</b><span>${human(ev.seconds)} · ${nEN(ev.count, "sentence")} · ${what}</span><div class="acts"></div>`);
     const cues = cueLines().slice(-3);
     if (cues.length) {
@@ -1863,7 +2043,12 @@
   const pad2 = (n) => String(n).padStart(2, "0");
   const WEEK_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const MONTH_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const OTHER = !IN_KO && !IN_EN;
+  /// A size in the app's language (other languages): "1 517 Mo", "2,5 ГБ", "574 MB" — Korean and English keep "574MB".
+  const size = (n, unit, digits = 0) => `${n.toLocaleString(LANG, { minimumFractionDigits: digits, maximumFractionDigits: digits })}\u00A0${
+    ({ fr: { MB: "Mo", GB: "Go" }, ru: { MB: "МБ", GB: "ГБ" } }[LANG] || {})[unit] || unit}`;
   function clock(d) {
+    if (OTHER) return d.toLocaleTimeString(LANG, { hour: "numeric", minute: "2-digit" });
     const h = d.getHours(), hm = `${h % 12 || 12}:${pad2(d.getMinutes())}`;
     return L(`${h < 12 ? L("오전", "AM") : L("오후", "PM")} ${hm}`, `${hm} ${h < 12 ? "AM" : "PM"}`);
   }
@@ -1874,12 +2059,21 @@
     if (diff === 0) return L("오늘", "Today");
     if (diff === 1) return L("어제", "Yesterday");
     const thisYear = d.getFullYear() === now.getFullYear();
+    if (OTHER) {                                   // a heading: "Martes, 6 de octubre" under "Hoy" / "Ayer"
+      const t = d.toLocaleDateString(LANG, thisYear ? { weekday: "long", month: "long", day: "numeric" }
+                                                    : { weekday: "short", month: "short", day: "numeric", year: "numeric" });   // shorter with a year
+      return t.charAt(0).toLocaleUpperCase(LANG) + t.slice(1);
+    }
     if (IN_EN) return `${WEEK_EN[d.getDay()]}, ${MONTH_EN[d.getMonth()]} ${d.getDate()}${thisYear ? "" : `, ${d.getFullYear()}`}`;
     const md = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEK[d.getDay()]}요일`;
     return thisYear ? md : L(`${d.getFullYear()}년 ${md}`, `${md}, ${d.getFullYear()}`);
   }
   function fullDate(epoch) {
     const d = new Date(epoch * 1000);
+    if (OTHER) {                                   // "Thứ Bảy, ngày 10 tháng 10, 2026 · 15:25" — the date first, whatever the locale does
+      const t = d.toLocaleDateString(LANG, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      return `${t.charAt(0).toLocaleUpperCase(LANG) + t.slice(1)} · ${clock(d)}`;
+    }
     return L(`${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEK[d.getDay()]}요일 ${clock(d)}`,
              `${WEEK_EN[d.getDay()]}, ${MONTH_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${clock(d)}`);
   }
@@ -1946,7 +2140,9 @@
       if (label !== day) { list.appendChild(el("div", "day", label)); day = label; }
       const row = el("button", "srow" + (s.recording ? " live" : s.saving ? " saving" : ""));
       const top = el("div", "srow-top");
-      const title = el("div", "srow-title", s.recording ? L("지금 받아 적는 중", "Transcribing now") : displayName(s));
+      const title = el("div", "srow-title");
+      setText(title, s.recording ? L("지금 받아 적는 중", "Transcribing now") : displayName(s), { whole: false, dates: true });   // a Korean
+                                                                                                                         // name keeps its word breaks
       if (s.kind === "file" && !s.recording) title.appendChild(el("i", "tag plain", L("파일", "File")));
       if (s.saving) title.appendChild(el("i", "tag plain", L("저장 중", "Saving")));
       if (s.slides && !s.recording) title.appendChild(el("i", "tag plain", L(`슬라이드 ${s.slides}`, nEN(s.slides, "slide"))));
@@ -2129,10 +2325,10 @@
     const busy = !!(s.recording || s.saving);
     $("detName").disabled = busy;
     $("detDay").textContent = dayLabel(s.date);
-    $("detMeta").textContent = L(`${fullDate(s.date)} · ${durLabel(s.seconds)} · ${det.lines.length}문장`, `${fullDate(s.date)} · ${durLabel(s.seconds)} · ${det.lines.length} ${det.lines.length === 1 ? "sentence" : "sentences"}`);
+    $("detMeta").textContent = L(`${fullDate(s.date)} · ${durLabel(s.seconds)} · ${det.lines.length}문장`, `${fullDate(s.date)} · ${durLabel(s.seconds)} · ${nEN(det.lines.length, "sentence")}`);
     $("detReveal").style.display = IOS ? "none" : "";
     $("detSlides").style.display = s.slides ? "" : "none";
-    $("detSlides").textContent = s.slides ? L(`슬라이드 PDF · ${s.slides}장`, `Slide PDF · ${s.slides} ${s.slides === 1 ? "slide" : "slides"}`) : L("슬라이드 PDF", "Slide PDF");
+    $("detSlides").textContent = s.slides ? L(`슬라이드 PDF · ${s.slides}장`, `Slide PDF · ${nEN(s.slides, "slide")}`) : L("슬라이드 PDF", "Slide PDF");
     for (const b of ["detShare", "detReveal", "detRename", "detDelete"]) $(b).disabled = busy;
     $("detCopy").disabled = !det.lines.length;
     $("detEdit").disabled = busy || !det.lines.length;
@@ -2234,8 +2430,9 @@
     $("detEdit").classList.toggle("on", det.editing);
     $("detEditHint").classList.toggle("show", det.editing);
     $("detEditHint").textContent = det.editing
-      ? L(`고칠 문장을 누르십시오. ${IOS ? "Return으로 저장합니다" : "Return으로 저장하고 Esc로 취소합니다"}. 내용을 모두 지우면 그 문장이 삭제됩니다.${det.s && det.s.slides ? " 슬라이드 PDF에는 반영되지 않습니다." : ""}`,
-          `${IOS ? "Tap a sentence to fix it. Return saves it" : "Click a sentence to fix it. Press Return to save or Esc to cancel"}. Clearing all of its text deletes the sentence.${det.s && det.s.slides ? " The Slide PDF isn't updated." : ""}`)
+      ? (IOS ? L("고칠 문장을 누르십시오. Return으로 저장합니다. 내용을 모두 지우면 그 문장이 삭제됩니다.", "Tap a sentence to fix it. Return saves it. Clearing all of its text deletes the sentence.")
+             : L("고칠 문장을 누르십시오. Return으로 저장하고 Esc로 취소합니다. 내용을 모두 지우면 그 문장이 삭제됩니다.", "Click a sentence to fix it. Press Return to save or Esc to cancel. Clearing all of its text deletes the sentence."))
+        + (det.s && det.s.slides ? L(" 슬라이드 PDF에는 반영되지 않습니다.", " The Slide PDF isn't updated.") : "")
       : "";
   }
   function editLine(seg, x, y) {
@@ -2329,7 +2526,7 @@
     Object.assign(pl, { id: ev.id || pl.id, t: ev.t || 0, dur: ev.dur || pl.dur, playing: !!ev.playing, rate: ev.rate || pl.rate });
     $("player").classList.toggle("playing", pl.playing);
     $("plPlay").setAttribute("aria-label", pl.playing ? L("일시정지", "Pause") : L("재생", "Play"));
-    $("plRate").textContent = `${pl.rate}×`;
+    $("plRate").textContent = `${OTHER ? pl.rate.toLocaleString(LANG) : pl.rate}×`;
     $("plRate").classList.toggle("on", pl.rate !== 1);
     $("detLines").classList.toggle("playing", pl.playing);
     if (!pl.dragging) {
@@ -2390,13 +2587,14 @@
   }
   function closeTransient() {        // before something opens on top (the notice, 설정): no menu or dialog left under it
     closeRowMenu();
+    closeLangMenu(false);
     if (isOpen("renamePanel")) closeRename();
     hideDialog("confirm");
   }
 
   function askConfirm(title, text, yes, fn) {
-    $("cfTitle").textContent = title;
-    $("cfText").textContent = text;
+    setText($("cfTitle"), title);
+    setText($("cfText"), text);
     $("cfYes").textContent = yes;
     $("cfYes").onclick = () => { hideDialog("confirm"); fn(); };
     closeRowMenu();
@@ -2464,11 +2662,11 @@
     $("setTs").checked = $("ts").checked;
     $("setSl").checked = $("sl").checked;
     $("setClean").checked = state.cleanCapture !== false;
-    $("setKwInfo").textContent = keywords.length ? `${(IN_EN ? [...keywords].sort((a, b) => /[가-힣]/.test(a) - /[가-힣]/.test(b)) : keywords).slice(0, 3).join(", ")}${keywords.length > 3 ? L(` 외 ${keywords.length - 3}개`, ` and ${keywords.length - 3} more`) : ""}` : L("없음", "None");
+    $("setKwInfo").textContent = keywords.length ? `${(!IN_KO ? [...keywords].sort((a, b) => /[가-힣]/.test(a) - /[가-힣]/.test(b)) : keywords).slice(0, 3).join(", ")}${keywords.length > 3 ? L(` 외 ${keywords.length - 3}개`, ` and ${keywords.length - 3} more`) : ""}` : L("없음", "None");
   }
   // ---------- 설정 › 음성 인식: the engines the app lists (another platform would list its own) — pick one, download a model
   const eng = { list: [], current: "apple", busy: false };
-  const megabytes = (b) => `${Math.round(b / 1e6)}MB`;
+  const megabytes = (b) => (OTHER ? size(Math.round(b / 1e6), "MB") : `${Math.round(b / 1e6)}MB`);
   /** The downloaded engine a recording would use now (an English-only one sits out a Korean lecture). */
   function engineInUse() {
     const e = eng.list.find((x) => x.id === eng.current && x.id !== "apple" && x.state === "ready");
@@ -2613,7 +2811,7 @@
     // labels: the lecture on the left, the PDF and its page count on the right
     const landed = DEMO.shots.filter((x) => t >= x + DEMO_LAND).length;
     const labR = $("dmLabR");
-    if (labR.dataset.n !== String(landed)) { labR.dataset.n = landed; labR.innerHTML = landed ? L(`PDF · <b>${landed}</b>장`, `PDF · <b>${landed}</b> ${landed === 1 ? "page" : "pages"}`) : "PDF"; }
+    if (labR.dataset.n !== String(landed)) { labR.dataset.n = landed; labR.innerHTML = landed ? L(`PDF · <b>${landed}</b>장`, `PDF · ${nEN(landed, "page").replace(String(landed), `<b>${landed}</b>`)}`) : "PDF"; }
     $("dmLabL").style.opacity = labR.style.opacity = (1 - end).toFixed(3);
     // the PDF: an empty page waits; each photo lands on a new page of the pile, then what was said appears under it.
     // A page's picture is the very same slide, scaled — so the photo turns into it without a jump.
@@ -2795,7 +2993,7 @@
       const p = edits.pending && edits.pending.id === ev.id ? edits.pending : null;
       if (p) edits.pending = null;
       if (ev.failed) { if (ev.id === det.id) send("session", { id: det.id }); return; }   // show what is on disk again
-      if (ev.id === det.id && det.s) $("detMeta").textContent = L(`${fullDate(det.s.date)} · ${durLabel(det.s.seconds)} · ${det.lines.length}문장`, `${fullDate(det.s.date)} · ${durLabel(det.s.seconds)} · ${det.lines.length} ${det.lines.length === 1 ? "sentence" : "sentences"}`);
+      if (ev.id === det.id && det.s) $("detMeta").textContent = L(`${fullDate(det.s.date)} · ${durLabel(det.s.seconds)} · ${det.lines.length}문장`, `${fullDate(det.s.date)} · ${durLabel(det.s.seconds)} · ${nEN(det.lines.length, "sentence")}`);
       if (!p) return;
       toast(p.msg, 5000, p.undo ? [L("되돌리기", "Undo"), () => {
         const back = p.undo.map((l) => ({ ...l }));
@@ -2927,7 +3125,7 @@
     quitting() { body.classList.add("quitting"); },
     storage(ev) {
       const mb = (ev.bytes || 0) / 1e6;
-      $("setStorage").textContent = `${L(`${ev.count || 0}개`, `${ev.count || 0} ${ev.count === 1 ? "recording" : "recordings"}`)} · ${mb >= 1000 ? (mb / 1000).toFixed(1) + "GB" : Math.round(mb) + "MB"}${IOS ? L(" · 파일 앱에서 볼 수 있습니다", " · Viewable in the Files app") : ev.folder ? " · " + folderLabel(ev.folder) : ""}`;
+      $("setStorage").textContent = `${L(`${ev.count || 0}개`, nEN(ev.count || 0, "recording"))} · ${OTHER ? (mb >= 1000 ? size(mb / 1000, "GB", 1) : size(Math.round(mb), "MB")) : mb >= 1000 ? (mb / 1000).toFixed(1) + "GB" : Math.round(mb) + "MB"}${IOS ? L(" · 파일 앱에서 볼 수 있습니다", " · Viewable in the Files app") : ev.folder ? " · " + folderLabel(ev.folder) : ""}`;
     },
     openSettings() { if (!legalPending()) openSettings(); },
     openLegal() { if (!legalPending()) openLegal(false); },
@@ -2975,7 +3173,7 @@
   $("setTs").onchange = () => { $("ts").checked = $("setTs").checked; $("ts").onchange(); };
   // the app's language: the app reloads the page in it (the browser demo reloads itself)
   function switchLanguage(v) {
-    if (v === LANG || (v !== "ko" && v !== "en")) return;
+    if (v === LANG || !LANGS.some(([x]) => x === v)) return;
     if (state.rec !== "idle") { toast(L("받아 적는 동안에는 언어를 바꿀 수 없습니다.", "You can't change the language while transcribing.")); return; }
     try { localStorage.setItem("uiLang", v); } catch (e) {}
     try { if (isOpen("settings")) sessionStorage.setItem("reopen", "settings"); } catch (e) {}   // 설정 comes back after the reload
@@ -2987,16 +3185,86 @@
       location.replace(u.toString());
     }
   }
+  // the 12 languages, each in its own words: 설정 › 언어, and the card the start screen's globe opens
+  for (const [box, role] of [[$("setLang"), "radio"], [$("langMenu"), "menuitemradio"]]) {
+    for (const [v, name] of LANGS) {
+      const b = document.createElement("button");
+      b.dataset.v = v; b.lang = v; b.textContent = name; b.setAttribute("role", role);
+      b.classList.toggle("on", v === LANG); b.setAttribute("aria-checked", String(v === LANG));
+      box.appendChild(b);
+    }
+  }
+  $("setLang").setAttribute("aria-label", L("언어", "Language"));
+  $("langMenu").setAttribute("aria-label", L("언어", "Language"));
   document.querySelectorAll("#setLang button").forEach((b) => { b.onclick = () => switchLanguage(b.dataset.v); });
   document.querySelectorAll("#setPdf button").forEach((b) => {
     b.onclick = () => { state.pdfLayout = b.dataset.v; renderSettings(); send("settings", { pdfLayout: b.dataset.v }); };
   });
-  $("langBtnText").textContent = IN_EN ? "한국어" : "English";      // each language in its own words
-  $("langBtn").lang = IN_EN ? "ko" : "en";
-  $("langBtn").title = IN_EN ? "한국어로 보기" : "Switch to English";
+  // the globe: the language in its own words; it opens the list (a globe is found even in a language one can't read)
+  $("langBtnText").textContent = LANGS.find(([v]) => v === LANG)[1];
+  $("langBtnText").lang = LANG;
+  $("langBtn").title = IN_EN ? "Language" : `${L("언어", "Language")} · Language`;
   $("langBtn").setAttribute("aria-label", $("langBtn").title);
-  $("langBtn").onclick = () => switchLanguage(IN_EN ? "ko" : "en");
-  $("setLangLabel").textContent = IN_EN ? "Language · 언어" : "언어 · Language";
+  $("langBtn").setAttribute("aria-haspopup", "menu");
+  // the globe shows the language's name unless it would touch the wordmark (long names, narrow windows): then the globe alone
+  function fitLangBtn() {
+    const b = $("langBtn"), r = document.createRange();
+    if (!b.getClientRects().length) return;            // hidden (recording, text on screen): measured when it shows again
+    b.classList.remove("icon-only");
+    r.selectNodeContents(document.querySelector(".brand"));
+    const t = r.getBoundingClientRect();
+    if (t.width && b.getBoundingClientRect().right + 12 > t.left) b.classList.add("icon-only");
+  }
+  addEventListener("resize", fitLangBtn);
+  // a sheet's back label gives way to its title the same way (long labels and titles in other languages, on phones)
+  function fitBars() {
+    for (const back of document.querySelectorAll(".sheet .back")) {
+      const t = back.closest(".sheet").querySelector(".bar-title b"), r = document.createRange();
+      back.classList.remove("icon-only");
+      if (!t || !t.textContent.trim()) continue;
+      r.selectNodeContents(t);
+      const tr = r.getBoundingClientRect();
+      if (tr.width && back.getBoundingClientRect().right + 12 > tr.left) back.classList.add("icon-only");
+    }
+  }
+  addEventListener("resize", fitBars);
+  for (const t of document.querySelectorAll(".sheet .bar-title b")) new ResizeObserver(fitBars).observe(t);
+  new ResizeObserver(fitLangBtn).observe($("langBtn"));   // it shows again after a recording
+  fitLangBtn();
+  if (document.fonts) document.fonts.ready.then(fitLangBtn);
+  $("langBtn").setAttribute("aria-expanded", "false");
+  const langMenu = $("langMenu");
+  function closeLangMenu(focusBack) {
+    if (langMenu.hidden) return;
+    langMenu.hidden = true;
+    $("langBtn").setAttribute("aria-expanded", "false");
+    if (focusBack) $("langBtn").focus();
+  }
+  $("langBtn").onclick = () => {
+    if (!langMenu.hidden) return closeLangMenu(true);
+    langMenu.hidden = false;
+    $("langBtn").setAttribute("aria-expanded", "true");
+    (langMenu.querySelector(".on") || langMenu.firstElementChild).focus();
+  };
+  langMenu.onclick = (e) => {
+    const b = e.target.closest("button[data-v]");
+    if (!b) return;
+    closeLangMenu(true);
+    switchLanguage(b.dataset.v);
+  };
+  langMenu.onkeydown = (e) => {
+    const items = [...langMenu.children], i = items.indexOf(document.activeElement);
+    const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 2, ArrowUp: -2 }[e.key];
+    if (step) { e.preventDefault(); items[Math.min(items.length - 1, Math.max(0, i + step))].focus(); }
+    else if (e.key === "Home" || e.key === "End") { e.preventDefault(); items[e.key === "Home" ? 0 : items.length - 1].focus(); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeLangMenu(true); }
+    else if (e.key === "Tab") closeLangMenu(false);
+  };
+  document.addEventListener("pointerdown", (e) => {
+    if (!langMenu.hidden && !langMenu.contains(e.target) && !$("langBtn").contains(e.target)) closeLangMenu(false);
+  }, true);
+  $("setLangLabel").textContent = IN_KO ? "언어 · Language" : IN_EN ? "Language · 언어" : `${L("언어", "Language")} · Language`;
+  if (OTHER) $("lang").children[1].textContent = L("English", "English");   // the lecture's language: 한국어 is in the markup
   $("setSl").onchange = () => { $("sl").checked = $("setSl").checked; $("sl").onchange(); };
   $("setClean").onchange = () => setClean($("setClean").checked);
   $("setKw").onclick = () => $("kw").click();
@@ -3006,7 +3274,7 @@
   $("setLogs").style.display = IOS ? "none" : "";
   document.querySelectorAll("[data-url]").forEach((b) => (b.onclick = () => send("openLink", { url: b.dataset.url })));
   $("setIconNote").textContent = IOS ? L("홈 화면 아이콘이 바뀝니다. iOS가 변경 사실을 한 번 알려 줍니다.", "The Home Screen icon changes. iOS lets you know once.")
-                                     : L("Dock의 아이콘이 바로 바뀝니다. Finder와 Launchpad의 아이콘은 그대로입니다.", "The Dock icon changes right away. The icon in Finder and Launchpad stays the same.");
+                                     : L("Dock의 아이콘이 바로 바뀝니다. Finder 등 다른 곳의 아이콘은 그대로입니다.", "The Dock icon changes right away. Elsewhere, such as in Finder, the icon stays the same.");
   $("setSlInfo").textContent = IOS ? L("영상 파일의 슬라이드를 모아 한 말과 함께 PDF로", "Collects a video file's slides into a PDF with what was said") : L("강의 창의 슬라이드를 모아 한 말과 함께 PDF로", "Collects the lecture window's slides into a PDF with what was said");
   $("libSearch").oninput = renderLibrary;
   $("libFolder").textContent = IOS ? L("파일 앱에서 보기", "Show in Files") : L("폴더에서 보기", "Show in Finder");
@@ -3037,9 +3305,10 @@
     $("legal").dataset.first = first ? "1" : "";
     $("legalOk").textContent = first ? L("동의하고 시작", "Agree and Start") : L("확인", "OK");
     $("legal").classList.add("show");
-    for (const el of document.body.children) if (el.id !== "legal" && el.id !== "langBtn" && el.tagName !== "SCRIPT") el.inert = !!first;   // nothing else before agreeing
+    for (const el of document.body.children) if (el.id !== "legal" && el.id !== "langBtn" && el.id !== "langMenu" && el.tagName !== "SCRIPT") el.inert = !!first;   // nothing else before agreeing
     body.classList.toggle("legal-first", !!first);
-    $("legalOk").focus();
+    $("legal").scrollTop = 0;                      // the notice is read from its title (OK is at the end)
+    $("legalOk").focus({ preventScroll: true });
   }
   function closeLegal() {
     $("legal").classList.remove("show");
@@ -3069,7 +3338,7 @@
     setLang(b.dataset.lang);
     send("settings", { language: b.dataset.lang });
     const only = engineInUse()?.languages?.length === 1 ? engineInUse() : null;      // Parakeet: English only
-    toast(state.rec === "recording" ? L(`다음 녹음부터 ${en ? "영어" : "한국어"} 강의로 받아 적습니다.`, `Starting with the next recording, lectures are transcribed as ${en ? "English" : "Korean"}.`)
+    toast(state.rec === "recording" ? L(`다음 녹음부터 ${en ? "영어" : "한국어"} 강의로 받아 적습니다.`, `Starting with the next recording, lectures are transcribed as ${en ? "English" : L("한국어", "Korean")}.`)
           : en ? (only ? L(`영어 강의로 받아 적습니다. ${only.name} 모델은 영어만 받아 적습니다.`, `Lecture language: English. The ${only.name} model transcribes English only.`)
                 : engineInUse() ? L("영어 강의로 받아 적습니다. 한국어로 하는 말도 한국어로 적습니다(또렷하지 않은 짧은 말은 가끔 틀릴 수 있습니다).", "Lecture language: English. Anything said in Korean is written in Korean too (short, unclear phrases may occasionally be wrong).")
                 : L("영어 강의로 받아 적습니다. 한국어로 하는 말도 적으려 하지만, Apple 음성 인식은 한국어 말을 놓칠 때가 있습니다(짧을수록 자주).", "Lecture language: English. It also tries to write down what's said in Korean, but Apple Speech Recognition sometimes misses Korean speech (more often the shorter it is)."))
@@ -3136,7 +3405,7 @@
   $("kwcancel").onclick = () => $("kwpanel").classList.remove("show");
   $("kwdefault").onclick = () => { $("kwtext").value = DEFAULT_KEYWORDS.join(", "); };
   $("kwsave").onclick = () => {
-    const words = $("kwtext").value.split(/[,\n]/).map((w) => w.trim()).filter(Boolean);
+    const words = $("kwtext").value.split(/[,\n、，]/).map((w) => w.trim()).filter(Boolean);
     pendingKwToast = true;
     send("settings", { keywords: words });
     $("kwpanel").classList.remove("show");
@@ -3195,7 +3464,7 @@
       if (cmd === "ready") setTimeout(() => { emit({ ev: "engine", state: "ready" }); this.engines(emit); }, 700);
       if (cmd.startsWith("engine")) { this.engineCmd(cmd, extra, emit); return; }
       if (cmd === "start") {
-        emit({ ev: "rec", state: "recording", mode: "live", started: Date.now() / 1000, title: L("2026-10-04 16시30분 강의", "2026-10-04 16.30 Lecture") });
+        emit({ ev: "rec", state: "recording", mode: "live", started: Date.now() / 1000, title: LF("2026-10-04 16시30분 강의", "2026-10-04 16.30 Lecture") });
         let t = 0, id = 1;
         Object.assign(this, { paused: false, pausedTotal: 0, pausedAt: 0 });
         this.timers.push(setInterval(() => emit({ ev: "level", v: this.paused ? 0 : 0.35 + Math.random() * 0.5 }), 120));
@@ -3298,7 +3567,7 @@
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo, h, m);
         return d.getTime() / 1000;
       };
-      const stamp = (e) => { const d = new Date(e * 1000); return L(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}시${pad2(d.getMinutes())}분 강의`, `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}.${pad2(d.getMinutes())} Lecture`); };
+      const stamp = (e) => { const d = new Date(e * 1000); return LF(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}시${pad2(d.getMinutes())}분 강의`, `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}.${pad2(d.getMinutes())} Lecture`); };
       const lecture = [
         [12, L("여러분, 안녕하십니까. 오늘 강의에서는 수요와 공급의 기본 원리를 함께 살펴보겠습니다.", "Hello, everyone. In today's lecture we'll look at the basic principles of supply and demand.")],
         [95, L("지난 시간에 배운 기회비용 개념을 잠깐 복습하고 시작하겠습니다.", "Let's start with a quick review of opportunity cost from last time.")],
@@ -3322,14 +3591,14 @@
         [2840, L("수고하셨습니다. 다음 시간에 뵙겠습니다.", "Thank you, everyone. See you next time.")],
       ];
       const mk = (id, kind, custom, date, seconds, lines) => ({ id, kind, custom, date, seconds, lines, audio: true,
-        header: kind === "live" ? L(`강의 녹취 · ${stamp(date).slice(0, 10)} (${WEEK[new Date(date * 1000).getDay()]}) ${stamp(date).slice(11, 13)}:${stamp(date).slice(14, 16)} 시작`, `Lecture transcript · ${stamp(date).slice(0, 10)} (${WEEK_EN[new Date(date * 1000).getDay()].slice(0, 3)}) ${stamp(date).slice(11, 13)}:${stamp(date).slice(14, 16)}`)
-          : L(`파일 받아쓰기 · ${id.replace(/ 받아쓰기$/, "")}.m4a · ${stamp(date).slice(0, 10)}`, `File transcription · ${id.replace(/ transcript$/, "")}.m4a · ${stamp(date).slice(0, 10)}`) });
+        header: kind === "live" ? LF(`강의 녹취 · ${stamp(date).slice(0, 10)} (${WEEK[new Date(date * 1000).getDay()]}) ${stamp(date).slice(11, 13)}:${stamp(date).slice(14, 16)} 시작`, `Lecture transcript · ${stamp(date).slice(0, 10)} (${WEEK_EN[new Date(date * 1000).getDay()].slice(0, 3)}) ${stamp(date).slice(11, 13)}:${stamp(date).slice(14, 16)}`)
+          : LF(`파일 받아쓰기 · ${id.replace(/ 받아쓰기$/, "")}.m4a · ${stamp(date).slice(0, 10)}`, `File transcription · ${id.replace(/ transcript$/, "")}.m4a · ${stamp(date).slice(0, 10)}`) });
       const d0 = at(0, 15, 25), d1 = at(1, 10, 0), d3 = at(3, 11, 0), d6 = at(6, 20, 40), d9 = at(9, 13, 0);
       this.sessionsData = [
         Object.assign(mk(stamp(d0), "live", false, d0, 2876, lecture), { slides: 14 }),
         mk(L("경제학원론 5주차", "Principles of Economics, Week 5"), "live", true, d1, 4321, [[8, L("오늘은 시장 실패에 대해 이야기하겠습니다.", "Today we'll talk about market failure.")], [1810, L("외부효과가 있으면 시장 가격이 사회적 비용을 반영하지 못합니다.", "When there are externalities, market prices don't reflect the social cost.")], [3920, L("시험 범위는 6장까지입니다. 잊지 마십시오.", "The exam covers up to Chapter 6. Don't forget.")]]),
         mk(L("채플 5주차", "Chapel, Week 5"), "live", true, d3, 3120, [[30, L("오늘 말씀의 제목은 감사입니다.", "Today's message is titled Gratitude.")], [1500, L("작은 일에 감사하는 마음이 우리를 바꿉니다.", "A heart that is grateful for small things changes us.")], [2950, L("오늘의 단어는 감사입니다. 출석 확인에 적어 주십시오.", "Today's keyword is gratitude. Please write it on the attendance check.")]]),
-        mk(L("녹음 2026-09-28 받아쓰기", "Recording 2026-09-28 transcript"), "file", false, d6, 1862, [[3, L("스터디 녹음입니다. 오늘은 3장 연습문제를 풀어 보겠습니다.", "This is a study group recording. Today we'll work through the Chapter 3 exercises.")], [940, L("이 문제는 한계비용과 평균비용을 헷갈리면 안 됩니다.", "In this problem, don't mix up marginal cost and average cost.")]]),
+        mk(LF("녹음 2026-09-28 받아쓰기", "Recording 2026-09-28 transcript"), "file", false, d6, 1862, [[3, L("스터디 녹음입니다. 오늘은 3장 연습문제를 풀어 보겠습니다.", "This is a study group recording. Today we'll work through the Chapter 3 exercises.")], [940, L("이 문제는 한계비용과 평균비용을 헷갈리면 안 됩니다.", "In this problem, don't mix up marginal cost and average cost.")]]),
         mk(stamp(d9), "live", false, d9, 2710, [[15, L("이번 주에는 생산 함수와 비용 곡선을 다룹니다.", "This week we cover production functions and cost curves.")], [1320, L("규모의 경제가 생기는 이유를 세 가지로 정리해 보겠습니다.", "Let's sum up the three reasons economies of scale arise.")]]),
       ];
       return this.sessionsData;
@@ -3407,7 +3676,8 @@
     frame(k) {
       const W = 960, H = 600, c = document.createElement("canvas");
       c.width = W; c.height = H;
-      const g = c.getContext("2d"), font = (w, s) => `${w} ${s}px "Apple SD Gothic Neo", "Pretendard", sans-serif`;
+      const g = c.getContext("2d"), cjk = { "zh-Hans": "\"PingFang SC\", ", "zh-Hant": "\"PingFang TC\", ", ja: "\"Hiragino Sans\", " }[LANG] || "",
+            font = (w, s) => `${w} ${s}px ${cjk}"Apple SD Gothic Neo", "Pretendard", sans-serif`;   // Chinese and Japanese in their own fonts
       g.fillStyle = "#000"; g.fillRect(0, 0, W, H);
       g.fillStyle = "#e8e8eb"; g.fillRect(0, 0, W, 22);
       g.fillStyle = "#8a8c95"; g.beginPath(); g.roundRect(10, 5, 34, 12, 6); g.fill();
@@ -3422,7 +3692,7 @@
       g.fillStyle = "#fbfaf7"; g.fillRect(sx, sy, sw, sh);
       g.fillStyle = "#6b4c8a"; g.fillRect(sx + sw - 44, sy + 18, 20, 66);
       g.fillStyle = "#5a3f78"; g.font = font(600, 27);
-      g.fillText((IN_EN ? ["Supply and Demand", "Market Equilibrium", "Opportunity Cost", "Elasticity"] : ["수요와 공급", "시장 균형", "기회비용", "탄력성"])[n % 4], sx + 34, sy + 56);
+      g.fillText([L("수요와 공급", "Supply and Demand"), L("시장 균형", "Market Equilibrium"), L("기회비용", "Opportunity Cost"), L("탄력성", "Elasticity")][n % 4], sx + 34, sy + 56);
       [[0.62, 120], [0.48, 154], [0.55, 188], [0.36, 222]].slice(0, 2 + n % 3).forEach(([w, y], i) => {
         g.fillStyle = "#5a3f78"; g.beginPath(); g.arc(sx + 42, sy + y - 5, 3.5, 0, 7); g.fill();
         g.fillStyle = "#c9ccd4"; g.fillRect(sx + 56, sy + y - 10, (w - (n % 2) * 0.08 + i * 0.03) * 300, 10);

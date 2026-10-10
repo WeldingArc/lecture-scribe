@@ -1214,16 +1214,45 @@ enum SlidesPDF {
             NSAttributedString.Key(kCTParagraphStyleAttributeName as String): para,
         ])
         // Pretendard's glyphs for most symbols get no Unicode in a PDF (copy and search would lose them): only what it
-        // carries is drawn with it, everything else with the system's Korean font in the same weight.
+        // carries is drawn with it, everything else with the fallback font in the same weight.
         if (CTFontCopyPostScriptName(f) as String).hasPrefix("Pretendard") {
             let weight = (CTFontCopyPostScriptName(f) as String).replacingOccurrences(of: "Pretendard-", with: "")
-            let sys = CTFontCreateWithName(("AppleSDGothicNeo-" + (weight == "ExtraLight" ? "UltraLight" : weight)) as CFString, CTFontGetSize(f), nil)
+            let (sys, latin, all) = fallback(weight, CTFontGetSize(f))
             let ns = s as NSString
-            for i in 0..<ns.length where !pretendardKeeps(ns.character(at: i)) {
-                out.addAttribute(NSAttributedString.Key(kCTFontAttributeName as String), value: sys, range: NSRange(location: i, length: 1))
+            for i in 0..<ns.length where all ? !hangul(ns.character(at: i)) : !pretendardKeeps(ns.character(at: i)) {
+                let c = ns.character(at: i)
+                out.addAttribute(NSAttributedString.Key(kCTFontAttributeName as String), value: latin != nil && !cjk(c) ? latin! : sys,
+                                 range: NSRange(location: i, length: 1))
             }
         }
         return out
+    }
+
+    /// What draws what Pretendard doesn't carry into a PDF, by the app's language: the system's Korean font (Korean,
+    /// English); Chinese and Japanese in their own fonts (the Korean font would draw Korean forms of Han characters);
+    /// for the others Helvetica Neue draws everything but Hangul (`all`) — an "é" from another typeface would stand out.
+    /// (Chinese and Japanese: their font draws only Han/kana/CJK punctuation; Latin punctuation such as "-" comes from
+    /// Helvetica Neue — PingFang's hyphen looks like an en dash.)
+    private static func fallback(_ weight: String, _ size: CGFloat) -> (font: CTFont, latin: CTFont?, all: Bool) {
+        let w = weight == "ExtraLight" ? 0 : weight == "Light" ? 1 : 2
+        let helvetica = ["HelveticaNeue-UltraLight", "HelveticaNeue-Light", "HelveticaNeue"]
+        let (names, latin, all): ([String], [String]?, Bool) = switch appLanguage.value {
+        case "ko", "en": (["AppleSDGothicNeo-UltraLight", "AppleSDGothicNeo-Light", "AppleSDGothicNeo-" + weight], nil, false)
+        case "zh-Hans": (["PingFangSC-Thin", "PingFangSC-Light", "PingFangSC-Regular"], helvetica, false)
+        case "zh-Hant": (["PingFangTC-Thin", "PingFangTC-Light", "PingFangTC-Regular"], helvetica, false)
+        case "ja": (["HiraginoSans-W2", "HiraginoSans-W3", "HiraginoSans-W4"], helvetica, false)
+        default: (helvetica, nil, true)
+        }
+        return (CTFontCreateWithName(names[w] as CFString, size, nil), latin.map { CTFontCreateWithName($0[w] as CFString, size, nil) }, all)
+    }
+
+    /// Han, kana, CJK punctuation and full-width forms.
+    private static func cjk(_ c: unichar) -> Bool {
+        (0x2E80...0x9FFF).contains(c) || (0xF900...0xFAFF).contains(c) || (0xFE30...0xFE4F).contains(c) || (0xFF00...0xFFEF).contains(c)
+    }
+
+    private static func hangul(_ c: unichar) -> Bool {
+        (0xAC00...0xD7A3).contains(c) || (0x1100...0x11FF).contains(c) || (0x3130...0x318F).contains(c)
     }
 
     /// What Pretendard carries into a PDF's text layer (checked character by character): Hangul, ASCII letters and
@@ -1451,7 +1480,7 @@ enum SlidesPDF {
     /// The transcript's PDF in the `split` layout: "<name> (받아쓰기).pdf" — or "(Transcript)" in English.
     static func transcriptPDF(for transcript: URL) -> URL {
         let name = transcript.deletingPathExtension().lastPathComponent
-        return transcript.deletingLastPathComponent().appendingPathComponent("\(name) (\(L("받아쓰기", "Transcript"))).pdf")
+        return transcript.deletingLastPathComponent().appendingPathComponent("\(name) (\(LF("받아쓰기", "Transcript"))).pdf")
     }
 
     /// Every name a session's transcript PDF can have (either language), for 기록's rename, delete and share.
@@ -1672,14 +1701,31 @@ enum SlidesPDF {
     /// "강의 녹취 · …\n슬라이드 12장 · 문장 340개 · 1:12:01" — what the cover says under the title.
     private static func summary(_ deck: Deck) -> String {
         let counts = L("슬라이드 \(deck.slides.count)장 · 문장 \(deck.said)개 · \(fmtTime(deck.end))",
-                       "\(deck.slides.count) slide\(deck.slides.count == 1 ? "" : "s") · \(deck.said) sentence\(deck.said == 1 ? "" : "s") · \(fmtTime(deck.end))")
-        return deck.header.isEmpty ? counts : deck.header + "\n" + counts
+                       "\(nL(deck.slides.count, "slide")) · \(nL(deck.said, "sentence")) · \(fmtTime(deck.end))")
+        return deck.header.isEmpty ? counts : coverHeader(deck.header) + "\n" + counts
+    }
+
+    /// The transcript's first line as the cover shows it. Files keep Korean or English headers (LF); in any other
+    /// language the cover says what it is in that language, without the English weekday:
+    /// "Lecture transcript · 2026-10-09 (Fri) 14:30" → "<Lecture transcript in ja> · 2026-10-09 14:30".
+    static func coverHeader(_ h: String) -> String {
+        guard !["ko", "en"].contains(appLanguage.value) else { return h }
+        let rest = { (p: String) in String(h.dropFirst(p.count)).replacingOccurrences(of: #" \([A-Z][a-z]{2}\)"#, with: "", options: .regularExpression) }
+        if h.hasPrefix("Lecture transcript · ") { return L("강의 녹취", "Lecture transcript") + " · " + rest("Lecture transcript · ") }
+        if h.hasPrefix("File transcription · ") { return L("파일 받아쓰기", "File transcription") + " · " + rest("File transcription · ") }
+        return h
     }
 
     /// "2026년 10월 6일 화요일 오후 2:00 강의" for the app's default names; the name itself otherwise.
     static func coverTitle(name: String, header: String, file: URL) -> String {
         if Library.defaultNameRE.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil {
             let d = Library.date(header: header, file: file), c = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day, .weekday, .hour, .minute], from: d)
+            if !["ko", "en"].contains(appLanguage.value) {                 // other languages: their own date format
+                let f = DateFormatter()
+                f.locale = Locale(identifier: appLanguage.value)
+                f.dateStyle = .full; f.timeStyle = .short
+                return L("", "\(f.string(from: d).replacingOccurrences(of: "\u{202F}", with: "\u{00A0}")) Lecture")   // "2026 г.", not "2026г."
+            }
             let h = c.hour ?? 0, mm = String(format: "%02d", c.minute ?? 0), h12 = h % 12 == 0 ? 12 : h % 12
             let days = ["일", "월", "화", "수", "목", "금", "토"], daysEN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
             let months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
