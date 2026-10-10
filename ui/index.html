@@ -81,7 +81,9 @@
   :lang(zh-Hans) { font-family: "Pretendard Latin", "PingFang SC", var(--font); }
   :lang(zh-Hant) { font-family: "Pretendard Latin", "PingFang TC", var(--font); }
   :lang(ja) { font-family: "Pretendard Latin", "Hiragino Sans", var(--font); }
-  [lang]:not(:lang(zh-Hans)):not(:lang(zh-Hant)):not(:lang(ja)) { font-family: var(--font); }   /* "Русский" in a Japanese page */
+  :lang(yue-Hant) { font-family: "Pretendard Latin", "PingFang HK", var(--font); }
+  :lang(yue-Hans) { font-family: "Pretendard Latin", "PingFang SC", var(--font); }
+  [lang]:not(:lang(zh-Hans)):not(:lang(zh-Hant)):not(:lang(ja)):not(:lang(yue-Hant)):not(:lang(yue-Hans)) { font-family: var(--font); }   /* "Русский" in a Japanese page */
   /* keep-all is for Korean: in Chinese and Japanese it makes a whole sentence one unbreakable word, and in the other
      languages WebKit then breaks right after an apostrophe or an opening quote ("dall’ | accento", "“ | Frases").
      The transcript itself (Korean or English) keeps Korean's word breaks. */
@@ -93,6 +95,10 @@
   html:lang(zh-Hans) *, html:lang(zh-Hant) *, html:lang(ja) * { line-break: strict; }
   html:not([lang="ko"]) :is(.seg p, .srow-text, .cue-line, .saved .cues),
   html:not([lang="ko"]) :is(.seg p, .srow-text, .cue-line, .saved .cues) * { word-break: keep-all !important; overflow-wrap: anywhere; }
+  /* …but a line in Chinese, Japanese or Thai (lang set from its characters: lineLang) breaks by its own rules — keep-all
+     would make a whole sentence one word (Thai: broken mid-word where it overflows) — in its language's font */
+  html body :is(.seg p, .srow-text, .cue-line span, .saved .cues div):is([lang="ja"], [lang^="zh"], [lang="th"]),
+  html body :is(.seg p, .srow-text, .cue-line span, .saved .cues div):is([lang="ja"], [lang^="zh"], [lang="th"]) * { word-break: normal !important; line-break: strict; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
@@ -132,6 +138,8 @@
     font-size: 13.5px; font-weight: 300; color: var(--muted); letter-spacing: 0.02em;
   }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+  #status { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* one line, whatever it says */
+  #timer { flex: none; white-space: nowrap; }
   body.engine-ready .dot { background: var(--ok); }
   body.engine-loading .dot { animation: pulse 1.4s ease-in-out infinite; }
   body.recording .dot { background: var(--rec); box-shadow: 0 0 12px rgba(196, 106, 92, 0.7); animation: pulse 1.8s ease-in-out infinite; }
@@ -269,7 +277,7 @@
   .dlbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.4s ease; }
   .dl span { font-size: 13px; color: var(--muted); font-weight: 300; font-variant-numeric: tabular-nums; }
   .panel {
-    position: fixed; inset: 0; z-index: 25; display: none; align-items: center; justify-content: center;
+    position: fixed; inset: 0; z-index: 32;              /* above notices (30) and the undo bar (31): a dialog is on top */ display: none; align-items: center; justify-content: center;
     background: var(--overlay); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   }
   .panel.show { display: flex; }
@@ -515,7 +523,8 @@
   body.paused .pausebtn { color: var(--accent); border-color: rgba(var(--accent-rgb), 0.55); }
   body.paused .rec { animation: none; border-color: rgba(var(--accent-rgb), 0.5); }
   .row2 {
-    margin-top: 18px; display: flex; gap: 22px; justify-content: center; align-items: center;
+    margin-top: 18px; display: flex; gap: 15px; justify-content: center; align-items: center;   /* 2.6: the switch's third segment fits
+     where 2.5's row did */
     font-size: 12.5px; color: var(--muted); font-weight: 300;
   }
   .toggle { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; }
@@ -537,16 +546,66 @@
   }
   .check:hover .box { border-color: rgba(var(--tint-rgb), 0.5); }
   .row2 { flex-wrap: wrap; row-gap: 10px; }
-  .row2 .grp { display: inline-flex; align-items: center; gap: 22px; }    /* a "?" wraps with what it explains */
+  .row2 .grp { display: inline-flex; align-items: center; gap: 12px; }    /* a "?" wraps with what it explains */
   .link { font-size: 12.5px; color: var(--muted); font-weight: 300; border-bottom: 1px solid transparent; transition: color 0.2s, border-color 0.2s; }
   .link:hover:not(:disabled) { color: var(--ink-2); border-color: var(--line-2); }
   .link:disabled { opacity: 0.35; cursor: default; }
   .dotsep { color: var(--faint); }
+  body.dock-wraps .row2 .dotsep { display: none; }       /* two lines: no "·" left at a line's end (fitDock) */
+  @media (min-width: 521px) { body.dock-wraps .row2 { column-gap: 24px; } }   /* …and without them, room between controls */
   /* 강의 언어: the lecture's main language (the other one is written where it is spoken) */
   .langseg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line-2); border-radius: 999px; }
-  .langseg button { font-size: 12px; font-weight: 300; color: var(--muted); padding: 3px 10px; border-radius: 999px; transition: background 0.2s, color 0.2s; }
+  .langseg button { font-size: 12px; font-weight: 300; color: var(--muted); padding: 3px 10px; border-radius: 999px; white-space: nowrap; transition: background 0.2s, color 0.2s; }
   .langseg button.on { background: rgba(var(--accent-rgb), 0.22); color: var(--ink); font-weight: 400; }
+  .langseg button:focus-visible { outline: 1.5px solid rgba(var(--accent-rgb), 0.6); outline-offset: 1px; }
   .langseg button:hover:not(.on) { color: var(--ink-2); }
+  .langseg .more { display: inline-flex; align-items: center; gap: 5px; padding-right: 9px; max-width: 16em; }
+  .langseg .more span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .langseg .more svg { flex: none; width: 8px; height: 8px; fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0.7; transition: transform 0.2s; }
+  .langseg .more[aria-expanded="true"] { color: var(--ink); }
+  .langseg .more[aria-expanded="true"] svg { transform: rotate(180deg); }
+  @media (max-width: 420px) { .langseg .more { max-width: 8.5em; } }
+  /* 다른 언어: every language this device transcribes, each in the app's language with its own name beside it */
+  .lectmenu {
+    position: fixed; z-index: 44; width: min(468px, calc(100vw - 24px));   /* under the usage notice (45) */ display: flex; flex-direction: column; overflow: hidden;
+    border-radius: 16px; background: linear-gradient(var(--card), var(--card)), var(--bg);   /* opaque: the title doesn't show through */
+    border: 1px solid var(--line); box-shadow: 0 12px 36px var(--shadow); animation: lectmenu-in 0.16s ease-out;
+  }
+  .lectmenu[hidden] { display: none; }
+  #empty { transition: opacity 0.2s; }
+  body.lect-open #empty { opacity: 0.12; }               /* the card has the stage: no headline fragments beside it */
+  @keyframes lectmenu-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .lm-find {
+    flex: none; margin: 8px 8px 4px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line-2);
+    background: transparent; color: var(--ink); font: 300 13.5px var(--font); outline: none; -webkit-appearance: none;
+  }
+  .lm-find::placeholder { color: var(--faint); }
+  .lm-find:focus { border-color: rgba(var(--accent-rgb), 0.55); }
+  .lm-find::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+  .lm-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 6px 6px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; align-content: start; align-items: start; }
+  .lm-list { scroll-snap-type: y proximity; scroll-padding-top: 4px; }
+  .lm-list button { scroll-snap-align: start; }
+  .lm-list::-webkit-scrollbar { width: 9px; }
+  .lm-list::-webkit-scrollbar-thumb { background: rgba(var(--tint-rgb), 0.14); border-radius: 9px; border: 3px solid transparent; background-clip: padding-box; }
+  .lm-list button {
+    display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 10px; border-radius: 10px; text-align: left;
+    font-size: 13.5px; font-weight: 300; line-height: 1.4; color: var(--ink-2); transition: background 0.15s, color 0.15s;
+  }
+  .lm-list button:hover, .lm-list button:focus-visible { background: rgba(var(--tint-rgb), 0.06); color: var(--ink); outline: none; }
+  .lm-list button.on { color: var(--ink); font-weight: 400; background: rgba(var(--accent-rgb), 0.14); }
+  /* the name in the app's language, then the language's own name: never cut — a long name wraps, and the own name moves
+     to the next line whole when it doesn't fit beside it */
+  .lm-text { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 7px; overflow-wrap: anywhere; }
+  .lm-name, .lm-own { min-width: 0; max-width: 100%; }
+  .lm-paren { display: inline-block; }                     /* "(Brasil)", "（ブークモール）" wrap whole */
+  .lm-own { font-size: 12px; color: var(--muted); font-weight: 300; }
+  .lm-dl { flex: none; width: 11px; height: 11px; fill: none; stroke: var(--faint); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+  .lm-list .lm-dl { margin-left: auto; align-self: center; }
+  .lm-note .lm-dl { display: inline-block; vertical-align: -1px; margin-right: 4px; }
+  .lm-none { grid-column: 1 / -1; padding: 16px; text-align: center; font-size: 13px; font-weight: 300; color: var(--muted); }
+  .lm-note { flex: none; padding: 9px 14px 11px; border-top: 1px solid var(--line); font-size: 11.5px; line-height: 1.5; font-weight: 300; color: var(--muted); }
+  .lm-note[hidden] { display: none; }
+  @media (max-width: 460px) { .lm-list { grid-template-columns: minmax(0, 1fr); } }
 
   /* ---------- overlays ---------- */
   .latest {
@@ -572,7 +631,7 @@
   .toast.has-act { pointer-events: auto; display: flex; align-items: center; gap: 14px; padding-right: 10px; }
   .toast.has-act:not(.show) { pointer-events: none; }
   .toast button { padding: 5px 12px; border-radius: 999px; font-size: 13px; color: var(--accent); border: 1px solid rgba(var(--accent-rgb), 0.4); }
-  #undo { display: flex; align-items: center; gap: 14px; padding-right: 10px; z-index: 31; }
+  #undo { display: flex; align-items: center; gap: 14px; padding-right: 10px; z-index: 31; }   /* under a dialog (its 10 s wait for it) */
   #undo:not(.show) { pointer-events: none; }
   #undo.show { pointer-events: auto; }
   body.has-undo #toast { bottom: calc(252px + var(--sab)); }
@@ -757,7 +816,7 @@
   .eng-txt { flex: 1; min-width: 0; display: grid; gap: 4px; font-size: 14.5px; font-weight: 300; color: var(--ink); }
   .eng-txt b { font-weight: 400; }
   .eng-txt b i { font-style: normal; font-weight: 300; color: var(--muted); font-size: 12px; margin-left: 6px; white-space: nowrap; }
-  .eng-txt small { font-size: 12px; color: var(--muted); line-height: 1.5; font-weight: 300; word-break: keep-all; }
+  .eng-txt small { font-size: 12px; color: var(--muted); line-height: 1.5; font-weight: 300; word-break: keep-all; text-wrap: pretty; }
   .eng-txt small.err { color: var(--rec); }
   .eng-bar { display: block; height: 2px; border-radius: 2px; background: rgba(var(--tint-rgb), 0.1); overflow: hidden; margin-top: 4px; }
   .eng-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
@@ -875,7 +934,7 @@
   .srow-title { flex: 1; min-width: 0; font-size: 16.5px; font-weight: 400; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .srow-dur { flex: none; font-size: 12.5px; font-weight: 300; color: var(--muted); font-variant-numeric: tabular-nums; }
   .srow-text {
-    margin-top: 7px; font-size: 14px; line-height: 1.6; font-weight: 300; color: var(--muted);
+    text-align: start; margin-top: 7px; font-size: 14px; line-height: 1.6; font-weight: 300; color: var(--muted);
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     word-break: keep-all; overflow-wrap: anywhere;
   }
@@ -918,6 +977,7 @@
   }
   .det-cues.show { display: block; }
   .det-cues em { display: block; margin-bottom: 6px; text-align: center; font-style: normal; font-size: 11.5px; letter-spacing: 0.24em; text-indent: 0.24em; color: var(--accent); }
+  .cue-line span[dir] { flex: 1; text-align: start; }      /* an Arabic or Hebrew sentence starts at the right */
   .cue-line {
     display: flex; gap: 12px; width: 100%; padding: 8px 8px; border-radius: 10px; text-align: left;
     font-size: 14.5px; line-height: 1.65; font-weight: 300; color: var(--ink); word-break: keep-all; overflow-wrap: anywhere;
@@ -1025,7 +1085,7 @@
     html:not([lang="ko"]) .dock .row .ghost { padding: 9px 11px; white-space: nowrap; }
     html:not([lang="ko"]) .pausebtn { padding: 4px 10px 5px; white-space: nowrap; letter-spacing: 0.04em; }
     .rec { width: 68px; height: 68px; }
-    .row2 { gap: 10px 18px; }
+    .row2 { gap: 10px 13px; }
     .row2 .dotsep { display: none; }
     .notice { top: calc(118px + var(--top-extra)); }
     .bar { padding-top: calc(26px + var(--top-extra)); grid-template-columns: minmax(70px, 1fr) minmax(0, auto) minmax(70px, 1fr); }
@@ -1062,6 +1122,7 @@
 
   <button class="langbtn" id="langBtn"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.6"/><path d="M2.4 10h15.2M10 2.4c2.3 2.2 3.4 4.8 3.4 7.6s-1.1 5.4-3.4 7.6c-2.3-2.2-3.4-4.8-3.4-7.6S7.7 4.6 10 2.4z"/></svg><span id="langBtnText"></span><svg class="chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.6l3 3 3-3"/></svg></button>
   <div class="langmenu" id="langMenu" role="menu" translate="no" hidden></div>
+  <div class="lectmenu" id="lectMenu" translate="no" hidden><input class="lm-find" id="lectFind" type="search" autocomplete="off" spellcheck="false"><div class="lm-list" id="lectList" role="menu"></div><div class="lm-note" id="lectNote" hidden></div></div>
   <button class="gear" id="gear" aria-label="설정"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4z"/></svg></button>
 
   <main id="scroller">
@@ -1346,7 +1407,7 @@
       <button class="ghost" id="folder">기록</button>
     </div>
     <div class="row2">
-      <span class="grp"><span class="langseg" id="lang" role="radiogroup" aria-label="강의 언어"><button data-lang="ko" class="on" role="radio" aria-checked="true">한국어</button><button data-lang="en" role="radio" aria-checked="false">English</button></span>
+      <span class="grp"><span class="langseg" id="lang" role="group" aria-label="강의 언어"><button data-lang="ko" class="on" aria-pressed="true">한국어</button><button data-lang="en" aria-pressed="false">English</button><button class="more" id="langMore" aria-haspopup="menu" aria-expanded="false"><span id="langMoreText">다른 언어</span><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 6.4l3-3 3 3"/></svg></button></span>
       <button class="helpdot" id="langhelp" aria-label="강의 언어 도움말">?</button></span>
       <span class="dotsep">·</span>
       <span class="grp"><label class="check" id="slwrap"><input type="checkbox" id="sl"><span class="box"></span><span>슬라이드 PDF</span></label>
@@ -1541,6 +1602,10 @@
   // (0 where it doesn't wrap — the layout of 2.4), so the transcript's end and the 글 card stay above it.
   function fitDock() {
     const r2 = document.querySelector(".dock .row2");
+    const items = [...r2.children].filter((c) => !c.classList.contains("dotsep") && getComputedStyle(c).display !== "none");
+    const gap = matchMedia("(max-width: 520px)").matches ? 13 : 15, dot = 3;
+    const need = items.reduce((w, c) => w + c.getBoundingClientRect().width, 0) + (items.length - 1) * (2 * gap + dot);
+    document.body.classList.toggle("dock-wraps", need + 4 > r2.clientWidth);
     const one = Math.max(0, ...[...r2.children].map((c) => c.offsetHeight));
     document.documentElement.style.setProperty("--dock-extra", Math.max(0, r2.offsetHeight - one) + "px");
   }
@@ -1824,6 +1889,7 @@
   function toast(msg, ms = 2600, action = null) {
     const t = $("toast");
     setText(t, msg);
+    wrapLabels(t);
     t.classList.toggle("has-act", !!action);
     if (action) {
       const b = document.createElement("button");
@@ -1835,10 +1901,36 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove("show"), ms);
   }
+  /** A button's name in quotes or brackets stays on one line — ‘다시 시도’, „Erneut versuchen“, «Открыть файл…»,
+   *  “ファイルを開く…”, 「重試」, [정지]: each short one goes into a no-wrap span (a quoted sentence still wraps). */
+  const LABEL_RE = /[‘“„«「\[][^‘’“”„«»「」\[\]\n]{1,44}[’”“»」\]]/g;
+  const labelWidth = (t) => [...t].reduce((w, c) => w + (/[\u3000-\u9fff\uac00-\ud7a3\uff00-\uffef]/.test(c) ? 2 : 1), 0);   // CJK: double
+  function wrapLabels(root) {
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), nodes = [];
+    while (walk.nextNode()) nodes.push(walk.currentNode);
+    for (const node of nodes) {
+      const t = node.nodeValue, parts = [];
+      let at = 0, m;
+      LABEL_RE.lastIndex = 0;
+      while ((m = LABEL_RE.exec(t))) {
+        if (labelWidth(m[0]) > 44) continue;             // longer than a phone's notice line: it wraps as text
+        if (m.index > at) parts.push(document.createTextNode(t.slice(at, m.index)));
+        const span = document.createElement("span");
+        span.className = "nobr";
+        span.textContent = m[0];
+        parts.push(span);
+        at = m.index + m[0].length;
+      }
+      if (!parts.length) continue;
+      if (at < t.length) parts.push(document.createTextNode(t.slice(at)));
+      node.replaceWith(...parts);
+    }
+  }
   let noticeCode = "";
   function notice(msg, actions = [], code = "") {
     noticeCode = code;
     setText($("noticeText"), msg);
+    wrapLabels($("noticeText"));
     const acts = $("noticeActs");
     acts.innerHTML = "";
     for (const [label, fn] of [...actions, [L("닫기", "Close"), null]]) {
@@ -1916,6 +2008,7 @@
     if (ev.final) refreshCues();
     seg.el.querySelector("time").textContent = fmt(ev.t);
     seg.el.querySelector("p").textContent = ev.text;
+    textLang(seg.el.querySelector("p"), ev.text, state.lang);
     refreshControls();
     if (follow) requestAnimationFrame(scrollToEnd);
     else if (state.rec === "recording") $("latest").classList.add("show");
@@ -2002,6 +2095,7 @@
       for (const s of cues) {
         const line = document.createElement("div");
         line.textContent = `${fmt(s.t)} · ${s.text}`;
+        textLang(line, s.text, state.lang);
         c.appendChild(line);
       }
       box.insertBefore(c, box.querySelector(".acts"));
@@ -2115,6 +2209,7 @@
   const isOpen = (id) => $(id).classList.contains("show");
 
   function openLibrary() {
+    closeMenus();
     $("library").classList.add("show");
     renderLibrary();
     send("library");
@@ -2160,11 +2255,11 @@
       const text = el("div", "srow-text" + (cue ? " cue" : ""));
       if (cue) {
         text.appendChild(el("i", "tag", s.cueCount > 1 ? L(`중요 ${s.cueCount}`, `Key ×${s.cueCount}`) : L("중요", "Key")));
-        text.appendChild(document.createTextNode(cue[1]));
+        text.appendChild(textLang(el("span", null, cue[1]), cue[1]));
       } else {
         text.textContent = s.recording ? L("눌러서 받아쓰기 화면으로 돌아가기", "Return to the transcription screen") : (s.preview || (s.count ? "" : L("받아 적은 문장이 없습니다", "No transcribed sentences")));
       }
-      if (text.textContent) row.appendChild(text);
+      if (text.textContent) row.appendChild(cue ? text : textLang(text, s.preview || ""));
       row.onclick = () => s.recording ? closeLibrary() : s.saving ? toast(L("저장하는 중입니다. 잠시 후에 열 수 있습니다.", "Still saving. You can open it in a moment.")) : openSession(s.id);
       const wrap = el("div", "srow-wrap");
       wrap.dataset.id = s.id;
@@ -2352,10 +2447,11 @@
   function renderLines() {
     const box = $("detLines");
     box.innerHTML = "";
+    det.lineLang = sessionLang(det.lines);
     det.els = det.lines.map((l, i) => {
       const seg = el("section", "seg");
       seg.appendChild(el("time", null, fmt(l.t)));
-      seg.appendChild(el("p", null, l.text));
+      seg.appendChild(textLang(el("p", null, l.text), l.text, det.lineLang));
       seg.dataset.i = i;
       box.appendChild(seg);
       return seg;
@@ -2500,7 +2596,7 @@
     for (const h of hits) {
       const b = el("button", "cue-line");
       b.appendChild(el("time", null, fmt(h.t)));
-      b.appendChild(el("span", null, h.text));
+      b.appendChild(textLang(el("span", null, h.text), h.text, det.lineLang));
       b.onclick = () => jumpTo(h.i, true);
       box.appendChild(b);
     }
@@ -2554,18 +2650,28 @@
     }
   }
 
-  // 되돌리기 lives in its own bubble for 10 s after the last delete and restores everything deleted meanwhile.
-  const undo = { ids: [], timer: null };
+  // 되돌리기 lives in its own bubble for 10 s after the last delete and restores everything deleted meanwhile. The 10 s
+  // count only while it can be seen: a dialog, the notice, 핵심 용어, the slide demo or a menu over it starts them again.
+  const undo = { ids: [], timer: null, left: 0, at: 0 };
+  function covered() {                                   // drawn over the page
+    return !!dialog.saved || ["legal", "kwpanel", "slidedemo", "rowMenu"].some(isOpen) || !$("langMenu").hidden || !$("lectMenu").hidden;
+  }
   function showUndo(id) {
     undo.ids.push(id);
     $("undoText").textContent = undo.ids.length > 1 ? L(`기록 ${undo.ids.length}개를 삭제했습니다.`, `${undo.ids.length} recordings deleted.`) : L("기록을 삭제했습니다.", "Recording deleted.");
     $("undo").classList.add("show");
     body.classList.add("has-undo");
-    clearTimeout(undo.timer);
-    undo.timer = setTimeout(hideUndo, 10000);
+    undo.left = 10000; undo.at = performance.now();
+    clearInterval(undo.timer);
+    undo.timer = setInterval(() => {                     // real time: a page in the background ticks less often
+      const now = performance.now(), dt = now - undo.at;
+      undo.at = now;
+      if (covered()) undo.left = 10000;
+      else if ((undo.left -= dt) <= 0) hideUndo();
+    }, 250);
   }
   function hideUndo() {
-    clearTimeout(undo.timer);
+    clearInterval(undo.timer);
     undo.ids = [];
     $("undo").classList.remove("show");
     body.classList.remove("has-undo");
@@ -2575,8 +2681,14 @@
   // goes back to where it was (renderLibrary carries it over to the redrawn row, or the next one after a delete).
   const dialog = { saved: null, back: null };
   function showDialog(id) {
+    if (isOpen("legal")) return;                         // never under the notice: it would take the dialog's clicks
+    const a = document.activeElement;                    // a menu's item: focus goes back to the menu's button
+    const back = lectMenu.contains(a) ? $("langMore") : $("langMenu").contains(a) ? $("langBtn") : a;
+    closeMenus();
+    $("toast").classList.remove("show");
+    clearTimeout(toastTimer);
     if (!dialog.saved) {
-      dialog.back = document.activeElement;
+      dialog.back = back;
       dialog.saved = [...body.children].map((el) => [el, el.inert]);
     }
     for (const el of body.children) if (el.id !== id && el.tagName !== "SCRIPT") el.inert = true;
@@ -2594,7 +2706,7 @@
   }
   function closeTransient() {        // before something opens on top (the notice, 설정): no menu or dialog left under it
     closeRowMenu();
-    closeLangMenu(false);
+    closeMenus();
     if (isOpen("renamePanel")) closeRename();
     hideDialog("confirm");
   }
@@ -2708,7 +2820,9 @@
       const sitsOut = on && e.languages && !e.languages.includes(state.lang || "ko");   // English-only, Korean lecture
       r.note.textContent = e.state === "failed" ? (e.error || L("내려받지 못했습니다.", "Download failed."))
         : e.state === "downloading" ? (e.verifying ? L("내려받은 모델을 확인하고 준비하는 중…", "Checking and preparing the downloaded model…") : L(`내려받는 중 · ${pct}% · ${megabytes((e.progress || 0) * e.bytes)} / ${megabytes(e.bytes)}`, `Downloading · ${pct}% · ${megabytes((e.progress || 0) * e.bytes)} / ${megabytes(e.bytes)}`))
-        : sitsOut ? L("영어 강의일 때 사용합니다 · 지금은 한국어 강의라 Apple 음성 인식으로 받아 적습니다", "Used for English lectures · The lecture language is Korean, so Apple Speech Recognition is used for now")
+        : sitsOut ? (e.languages.length > 1 ? L("한국어와 영어 강의일 때 사용합니다 · 지금 강의 언어는 Apple 음성 인식으로 받아 적습니다", "Used for Korean and English lectures · Apple Speech Recognition transcribes the current lecture language")
+                     : (state.lang || "ko") === "ko" ? L("영어 강의일 때 사용합니다 · 지금은 한국어 강의라 Apple 음성 인식으로 받아 적습니다", "Used for English lectures · The lecture language is Korean, so Apple Speech Recognition is used for now")
+                     : L("영어 강의일 때 사용합니다 · 지금 강의 언어는 Apple 음성 인식으로 받아 적습니다", "Used for English lectures · Apple Speech Recognition transcribes the current lecture language"))
         : e.desc || "";
       r.bar.style.display = e.state === "downloading" ? "" : "none";
       r.fill.style.width = `${e.verifying ? 100 : pct}%`;
@@ -2747,6 +2861,7 @@
   }
 
   function openSettings() {
+    closeMenus();
     if (dialog.saved) return;                         // a dialog is waiting for an answer
     closeRowMenu();
     renderSettings();
@@ -2900,6 +3015,7 @@
   const handlers = {
     engine(ev) {
       if (ev.state === "loading" && state.rec !== "idle") lostSession();
+      if (ev.state !== "error" && noticeCode === "engine_error") $("notice").classList.remove("show");   // fixed meanwhile
       body.classList.toggle("downloading", ev.state === "downloading");
       if (ev.state === "downloading") {
         const pct = ev.total ? Math.floor((ev.done / ev.total) * 100) : 0;
@@ -2917,12 +3033,12 @@
       state.retryable = !!ev.retry;
       if (ev.state === "loading") pendingKwToast = false;   // a save sent during a restart was dropped
       if (ev.state === "error" && ev.retry) {
-        notice(ev.msg || L("엔진을 시작하지 못했습니다.", "Couldn't start the engine."), [[L("다시 시도", "Try Again"), () => send("retry")]]);
+        notice(ev.msg || L("엔진을 시작하지 못했습니다.", "Couldn't start the engine."), [[L("다시 시도", "Try Again"), retryEngine]], "engine_error");
       }
       state.engine = ev.state;
       send("log", { msg: `ui engine=${ev.state}` });
       if (state.rec === "idle") setStatus(ev.state === "ready" ? readyText() : ev.msg || L("엔진 준비 중", "Getting the engine ready"));
-      if (ev.state === "error") setStatus(ev.msg || L("엔진 오류", "Engine error"));
+      if (ev.state === "error") setStatus(ev.label || L("엔진 오류", "Engine error"));
       refreshControls();
       if (ev.state === "ready" && state.resumePending) {
         state.resumePending = false;
@@ -3088,7 +3204,7 @@
       } else if (ev.code === "backend_restart") {
         lostSession();
         toast(ev.msg || L("엔진을 다시 시작하는 중입니다.", "Restarting the engine."), 3200);
-      } else if (["disk", "disk_low", "tap_gave_up", "engine_wake"].includes(ev.code)) {
+      } else if (["disk", "disk_low", "tap_gave_up", "engine_wake", "model_missing"].includes(ev.code)) {
         notice(ev.msg);
       } else if (ev.code === "no_audio") {
         notice(L("20초째 소리가 들어오지 않습니다. 강의 영상이 재생 중인지 확인하십시오. ", "No sound for 20 seconds. Make sure the lecture video is playing. ")
@@ -3117,11 +3233,17 @@
       if (typeof ev.slides === "boolean") $("sl").checked = ev.slides;
       if (PDF_INFO[ev.pdfLayout]) { state.pdfLayout = ev.pdfLayout; if (isOpen("settings")) renderSettings(); }
       if (typeof ev.cleanCapture === "boolean") { state.cleanCapture = ev.cleanCapture; $("setClean").checked = ev.cleanCapture; live.paint(); }
-      if (ev.language === "ko" || ev.language === "en") setLang(ev.language);
+      if (typeof ev.language === "string" && ev.language) setLang(ev.language);
       if (typeof ev.timestamps === "boolean") {
         $("ts").checked = ev.timestamps;
         body.classList.toggle("no-ts", !ev.timestamps);
       }
+    },
+    languages(ev) {
+      lect.list = Array.isArray(ev.list) ? ev.list : [];
+      lect.englishKorean = ev.englishKorean !== false;
+      renderLectSeg();
+      if (!lectMenu.hidden) renderLectMenu();
     },
     engines(ev) {
       eng.list = Array.isArray(ev.list) ? ev.list : [];
@@ -3134,7 +3256,7 @@
       const mb = (ev.bytes || 0) / 1e6;
       $("setStorage").textContent = `${L(`${ev.count || 0}개`, nEN(ev.count || 0, "recording"))} · ${OTHER ? (mb >= 1000 ? size(mb / 1000, "GB", 1) : size(Math.round(mb), "MB")) : mb >= 1000 ? (mb / 1000).toFixed(1) + "GB" : Math.round(mb) + "MB"}${IOS ? L(" · 파일 앱에서 볼 수 있습니다", " · Viewable in the Files app") : ev.folder ? " · " + folderLabel(ev.folder) : ""}`;
     },
-    openSettings() { if (!legalPending()) openSettings(); },
+    openSettings() { if (!isOpen("legal")) openSettings(); },
     openLegal() { if (!legalPending()) openLegal(false); },
     bye() {},
   };
@@ -3149,7 +3271,7 @@
 
   // ---------- controls
   $("rec").onclick = () => {
-    if (state.engine === "error" && state.retryable) { $("notice").classList.remove("show"); send("retry"); }
+    if (state.engine === "error" && state.retryable) { retryEngine(); }
     else if (state.rec === "recording") send("stop");
     else if (state.rec === "idle") send("start");
   };
@@ -3160,7 +3282,7 @@
   $("pauseBtn").onclick = togglePause;
   // Keyboard shortcuts — on the Mac they come from the 녹음 and 편집 menus, in the browser demo from the keys
   function runCommand(name) {
-    if (legalPending() || dialog.saved) return;
+    if (isOpen("legal") || dialog.saved) return;      // nothing under the notice or a dialog
     if (name === "toggleRec") {
       if (state.rec === "idle" && !$("rec").disabled) { closeSettings(); closeDetail(); closeLibrary(); }   // show what starts
       $("rec").click();
@@ -3271,7 +3393,6 @@
     if (!langMenu.hidden && !langMenu.contains(e.target) && !$("langBtn").contains(e.target)) closeLangMenu(false);
   }, true);
   $("setLangLabel").textContent = IN_KO ? "언어 · Language" : IN_EN ? "Language · 언어" : `${L("언어", "Language")} · Language`;
-  if (OTHER) $("lang").children[1].textContent = L("English", "English");   // the lecture's language: 한국어 is in the markup
   $("setSl").onchange = () => { $("sl").checked = $("setSl").checked; $("sl").onchange(); };
   $("setClean").onchange = () => setClean($("setClean").checked);
   $("setKw").onclick = () => $("kw").click();
@@ -3312,7 +3433,8 @@
     $("legal").dataset.first = first ? "1" : "";
     $("legalOk").textContent = first ? L("동의하고 시작", "Agree and Start") : L("확인", "OK");
     $("legal").classList.add("show");
-    for (const el of document.body.children) if (el.id !== "legal" && el.id !== "langBtn" && el.id !== "langMenu" && el.tagName !== "SCRIPT") el.inert = !!first;   // nothing else before agreeing
+    for (const el of document.body.children)          // nothing under it while it's open (at first launch, the language can still change)
+      if (el.id !== "legal" && el.tagName !== "SCRIPT") el.inert = !(first && (el.id === "langBtn" || el.id === "langMenu"));
     body.classList.toggle("legal-first", !!first);
     $("legal").scrollTop = 0;                      // the notice is read from its title (OK is at the end)
     $("legalOk").focus({ preventScroll: true });
@@ -3328,30 +3450,273 @@
     closeLegal();
   };
   $("setLegal").onclick = () => openLegal(false);
+  // ---------- 강의 언어: the language a lecture is in. Two at hand — 한국어 | English, or the app's own language | English —
+  // and 다른 언어 ▴ for every other one this device transcribes (the engine lists them; the page names each in the app's
+  // language, with its own name beside it)
+  const lect = { list: [], englishKorean: true };      // englishKorean: an English lecture keeps Korean asides (engine)
+  const lectMenu = $("lectMenu"), lectFind = $("lectFind"), lectList = $("lectList");
+  const DL_ICON = '<svg class="lm-dl" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.6v6.2M3.3 5.3 6 8l2.7-2.7M2.2 10.4h7.6"/></svg>';
+  const langNames = (lang) => { try { return new Intl.DisplayNames([lang], { type: "language", languageDisplay: "standard" }); } catch (e) { return null; } };
+  const NAMES = langNames(LANG), NAMES_EN = langNames("en");
+  const upFirst = (x, lang) => (x ? x.charAt(0).toLocaleUpperCase(lang) + x.slice(1) : "");   // "japonais" → "Japonais" in a list
+  const nameOf = (names, id) => { try { const n = names && names.of(id); return n && n !== id ? n : ""; } catch (e) { return ""; } };
+  function lectName(id) {
+    if (IN_KO && id === "en") return "English";                                        // as the switch has always shown it
+    const n = upFirst(nameOf(NAMES, id) || nameOf(NAMES_EN, id) || id, LANG);
+    return LANG === "de" ? n.replace(/\((Traditionell|Vereinfacht)\)/, (m, w) => `(${w.toLowerCase()})`) : n;
+  }
+  const lectOwnName = (id) => upFirst(nameOf(langNames(id), id), id);
+  /** The two at hand: 한국어 | English — or, in an app language a lecture can be in (日本語, Español…), that one | English. */
+  function lectQuick() {
+    const own = LANG !== "ko" && LANG !== "en" ? LANG : null;           // the app's languages are lecture languages too
+    return own && (!lect.list.length || lect.list.some((l) => l.id === own)) ? [own, "en"] : ["ko", "en"];
+  }
+  function renderLectSeg() {
+    const quick = lectQuick(), v = state.lang || "ko", other = !quick.includes(v);
+    $("lang").querySelectorAll("button[data-lang]").forEach((b, i) => {
+      b.dataset.lang = quick[i];
+      // the app's own language at hand needs no region ("Português", not "Português (Brasil)" — the list has both)
+      b.textContent = quick[i] === LANG ? lectName(quick[i]).replace(/\s*[(（][^)）]*[)）]$/, "") : lectName(quick[i]);
+      b.classList.toggle("on", quick[i] === v);
+      b.setAttribute("aria-pressed", String(quick[i] === v));
+    });
+    const more = $("langMore"), label = L("다른 강의 언어", "Other lecture languages");
+    more.classList.toggle("on", other);
+    $("langMoreText").textContent = other ? lectName(v) : L("다른 언어", "Other");
+    more.title = other ? `${label}${/^(ja|zh)/.test(LANG) ? "：" : LANG === "fr" ? "\u00a0: " : ": "}${lectName(v)}` : label;   // the whole name where the segment cuts it
+    more.setAttribute("aria-label", more.title);
+  }
   function setLang(v) {
-    for (const b of $("lang").children) { const on = b.dataset.lang === v; b.classList.toggle("on", on); b.setAttribute("aria-checked", String(on)); }
     state.lang = v;
+    renderLectSeg();
     if (state.rec === "idle" && state.engine === "ready") setStatus(readyText());
     renderEngines();
+    if (!lectMenu.hidden) renderLectMenu();
   }
   // Heads-up: a strong accent can make a recognizer hear the other language
-  $("langhelp").onclick = () => toast(L("말하는 사람의 억양이 강하면 다른 언어로 잘못 들릴 수 있습니다. 영어 강의라면 시작 전에 English로 바꾸십시오.", "With a strong accent, speech can be mistaken for the other language. For an English lecture, switch to English before you start.")
+  // the accent advice is about Korean and English lectures (each model rescues the other language's quotes)
+  $("langhelp").onclick = () => toast((L(`강의에서 쓰는 언어를 고르십시오. ‘${L("다른 언어", "Other")}’에서 더 많은 언어를 고를 수 있습니다. `, `Choose the language the lecture is in — “${L("다른 언어", "Other")}” has many more. `)
+    + (!((state.lang || "ko") === "ko" || (state.lang === "en" && lect.englishKorean)) ? "" : L("말하는 사람의 억양이 강하면 다른 언어로 잘못 들릴 수 있습니다. 영어 강의라면 시작 전에 English로 바꾸십시오.", "With a strong accent, speech can be mistaken for the other language. For an English lecture, switch to English before you start.")
     + (eng.list.some((e) => e.id === "qwen3")
-       ? L(" 억양이 아주 강하면 그래도 Apple 음성 인식은 영어를 한글이나 엉뚱한 단어로 적을 수 있습니다 — 설정 › 음성 인식의 Qwen3-ASR이 가장 정확합니다.", " With a very strong accent, Apple Speech Recognition may still write English in Hangul or as the wrong words — Qwen3-ASR in Settings › Speech Recognition is the most accurate.") : ""), 7500);
-  $("lang").onclick = (e) => {
-    const b = e.target.closest("button[data-lang]");
-    if (!b || b.classList.contains("on")) return;
-    const en = b.dataset.lang === "en";
-    setLang(b.dataset.lang);
-    send("settings", { language: b.dataset.lang });
+       ? L(" 억양이 아주 강하면 그래도 Apple 음성 인식은 영어를 한글이나 엉뚱한 단어로 적을 수 있습니다 — 설정 › 음성 인식의 Qwen3-ASR이 가장 정확합니다.", " With a very strong accent, Apple Speech Recognition may still write English in Hangul or as the wrong words — Qwen3-ASR in Settings › Speech Recognition is the most accurate.") : ""))).trim(), 9000);
+  // How much choosing a language downloads — the engine's estimate (`mb`): a long-form model about 350 MB (Korean and
+  // English lectures may need two), the dictation model about 1.1 GB
+  const modelSize = (mb) => (mb >= 1000 ? (OTHER ? size(mb / 1000, "GB", 1) : `${(mb / 1000).toFixed(1)}GB`)
+                                        : OTHER ? size(Math.round(mb / 10) * 10, "MB") : `${Math.round(mb / 10) * 10}MB`);
+  /** 다시 시도: when it means downloading the lecture language's model, its size first — as when choosing a language. */
+  function retryEngine() {
+    const v = state.lang || "ko", info = lect.list.find((l) => l.id === v) || {};
+    const go = () => { $("notice").classList.remove("show"); send("retry"); };
+    if (!(info.mb > 0) || info.fetching) return go();
+    askConfirm(L("음성 인식 모델 내려받기", "Download Speech Model"),
+      L(`${lectName(v)} 강의를 받아 적으려면 이 언어의 Apple 음성 인식 모델을 한 번 내려받아야 합니다(약 ${modelSize(info.mb)}).`, `${lectName(v)} needs Apple's speech model for this language — about ${modelSize(info.mb)}, downloaded once.`),
+      L("내려받기", "Download"), go);
+  }
+  /** A language whose model isn't on this device yet: say how big the download is, and ask first. */
+  function chooseLang(v) {
+    if (!v || v === (state.lang || "ko")) return;
+    if (!lect.list.length) { toast(L("음성 인식이 준비되면 고를 수 있습니다.", "You can choose once speech recognition is ready.")); return; }
+    const info = lect.list.find((l) => l.id === v) || {}, name = lectName(v);
+    if (!(info.mb > 0) || info.fetching) return applyLang(v);
+    askConfirm(L("음성 인식 모델 내려받기", "Download Speech Model"),
+      L(`${name} 강의를 받아 적으려면 이 언어의 Apple 음성 인식 모델을 한 번 내려받아야 합니다(약 ${modelSize(info.mb)}).`, `${name} needs Apple's speech model for this language — about ${modelSize(info.mb)}, downloaded once.`),
+      L("내려받기", "Download"), () => applyLang(v));
+  }
+  function applyLang(v) {
+    setLang(v);
+    send("settings", { language: v });
+    if (v !== "ko" && v !== "en") {
+      const info = lect.list.find((l) => l.id === v) || {}, name = lectName(v);
+      toast((state.rec === "recording" ? L(`강의 언어: ${name} — 다음 녹음부터 적용됩니다.`, `Lecture language: ${name} — starting with the next recording.`)
+                                       : L(`강의 언어: ${name}.`, `Lecture language: ${name}.`))
+          + (info.dictation ? L(" 이 언어는 Apple 받아쓰기 모델이 받아 적어서 문장 부호가 빠질 수 있습니다.", " Apple's dictation model writes this language, so punctuation may be missing.") : ""), 6000);
+      return;
+    }
+    const en = v === "en";
     const only = engineInUse()?.languages?.length === 1 ? engineInUse() : null;      // Parakeet: English only
     toast(state.rec === "recording" ? L(`다음 녹음부터 ${en ? "영어" : "한국어"} 강의로 받아 적습니다.`, `Starting with the next recording, lectures are transcribed as ${en ? "English" : L("한국어", "Korean")}.`)
+          : en && !lect.englishKorean && !engineInUse() ? L(`강의 언어: ${lectName("en")}.`, `Lecture language: ${lectName("en")}.`)
           : en ? (only ? L(`영어 강의로 받아 적습니다. ${only.name} 모델은 영어만 받아 적습니다.`, `Lecture language: English. The ${only.name} model transcribes English only.`)
                 : engineInUse() ? L("영어 강의로 받아 적습니다. 한국어로 하는 말도 한국어로 적습니다(또렷하지 않은 짧은 말은 가끔 틀릴 수 있습니다).", "Lecture language: English. Anything said in Korean is written in Korean too (short, unclear phrases may occasionally be wrong).")
                 : L("영어 강의로 받아 적습니다. 한국어로 하는 말도 적으려 하지만, Apple 음성 인식은 한국어 말을 놓칠 때가 있습니다(짧을수록 자주).", "Lecture language: English. It also tries to write down what's said in Korean, but Apple Speech Recognition sometimes misses Korean speech (more often the shorter it is)."))
           : engineInUse() ? L("한국어 강의로 받아 적습니다. 영어 문장은 영어 그대로 적습니다.", "Lecture language: Korean. English sentences stay in English.")
           : L("한국어 강의로 받아 적습니다. 영어 문장은 영어 그대로 적습니다 — Apple 음성 인식은 짧은 영어 인용을 놓칠 때가 있습니다.", "Lecture language: Korean. English sentences stay in English — Apple Speech Recognition sometimes misses short English quotes."), 4800);
+  }
+  $("lang").onclick = (e) => {
+    const b = e.target.closest("button[data-lang]");
+    if (b && !b.classList.contains("on")) chooseLang(b.dataset.lang);
   };
+  // 다른 언어: a card above the switch — a search field, then the languages in the app's alphabetical order
+  const fold = (x) => (x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase();
+  // a language is found by its name in any of the app's languages ("Japonés" in an English app), its own and its code
+  const ALL_NAMES = ["en", "ko", "ja", "zh-Hans", "zh-Hant", "es", "fr", "de", "pt-BR", "it", "vi", "ru"].map(langNames).filter(Boolean);
+  const lectKeys = (id) => [...new Set([lectName(id), lectOwnName(id), id, ...ALL_NAMES.map((n) => nameOf(n, id))].filter(Boolean).map(fold))];
+  /** How well a language matches: its names in the app's language and its own first, a whole word before a word's start,
+   *  then its English name, then its names in the other app languages ("Tiếng Do Thái" is Hebrew: "thai" finds Thai
+   *  first), then anywhere (0 best … 6; -1 no match). */
+  function lectMatch(id, q) {
+    const words = (keys) => keys.flatMap((k) => k.split(/[\s,()（）·\-]+/));
+    const alias = /^yue/.test(id) ? ["广东话", "廣東話", "粤语", "粵語"] : [];
+    const tiers = [words([lectName(id), lectOwnName(id), id, ...alias].filter(Boolean).map(fold)),   // the app's and its own names,
+                   words([fold(nameOf(NAMES_EN, id))]), words(lectKeys(id))];               // English, then the other app languages
+    const en = tiers[1].includes(q) ? 0 : tiers[1].some((x) => x.startsWith(q)) ? 0.5 : 0.9;   // tie-break: English matches too
+    for (const [i, w] of tiers.entries()) {
+      if (w.includes(q)) return 2 * i + en / 10;
+      if (w.some((x) => x.startsWith(q))) return 2 * i + 1 + en / 10;
+    }
+    return [...lectKeys(id), ...alias.map(fold)].some((k) => k.includes(q)) ? 6 : -1;
+  }
+  function renderLectMenu() {
+    const q = fold(lectFind.value.trim()), coll = new Intl.Collator(LANG);
+    const items = lect.list.map((l) => ({ ...l, name: lectName(l.id), own: lectOwnName(l.id), rank: q ? lectMatch(l.id, q) : 0 }))
+      .filter((l) => l.rank >= 0)
+      .sort((a, b) => a.rank - b.rank || (q ? (b.id === LANG) - (a.id === LANG) : 0) || coll.compare(nameOf(NAMES, a.id) || a.name, nameOf(NAMES, b.id) || b.name));
+    const top = lectList.scrollTop, focused = lectList.contains(document.activeElement) ? document.activeElement.dataset.v : null;
+    lectList.textContent = "";                          // (a list sent again while open — models found — keeps its place)
+    for (const l of items) {
+      const b = el("button");
+      b.dataset.v = l.id;
+      b.setAttribute("role", "menuitemradio");
+      b.classList.toggle("on", l.id === (state.lang || "ko"));
+      b.setAttribute("aria-checked", String(l.id === (state.lang || "ko")));
+      const text = el("span", "lm-text");
+      const paren = l.name.search(/[(（]/), name = el("span", "lm-name", paren > 0 ? l.name.slice(0, paren) : l.name);
+      if (paren > 0) name.appendChild(el("span", "lm-paren", l.name.slice(paren)));
+      text.appendChild(name);
+      if (l.own && fold(l.own) !== fold(l.name)) {
+        const own = el("span", "lm-own", l.own);
+        own.lang = l.id; own.dir = "auto";
+        text.appendChild(own);
+      }
+      b.appendChild(text);
+      if (l.installed === false) {
+        b.insertAdjacentHTML("beforeend", DL_ICON);
+        b.title = L("처음 고르면 이 언어의 음성 인식 모델을 내려받습니다(한 번만)", "Choosing it downloads its speech model (once only)");
+      }
+      lectList.appendChild(b);
+    }
+    if (!items.length) lectList.appendChild(el("div", "lm-none", L("찾는 언어가 없습니다", "No matching language")));
+    lectList.scrollTop = q ? 0 : top;
+    if (focused) lectList.querySelector(`button[data-v="${focused}"]`)?.focus({ preventScroll: true });
+    $("lectNote").hidden = !lect.list.some((l) => l.installed === false);
+  }
+  function placeLectMenu() {
+    if (lectMenu.hidden) return;
+    const r = $("langMore").getBoundingClientRect(), w = lectMenu.offsetWidth;
+    lectMenu.style.left = `${Math.round(Math.min(innerWidth - w - 12, Math.max(12, r.left + r.width / 2 - w / 2)))}px`;
+    lectMenu.style.bottom = `${Math.round(innerHeight - r.top + 10)}px`;
+    const head = document.querySelector(".top")?.getBoundingClientRect().bottom || 64;    // the wordmark and status line stay visible
+    lectMenu.style.maxHeight = `${Math.round(Math.max(180, Math.min(470, r.top - 10 - head - 8)))}px`;
+  }
+  function openLectMenu() {
+    if (!lect.list.length) { toast(L("음성 인식이 준비되면 고를 수 있습니다.", "You can choose once speech recognition is ready.")); return; }
+    lectFind.value = "";
+    renderLectMenu();
+    lectMenu.hidden = false;
+    body.classList.add("lect-open");
+    $("langMore").setAttribute("aria-expanded", "true");
+    placeLectMenu();
+    const on = lectList.querySelector(".on");
+    if (on) on.scrollIntoView({ block: "center" });
+    const box = lectList.getBoundingClientRect(), top = box.top + 4;     // no half row under the search field — moving
+    const cut = [...lectList.querySelectorAll("button")].find((b) => b.getBoundingClientRect().bottom > top);  // down to
+    if (cut && cut.getBoundingClientRect().top < top - 0.5) {                                                 // the next
+      const r = cut.getBoundingClientRect(), o = on && on.getBoundingClientRect();                            // row, or up
+      const fits = (dy) => !o || (o.top - dy >= top - 1.5 && o.bottom - dy <= box.bottom + 1.5);             // to this one,
+      const down = r.bottom + 2 - top, up = r.top - top;                                                      // whichever
+      if (fits(down) && lectList.scrollTop + down <= lectList.scrollHeight - lectList.clientHeight) lectList.scrollTop += down;   // keeps the
+      else if (fits(up)) lectList.scrollTop += up;                                                            // chosen one
+    }
+    (IOS ? on || lectList.firstElementChild : lectFind).focus({ preventScroll: true });   // no keyboard popping up on a phone
+  }
+  function closeMenus() { closeLangMenu(false); closeLectMenu(false); }
+  function closeLectMenu(focusBack) {
+    if (lectMenu.hidden) return;
+    body.classList.remove("lect-open");
+    lectMenu.hidden = true;
+    $("langMore").setAttribute("aria-expanded", "false");
+    if (focusBack) $("langMore").focus();
+  }
+  $("langMore").onclick = () => (lectMenu.hidden ? openLectMenu() : closeLectMenu(true));
+  lectFind.placeholder = L("언어 검색", "Search languages");
+  lectFind.setAttribute("aria-label", lectFind.placeholder);
+  lectList.setAttribute("aria-label", L("다른 강의 언어", "Other lecture languages"));
+  $("lectNote").innerHTML = DL_ICON;
+  $("lectNote").appendChild(document.createTextNode((L(`표시된 언어는 처음 고를 때 Apple 음성 인식 모델을 한 번 내려받습니다(약 ${modelSize(350)}~${modelSize(1100)}).`, `Marked languages download Apple's speech model once, when you first choose them (about ${modelSize(350)}–${modelSize(1100)}).`)).replace(/\s*([–~〜])\s*/g, "\u2060$1\u2060")));
+  lectFind.oninput = renderLectMenu;
+  lectList.onclick = (e) => {
+    const b = e.target.closest("button[data-v]");
+    if (!b) return;
+    closeLectMenu(true);
+    chooseLang(b.dataset.v);
+  };
+  lectFind.onkeydown = (e) => {
+    const first = lectList.querySelector("button");
+    if (e.key === "Enter" && first && lectFind.value.trim() && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); first.click(); }
+    else if (e.key === "ArrowDown" && first) { e.preventDefault(); first.focus(); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeLectMenu(true); }
+    else if (e.key === "Tab" && e.shiftKey) closeLectMenu(false);                       // focus leaves the card
+  };
+  lectList.onkeydown = (e) => {
+    const items = [...lectList.querySelectorAll("button")], i = items.indexOf(document.activeElement);
+    const cols = getComputedStyle(lectList).gridTemplateColumns.split(" ").length;
+    const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols }[e.key];
+    if (step) {
+      e.preventDefault();
+      if (i + step < 0 && e.key === "ArrowUp") lectFind.focus();
+      else items[Math.min(items.length - 1, Math.max(0, i + step))]?.focus();
+    } else if (e.key === "Home" || e.key === "End") { e.preventDefault(); items[e.key === "Home" ? 0 : items.length - 1]?.focus(); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeLectMenu(true); }
+    else if (e.key === "Tab") closeLectMenu(false);
+    else if (e.key.length === 1 && e.key !== " " && !e.metaKey && !e.ctrlKey) lectFind.focus();   // typing searches
+  };
+  document.addEventListener("pointerdown", (e) => {
+    if (!lectMenu.hidden && !lectMenu.contains(e.target) && !$("langMore").contains(e.target)) closeLectMenu(false);
+  }, true);
+  addEventListener("resize", placeLectMenu);
+  renderLectSeg();
+  // Han characters are drawn in the font of the language they're written in (a Korean font draws the Korean forms of
+  // them), and Chinese and Japanese lines break between characters: kana → Japanese; Han without Hangul → Chinese,
+  // Traditional or Simplified by the characters it uses (the lecture language, when it's one of them, decides). Lines in
+  // a right-to-left script (العربية, עברית, اردو) run right to left.
+  const HANT = "們這個來說時會為學國對開關現樣點後從還過麼裡長問題經實發動機體種東車書語話頭電聽見覺讓給認識歷處應該當與無幾邊進總結構義區傳統環變價錢買賣號飛氣門間網際數據資產業權華優質報導讀詞寫類級";
+  const HANS = "们这个来说时会为学国对开关现样点从还过么长问题经实发动体种东车书语话头电听见觉让给认识历处应该当与无边进总结构义区传统环变价钱买卖号飞气门间网际数资产业权华优质报导读词写类级";
+  function cjkLang(t, lecture) {
+    if (!t || !/[぀-ヿ㐀-鿿豈-﫿]/.test(t)) return "";
+    const hint = { ja: "ja", "zh-Hans": "zh-Hans", "yue-Hans": "zh-Hans", "zh-Hant": "zh-Hant", "yue-Hant": "zh-Hant" }[lecture];
+    if (hint) return hint;
+    if (/[぀-ヿ]/.test(t)) return "ja";
+    if (/[가-힣]/.test(t)) return "";                                            // Korean with Hanja
+    let trad = 0, simp = 0;
+    for (const c of t) { if (HANT.includes(c)) trad++; else if (HANS.includes(c)) simp++; }
+    return trad > simp || (trad === simp && LANG === "zh-Hant") ? "zh-Hant" : "zh-Hans";
+  }
+  const SCRIPT_LANGS = [[/[\u0e00-\u0e7f]/, "th"], [/[\uac00-\ud7a3]/, "ko"], [/[\u0400-\u04ff]/, (t) => (/[ґєії]/i.test(t) ? "uk" : "ru")],
+    [/[\u0370-\u03ff]/, "el"], [/[\u0590-\u05ff]/, "he"], [/[\u0600-\u06ff]/, "ar"], [/[\u0900-\u097f]/, "hi"], [/[\u0980-\u09ff]/, "bn"],
+    [/[\u0a00-\u0a7f]/, "pa"], [/[\u0a80-\u0aff]/, "gu"], [/[\u0b00-\u0b7f]/, "or"], [/[\u0b80-\u0bff]/, "ta"], [/[\u0c00-\u0c7f]/, "te"],
+    [/[\u0c80-\u0cff]/, "kn"], [/[\u0d00-\u0d7f]/, "ml"], [/[ơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹđ]/i, "vi"]];
+  /** A line's language: the lecture's (live lines), else from its characters; "" for plain Latin text (the page's own). */
+  function lineLang(t, lecture) {
+    const cjk = cjkLang(t, lecture);
+    if (cjk) return cjk;
+    if (lecture && !["ko", "en"].includes(lecture) && !/^(ja|zh|yue)/.test(lecture)) return lecture;
+    for (const [re, l] of SCRIPT_LANGS) if (re.test(t)) return typeof l === "function" ? l(t) : l;
+    return /[\u0100-\u024f\u1e00-\u1eff]/.test(t) ? "und-Latn" : "";     // Latin beyond Latin-1: the page's base font
+  }
+  function textLang(e, text, lecture) {
+    const l = lineLang(text, lecture);
+    if (l) e.lang = l; else e.removeAttribute("lang");
+    e.dir = "auto";
+    return e;
+  }
+  /** A saved session's lecture language as far as its lines tell (the Library doesn't record it): kana anywhere →
+   *  Japanese; Han without Hangul → Traditional or Simplified Chinese by all its lines together. */
+  function sessionLang(lines) {
+    const all = lines.map((l) => l.text).join("");
+    if (/[\u3040-\u30ff]/.test(all)) return "ja";
+    if (!/[\u3400-\u9fff]/.test(all) || /[\uac00-\ud7a3]/.test(all)) return "";
+    return cjkLang(all, "");
+  }
   $("demoOk").onclick = closeSlideDemo;
   $("slwrap").title = IOS ? L("영상 파일의 슬라이드를 PDF로", "Turn the slides in video files into a PDF") : L("강의 창의 슬라이드를 PDF로", "Turn the lecture window's slides into a PDF");
   function askDelete(id, name) {
@@ -3408,7 +3773,7 @@
     send("settings", { timestamps: $("ts").checked });
   };
   // 중요 단어 editor
-  $("kw").onclick = () => { $("kwtext").value = keywords.join(", "); $("kwpanel").classList.add("show"); $("kwtext").focus(); };
+  $("kw").onclick = () => { closeMenus(); $("kwtext").value = keywords.join(", "); $("kwpanel").classList.add("show"); $("kwtext").focus(); };
   $("kwcancel").onclick = () => $("kwpanel").classList.remove("show");
   $("kwdefault").onclick = () => { $("kwtext").value = DEFAULT_KEYWORDS.join(", "); };
   $("kwsave").onclick = () => {
@@ -3430,11 +3795,11 @@
       else if (isOpen("settings")) closeSettings();
       else if (isOpen("detail")) closeDetail();
       else if (isOpen("library")) closeLibrary();
-    } else if (e.key === " " && !typing && isOpen("detail") && !dialog.saved && !isOpen("kwpanel") && det.s && det.s.audio) {
+    } else if (e.key === " " && !typing && isOpen("detail") && !isOpen("settings") && !covered() && det.s && det.s.audio) {
       e.preventDefault();
       $("plPlay").click();
     } else if ((e.metaKey || e.ctrlKey) && (e.key === "Backspace" || e.key === "Delete") && !typing && isOpen("detail")
-               && !dialog.saved && det.s && !$("detDelete").disabled) {
+               && !isOpen("settings") && !covered() && det.s && !$("detDelete").disabled) {
       e.preventDefault();
       $("detDelete").click();
     }
@@ -3443,7 +3808,7 @@
   document.addEventListener("keydown", (e) => {
     const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
     if (mod && e.shiftKey && k === "c") { e.preventDefault(); copyAll(); }
-    if (mod && e.key === ",") { e.preventDefault(); if (!legalPending()) openSettings(); }
+    if (mod && e.key === ",") { e.preventDefault(); if (!isOpen("legal")) openSettings(); }
     // the same as the Mac menus (which take these keys first): ⌘R start/stop, ⌘P pause, ⌘O open a file, ⌘F find
     if (mod && !e.shiftKey && !e.altKey) {
       const name = { r: "toggleRec", p: "togglePause", o: "pickFile", f: "find" }[k];
@@ -3451,8 +3816,8 @@
     }
   });
   // Let file drops fall through to the app (it transcribes dropped audio/video files).
-  document.addEventListener("dragover", (e) => { if (!native || legalPending()) e.preventDefault(); });
-  document.addEventListener("drop", (e) => { if (legalPending()) e.preventDefault(); });   // nothing before the agreement
+  document.addEventListener("dragover", (e) => { if (!native || isOpen("legal")) e.preventDefault(); });
+  document.addEventListener("drop", (e) => { if (isOpen("legal")) e.preventDefault(); });   // nothing under the notice
 
   // ---------- demo mode (opened in a normal browser, for design preview only)
   const demo = {
@@ -3468,7 +3833,7 @@
     handle(cmd, extra = {}) {
       const emit = (ev) => window.app.receive(ev);
       if (this.library(cmd, extra, emit)) return;
-      if (cmd === "ready") setTimeout(() => { emit({ ev: "engine", state: "ready" }); this.engines(emit); }, 700);
+      if (cmd === "ready") setTimeout(() => { emit({ ev: "engine", state: "ready" }); this.engines(emit); emit(this.languages()); }, 700);
       if (cmd.startsWith("engine")) { this.engineCmd(cmd, extra, emit); return; }
       if (cmd === "start") {
         emit({ ev: "rec", state: "recording", mode: "live", started: Date.now() / 1000, title: LF("2026-10-04 16시30분 강의", "2026-10-04 16.30 Lecture") });
@@ -3518,6 +3883,27 @@
       }
       if (cmd === "copy") setTimeout(() => window.app.receive({ ev: "copied" }), 50);
       if (cmd === "settings") window.app.receive({ ev: "settings", ...extra });
+      if (cmd === "settings" && extra.language && !this.installed.has(extra.language)) {   // a pretend model download
+        let pct = 0;
+        clearInterval(this.dlTimer);
+        this.dlTimer = setInterval(() => {
+          pct = Math.min(100, pct + 9);
+          emit({ ev: "engine", state: "downloading", done: pct, total: 100, label: L("음성 인식 모델 준비 중", "Getting the speech model ready") });
+          if (pct >= 100) {
+            clearInterval(this.dlTimer);
+            this.installed.add(extra.language);
+            emit(this.languages());
+            emit({ ev: "engine", state: "ready", msg: L("준비됨", "Ready") });
+          }
+        }, 260);
+      }
+    },
+    // 강의 언어 demo: the languages this Mac lists (* = macOS's dictation model); Korean, English and Japanese are here
+    installed: new Set(["ko", "en", "ja"]),
+    languages() {
+      const ids = "ko en ja zh-Hans zh-Hant yue-Hant yue-Hans es fr de it pt-BR pt-PT ru* vi* ar* bn ca* cs* da* el* fi* gu he* hi hr* hu* id* kn ks mai ml mr ms* nb* ne nl* or pa pl* ro* sk* sv* ta te th* tr* uk* ur";
+      const mb = (id, dictation) => (this.installed.has(id) ? 0 : dictation ? 1100 : id === "ko" ? 720 : id === "en" ? 390 : 350);
+      return { ev: "languages", englishKorean: true, list: ids.split(" ").map((x) => { const id = x.replace("*", ""), d = x.endsWith("*"); return { id, dictation: d, installed: !mb(id, d), mb: mb(id, d) }; }) };
     },
     // 음성 인식 demo: Apple plus pretend downloads (nothing is downloaded)
     eng: { current: "apple", state: { whisper: "absent", qwen3: "absent", parakeet: "absent" }, progress: {}, timer: 0 },
@@ -3530,7 +3916,7 @@
       const w = this.eng;
       const others = (id) => Object.keys(w.state).some((k) => k !== id && w.state[k] !== "absent");
       emit({ ev: "engines", current: w.current, busy: false, list: [
-        { id: "apple", name: L("Apple 음성 인식", "Apple Speech Recognition"), desc: L("기본 · 추가 다운로드 없이 가볍고 빠릅니다", "Default · Light and fast, with no extra download"), state: "ready", bytes: 0 },
+        { id: "apple", name: L("Apple 음성 인식", "Apple Speech Recognition"), desc: L("기본 · 가볍고 빠르며 macOS에 들어 있습니다", "Default · Light and fast, built into macOS"), state: "ready", bytes: 0 },
         ...(IOS ? [] : Object.entries(this.engineInfo).map(([id, info]) => ({ id, ...info, removable: true,
           bytes: info.bytes + (others(id) ? 0 : 885098),
           state: w.state[id] === "verifying" ? "downloading" : w.state[id], verifying: w.state[id] === "verifying", progress: w.progress[id] || 0 }))),
@@ -3757,7 +4143,8 @@
   send("ready");
   if (!native && IN_EN) setLang("en");
   if (!native && new URLSearchParams(location.search).has("langmenu")) setTimeout(() => $("langBtn").click(), 200);   // demo: the language list open
-  if (!native) $("setVersion").textContent = "2.5.1";                     // demo (screenshots): the version 설정 shows
+  if (!native && new URLSearchParams(location.search).has("lectmenu")) setTimeout(() => $("langMore").click(), 900);  // demo: the lecture languages open
+  if (!native) $("setVersion").textContent = "2.6.0";                     // demo (screenshots): the version 설정 shows
   try { if (sessionStorage.getItem("reopen") === "settings") { sessionStorage.removeItem("reopen"); setTimeout(openSettings, 60); } } catch (e) {}                      // the English demo transcribes an English lecture
   {
     let agreed = false;

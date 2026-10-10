@@ -1218,10 +1218,11 @@ enum SlidesPDF {
         if (CTFontCopyPostScriptName(f) as String).hasPrefix("Pretendard") {
             let weight = (CTFontCopyPostScriptName(f) as String).replacingOccurrences(of: "Pretendard-", with: "")
             let (sys, latin, all) = fallback(weight, CTFontGetSize(f))
+            let han = hanFont(s, weight, CTFontGetSize(f))
             let ns = s as NSString
             for i in 0..<ns.length where all ? !hangul(ns.character(at: i)) : !pretendardKeeps(ns.character(at: i)) {
                 let c = ns.character(at: i)
-                out.addAttribute(NSAttributedString.Key(kCTFontAttributeName as String), value: latin != nil && !cjk(c) ? latin! : sys,
+                out.addAttribute(NSAttributedString.Key(kCTFontAttributeName as String), value: cjk(c) ? han ?? sys : latin ?? sys,
                                  range: NSRange(location: i, length: 1))
             }
         }
@@ -1245,6 +1246,29 @@ enum SlidesPDF {
         }
         return (CTFontCreateWithName(names[w] as CFString, size, nil), latin.map { CTFontCreateWithName($0[w] as CFString, size, nil) }, all)
     }
+
+    /// A transcript's Han characters in the font of the language they're written in, whatever the app's language (the
+    /// Korean font draws the Korean forms of them): kana → Japanese; Han without Hangul → Chinese, Traditional or
+    /// Simplified by the characters it uses (a tie: the app's). nil: no Han, or Korean with Hanja — the app's fallback.
+    private static func hanFont(_ s: String, _ weight: String, _ size: CGFloat) -> CTFont? {
+        let u = s.unicodeScalars
+        guard u.contains(where: { (0x3040...0x30FF).contains($0.value) || (0x3400...0x9FFF).contains($0.value) }) else { return nil }
+        let w = weight == "ExtraLight" ? 0 : weight == "Light" ? 1 : 2
+        let names: [String]
+        if u.contains(where: { (0x3040...0x30FF).contains($0.value) }) {
+            names = ["HiraginoSans-W2", "HiraginoSans-W3", "HiraginoSans-W4"]
+        } else if u.contains(where: { (0xAC00...0xD7A3).contains($0.value) }) {
+            return nil
+        } else {
+            let trad = u.filter { hant.contains($0) }.count, simp = u.filter { hans.contains($0) }.count
+            names = trad > simp || (trad == simp && appLanguage.value == "zh-Hant")
+                ? ["PingFangTC-Thin", "PingFangTC-Light", "PingFangTC-Regular"] : ["PingFangSC-Thin", "PingFangSC-Light", "PingFangSC-Regular"]
+        }
+        return CTFontCreateWithName(names[w] as CFString, size, nil)
+    }
+    /// Common characters written one way in Traditional Chinese and another in Simplified (each list holds its own forms).
+    private static let hant = Set("們這個來說時會為學國對開關現樣點後從還過麼裡長問題經實發動機體種東車書語話頭電聽見覺讓給認識歷處應該當與無幾邊進總結構義區傳統環變價錢買賣號飛氣門間網際數據資產業權華優質報導讀詞寫類級".unicodeScalars)
+    private static let hans = Set("们这个来说时会为学国对开关现样点从还过么长问题经实发动体种东车书语话头电听见觉让给认识历处应该当与无边进总结构义区传统环变价钱买卖号飞气门间网际数资产业权华优质报导读词写类级".unicodeScalars)
 
     /// Han, kana, CJK punctuation and full-width forms.
     private static func cjk(_ c: unichar) -> Bool {

@@ -7,6 +7,8 @@
 //     model is confident, its words are spliced in at the right moment. Nothing is ever translated.
 // For an English lecture (강의 언어: English) the roles swap: English writes the transcript and the previews, and a
 // Korean aside replaces the English model's guess only where Korean is confident Hangul and English was unsure.
+// Any other lecture language (日本語, Español, Русский…) is written by one model alone (`SoloRecognizer`): Apple's
+// long-form model where it speaks the language on this device, otherwise macOS's dictation model.
 
 import AVFoundation
 import Foundation
@@ -50,6 +52,7 @@ protocol SpeechRecognizer: AnyObject {
 /// A problem worth showing the user as it is.
 struct EngineError: LocalizedError {
     let message: String
+    var code: String? = nil        // the page's notice code (default "recognizer": a toast); "model_missing" stays on screen
     var errorDescription: String? { message }
 }
 
@@ -63,7 +66,7 @@ final class Recognizer: SpeechRecognizer {
     private let mainIsKorean: Bool
     private let analyzer: SpeechAnalyzer
     /// Audio arrives on capture threads; AsyncStream continuations are thread-safe.
-    private final class Input: @unchecked Sendable {
+    fileprivate final class Input: @unchecked Sendable {
         var continuation: AsyncStream<AnalyzerInput>.Continuation?
         private let lock = NSLock()
         private var _fed = false
@@ -92,14 +95,47 @@ final class Recognizer: SpeechRecognizer {
                             : (make("en-US", previews: true), make("ko-KR", previews: false))
     }
 
-    /// Makes sure the Korean and English speech models are on this Mac (macOS downloads them once).
-    static func prepare(progress: @escaping @Sendable (Double) -> Void) async throws {
-        let (ko, en) = transcribers()
-        let supported = await SpeechTranscriber.supportedLocales
-        guard supported.contains(where: { $0.identifier(.bcp47) == "ko-KR" }) else {
-            throw NSError(domain: "LectureScribe", code: 1, userInfo: [NSLocalizedDescriptionKey: L("이 기기에서 한국어 음성 인식을 지원하지 않습니다.", "This device doesn't support Korean speech recognition.")])
+    /// What `prepare` did: the locales it let go of to make room (`makeRoom`), and whether it only pretended (tests).
+    struct Prepared { var released: [String] = []; var pretend = false }
+
+    /// Makes sure a lecture language's speech models are on this device (macOS downloads each once): a Korean lecture needs
+    /// Korean and English, an English one English — and Korean too when `korean` (LectureLanguage.englishWithKorean) —
+    /// any other language its one model.
+    @discardableResult
+    static func prepare(language: String, korean: Bool = true, keep: [String] = [],
+                        progress: @escaping @Sendable (Double) -> Void) async throws -> Prepared {
+        let modules: [any SpeechModule], locales: [Locale]
+        if language == "ko" || (language == "en" && korean) {
+            let (ko, en) = transcribers()
+            let supported = await SpeechTranscriber.supportedLocales
+            guard supported.contains(where: { $0.identifier(.bcp47) == "ko-KR" }) else {
+                throw NSError(domain: "LectureScribe", code: 1, userInfo: [NSLocalizedDescriptionKey: L("이 기기에서 한국어 음성 인식을 지원하지 않습니다.", "This device doesn't support Korean speech recognition.")])
+            }
+            (modules, locales) = ([ko, en], [Locale(identifier: "ko-KR"), Locale(identifier: "en-US")])
+        } else {
+            guard let l = await LectureLanguage.available().first(where: { $0.id == language }) else {
+                throw EngineError(message: L("이 기기의 음성 인식은 이 강의 언어를 지원하지 않습니다.", "Speech recognition on this device doesn't support this lecture language."), code: "unsupported")
+            }
+            (modules, locales) = ([l.module(previews: false)], [l.locale])
+            // tests: a pretend download — nothing is fetched or reserved by it, and the engine then refuses to record in the
+            // language (a recording would make macOS fetch the real model by itself)
+            if let seconds = Double(env["LECTURE_TEST_FAKE_DOWNLOAD"] ?? ""),
+               (await LectureLanguage.downloadMB([l], englishKorean: korean)[l.id] ?? 0) > 0 {
+                for step in 1...10 {
+                    try await Task.sleep(for: .seconds(seconds / 10))
+                    progress(Double(step) / 10)
+                }
+                log("speech model \(l.locale.identifier(.bcp47)): pretend download done (LECTURE_TEST_FAKE_DOWNLOAD)")
+                return Prepared(pretend: true)
+            }
         }
-        if let request = try await AssetInventory.assetInstallationRequest(supporting: [ko, en]) {
+        // one reservation at a time: two languages fetched together would count the same free places
+        await reserving.enter()
+        let done = Prepared(released: await makeRoom(for: locales, keep: keep))
+        let request: AssetInstallationRequest?
+        do { request = try await AssetInventory.assetInstallationRequest(supporting: modules) } catch { reserving.leave(); throw error }
+        reserving.leave()
+        if let request {
             let watcher = Task {
                 while !Task.isCancelled {
                     progress(request.progress.fractionCompleted)
@@ -107,8 +143,50 @@ final class Recognizer: SpeechRecognizer {
                 }
             }
             defer { watcher.cancel() }
+            log("speech model \(locales.map { $0.identifier(.bcp47) }.joined(separator: " + ")): downloading")
             try await request.downloadAndInstall()
+            log("speech model \(locales.map { $0.identifier(.bcp47) }.joined(separator: " + ")): installed")
         }
+        markUsed(locales)
+        return done
+    }
+
+    /// macOS keeps the speech models of 5 languages per app ("Too many allocated locales"): before another, the one chosen
+    /// longest ago lets go of its model (macOS may then delete it; choosing that language again downloads it again).
+    /// One reservation at a time (`prepare`).
+    @MainActor final class Gate {
+        private var busy = false
+        private var waiting: [CheckedContinuation<Void, Never>] = []
+        func enter() async {
+            if busy { await withCheckedContinuation { waiting.append($0) } } else { busy = true }
+        }
+        func leave() { if waiting.isEmpty { busy = false } else { waiting.removeFirst().resume() } }
+    }
+    private static let reserving = Gate()
+
+    @discardableResult
+    static func makeRoom(for locales: [Locale], keep: [String] = []) async -> [String] {
+        let reserved = await AssetInventory.reservedLocales           // macOS's own Locale values: only they can be released
+        let tag = { (l: Locale) in l.identifier(.bcp47) }
+        let wanted = locales.map(tag)
+        let over = reserved.count + wanted.filter { w in !reserved.contains { tag($0) == w } }.count - AssetInventory.maximumReservedLocales
+        guard over > 0 else { return [] }
+        let used = UserDefaults.standard.stringArray(forKey: "speechLocalesUsed") ?? []       // oldest first
+        let rank = { (l: Locale) in (keep.contains(tag(l)) ? 1 : 0, used.firstIndex(of: tag(l)) ?? -1, tag(l)) }    // kept ones last,
+        let spare = reserved.filter { !wanted.contains(tag($0)) }.sorted { rank($0) < rank($1) }                // never chosen ones first
+        var released: [String] = []
+        for l in spare.prefix(over) {
+            let ok = await AssetInventory.release(reservedLocale: l)
+            log("speech model \(tag(l)): let go (\(ok ? "done" : "failed")) to make room for \(wanted.joined(separator: " + "))")
+            if ok { released.append(tag(l)) }
+        }
+        return released
+    }
+
+    private static func markUsed(_ locales: [Locale]) {
+        let ids = locales.map { $0.identifier(.bcp47) }
+        let used = (UserDefaults.standard.stringArray(forKey: "speechLocalesUsed") ?? []).filter { !ids.contains($0) } + ids
+        UserDefaults.standard.set(Array(used.suffix(24)), forKey: "speechLocalesUsed")
     }
 
     /// `main`: the lecture's language, "ko" (default) or "en".
@@ -465,5 +543,224 @@ final class Recognizer: SpeechRecognizer {
         input.continuation?.finish()
         await analyzer.cancelAndFinishNow()
         readers.forEach { $0.cancel() }
+    }
+}
+
+// MARK: - 강의 언어
+
+/// A lecture language (강의 언어): the language a lecture is in. Korean and English get `Recognizer` (two models, each
+/// rescuing the other language's quotes); every other one gets `SoloRecognizer`. Which languages a device offers is
+/// asked of macOS, so the list grows with it.
+struct LectureLanguage: Sendable {
+    let id: String               // what Settings.language keeps and the page names: "ko", "ja", "zh-Hans", "pt-BR"…
+    let locale: Locale           // the recognizer's: "ja-JP", "zh-CN"…
+    let dictation: Bool          // written by macOS's dictation model (Apple's long-form model doesn't speak it here)
+
+    static func duo(_ id: String) -> Bool { id == "ko" || id == "en" }
+
+    /// Every language the app offers with the recognizer locales that can write it, the default first — a locale of the
+    /// device's own region goes first (Mexican Spanish in Mexico, Canadian French in Canada). Chinese: Mandarin written
+    /// in Simplified (China mainland) or Traditional (Taiwan) characters; Cantonese in Traditional (Hong Kong) or
+    /// Simplified (Guangdong).
+    static let catalog: [(id: String, locales: [String])] = [
+        ("ko", ["ko-KR"]), ("en", ["en-US"]), ("ja", ["ja-JP"]),
+        ("zh-Hans", ["zh-CN"]), ("zh-Hant", ["zh-TW"]), ("yue-Hant", ["zh-HK"]), ("yue-Hans", ["yue-CN"]),
+        ("es", ["es-ES", "es-MX", "es-US", "es-CL"]), ("fr", ["fr-FR", "fr-CA", "fr-BE", "fr-CH"]),
+        ("de", ["de-DE", "de-AT", "de-CH"]), ("it", ["it-IT", "it-CH"]), ("pt-BR", ["pt-BR"]), ("pt-PT", ["pt-PT"]),
+        ("ru", ["ru-RU"]), ("vi", ["vi-VN"]),
+        ("ar", ["ar-SA"]), ("bn", ["bn-IN"]), ("ca", ["ca-ES"]), ("cs", ["cs-CZ"]), ("da", ["da-DK"]), ("el", ["el-GR"]),
+        ("fi", ["fi-FI"]), ("gu", ["gu-IN"]), ("he", ["he-IL"]), ("hi", ["hi-IN"]), ("hr", ["hr-HR"]), ("hu", ["hu-HU"]),
+        ("id", ["id-ID"]), ("kn", ["kn-IN"]), ("ks", ["ks-IN"]), ("mai", ["mai-IN"]), ("ml", ["ml-IN"]), ("mr", ["mr-IN"]),
+        ("ms", ["ms-MY"]), ("nb", ["nb-NO"]), ("ne", ["ne-IN"]), ("nl", ["nl-NL", "nl-BE"]), ("or", ["or-IN"]),
+        ("pa", ["pa-IN"]), ("pl", ["pl-PL"]), ("ro", ["ro-RO"]), ("sk", ["sk-SK"]), ("sv", ["sv-SE"]), ("ta", ["ta-IN"]),
+        ("te", ["te-IN"]), ("th", ["th-TH"]), ("tr", ["tr-TR"]), ("uk", ["uk-UA"]), ("ur", ["ur-IN"]),
+    ]
+    static let ids = catalog.map(\.id)
+
+    /// A language tag ("ja-JP", "zh-Hant-TW", "pt-PT", "es-419", "nn-NO") → the lecture language for it, nil for none.
+    static func id(for tag: String) -> String? {
+        let t = tag.lowercased().replacingOccurrences(of: "_", with: "-")
+        let p = String(t.split(separator: "-").first ?? "")
+        switch p {
+        case "zh": return t.hasSuffix("-hk") || t.hasSuffix("-mo") ? "yue-Hant"          // Apple's Hong Kong Chinese: Cantonese
+                        : t.contains("-hant") || t.hasSuffix("-tw") ? "zh-Hant" : "zh-Hans"
+        case "yue": return t.contains("-hans") || t.hasSuffix("-cn") ? "yue-Hans" : "yue-Hant"
+        case "pt": return t.hasSuffix("-pt") ? "pt-PT" : "pt-BR"
+        case "no", "nn": return "nb"
+        default: return ids.contains(p) ? p : nil
+        }
+    }
+
+    /// A new user's lecture language: the device's own language when a lecture can be in it, otherwise English.
+    static var deviceDefault: String { Locale.preferredLanguages.lazy.compactMap { id(for: $0) }.first ?? "en" }
+
+    @MainActor private static var known: [LectureLanguage]?
+
+    /// The lecture languages this device's recognizers speak, in catalog order (macOS is asked once per launch).
+    @MainActor static func available() async -> [LectureLanguage] {
+        if let k = known { return k }
+        let speech = Set(await SpeechTranscriber.supportedLocales.map { $0.identifier(.bcp47) })
+        let dictation = Set(await DictationTranscriber.supportedLocales.map { $0.identifier(.bcp47) })
+        let region = Locale.current.region?.identifier ?? ""
+        let latinAmerica = ["AR", "BO", "CL", "CO", "CR", "CU", "DO", "EC", "GT", "HN", "MX", "NI", "PA", "PE", "PR", "PY", "SV", "UY", "VE"]
+        var out: [LectureLanguage] = []
+        for (id, locales) in catalog {
+            if duo(id) {                              // the two-model recognizer needs both
+                if speech.contains("ko-KR") && speech.contains("en-US") {
+                    out.append(LectureLanguage(id: id, locale: Locale(identifier: locales[0]), dictation: false))
+                }
+                continue
+            }
+            let own = locales.first { $0.hasSuffix("-" + region) } ?? (latinAmerica.contains(region) && locales.contains("es-MX") ? "es-MX" : nil)
+            let order = (own.map { [$0] } ?? []) + locales.filter { $0 != own }
+            if let l = order.first(where: speech.contains) {
+                out.append(LectureLanguage(id: id, locale: Locale(identifier: l), dictation: false))
+            } else if let l = order.first(where: dictation.contains) {
+                out.append(LectureLanguage(id: id, locale: Locale(identifier: l), dictation: true))
+            }
+        }
+        known = out
+        return out
+    }
+
+    /// The model that writes this language; `previews`: live ("volatile") results too.
+    func module(previews: Bool) -> any SpeechModule {
+        dictation
+            ? DictationTranscriber(locale: locale, contentHints: [], transcriptionOptions: [.punctuation],
+                                   reportingOptions: previews ? [.volatileResults] : [], attributeOptions: [.audioTimeRange])
+            : SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: previews ? [.volatileResults] : [],
+                                attributeOptions: [.audioTimeRange])
+    }
+
+    /// About how much choosing each language downloads, in MB — 0 when its models are on this device already, fetched by
+    /// any app (choosing it then only reserves them). Measured: the long-form models 327 MB (ko-KR) to 392 MB (en-US),
+    /// ja-JP 341 MB; the dictation model 1.1 GB (ru-RU, one of Siri's speech assets). Not `AssetInventory.status(forModules:)`:
+    /// that answers for this app alone — a model another app fetched reads "supported" until this one reserves it.
+    @MainActor static func downloadMB(_ list: [LectureLanguage], englishKorean: Bool) async -> [String: Int] {
+        let speech = Set(await SpeechTranscriber.installedLocales.map { $0.identifier(.bcp47) })
+        let dictation = Set(await DictationTranscriber.installedLocales.map { $0.identifier(.bcp47) })
+        func mb(_ tag: String, dictating: Bool = false) -> Int {
+            (dictating ? dictation : speech).contains(tag) ? 0 : dictating ? 1100 : tag == "en-US" ? 390 : tag == "ko-KR" ? 330 : 350
+        }
+        var out: [String: Int] = [:]
+        for l in list {
+            switch l.id {
+            case "ko": out[l.id] = mb("ko-KR") + mb("en-US")
+            case "en": out[l.id] = mb("en-US") + (englishKorean ? mb("ko-KR") : 0)
+            default: out[l.id] = mb(l.locale.identifier(.bcp47), dictating: l.dictation)
+            }
+        }
+        return out
+    }
+
+    /// An English lecture also runs the Korean model — it keeps Korean asides in Korean (see Recognizer) — when that model is
+    /// on the device (anyone who records Korean lectures has it). Anyone else's English lectures use the English model alone:
+    /// no Korean model they never asked for, half the work; and Korean added to the Mac's languages later never holds
+    /// English back behind a download.
+    @MainActor static func englishWithKorean() async -> Bool {
+        if env["LECTURE_TEST_ENGLISH_ALONE"] == "1" { return false }                    // tests: someone without Korean
+        return await SpeechTranscriber.installedLocales.contains { $0.identifier(.bcp47) == "ko-KR" }
+    }
+}
+
+/// Any other lecture language: one of Apple's models writes the transcript and its live previews — the long-form model
+/// (SpeechTranscriber) where it speaks the language, otherwise macOS's dictation model (DictationTranscriber).
+@MainActor
+final class SoloRecognizer: SpeechRecognizer {
+    var onLine: ((Line) -> Void)?
+    var onError: ((Error) -> Void)?
+
+    /// The model turned out missing (macOS deleted it): the engine fetches it again.
+    var onMissingModel: (() -> Void)?
+
+    private let language: LectureLanguage
+    private let module: any SpeechModule
+    private let analyzer: SpeechAnalyzer
+    private let input = Recognizer.Input()
+    private var reader: Task<Void, Never>?
+    private var nextID = 1
+    private var volatileID: Int?
+
+    init(_ language: LectureLanguage) {
+        self.language = language
+        module = language.module(previews: true)
+        analyzer = SpeechAnalyzer(modules: [module])
+    }
+
+    func start() async throws {
+        let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
+        input.continuation = continuation
+        try await analyzer.start(inputSequence: stream)
+        if let m = module as? SpeechTranscriber {
+            reader = Task { [weak self] in
+                do { for try await r in m.results { self?.result(r.text, r.range, final: r.isFinal) } } catch { await self?.failed(error) }
+            }
+        } else if let m = module as? DictationTranscriber {
+            reader = Task { [weak self] in
+                do { for try await r in m.results { self?.result(r.text, r.range, final: r.isFinal) } } catch { await self?.failed(error) }
+            }
+        }
+    }
+
+    /// The results ended with an error. A missing model (macOS deleted it — it then starts fetching it by itself) is said
+    /// plainly: nothing is being transcribed, and the recording can be transcribed from its file later.
+    private func failed(_ error: Error) async {
+        guard (await LectureLanguage.downloadMB([language], englishKorean: false)[language.id] ?? 0) > 0 else { onError?(error); return }
+        log("recognizer: the \(language.locale.identifier(.bcp47)) model is missing — \(error)")
+        onMissingModel?()
+        onError?(EngineError(message: L("이 강의 언어의 음성 인식 모델이 이 기기에 없어서 받아 적지 못하고 있습니다. 녹음은 계속됩니다 — 모델을 내려받은 뒤 ‘파일 불러오기’로 이 녹음을 받아 적을 수 있습니다.",
+                                        "The speech model for this lecture language isn't on this device, so nothing is being transcribed. Recording continues — once the model has downloaded, you can transcribe this recording with Open File…"),
+                             code: "model_missing"))
+    }
+
+    /// A preview replaces the one before it; the final takes over its id (an empty final withdraws it).
+    private func result(_ text: AttributedString, _ range: CMTimeRange, final: Bool) {
+        // a line doesn't start with punctuation (as a model may write it after a pause: "。それでは", ", and")
+        let line = String(String(text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
+            .drop { $0.isWhitespace || ".,!?。、，！？؟،".contains($0) })
+        if !final {
+            guard !line.isEmpty else { return }
+            let id = volatileID ?? { let i = nextID; nextID += 1; volatileID = i; return i }()
+            onLine?(Line(id: id, start: range.start.seconds, text: line, final: false))
+            return
+        }
+        guard !line.isEmpty || volatileID != nil else { return }
+        let id = volatileID ?? { let i = nextID; nextID += 1; return i }()
+        volatileID = nil
+        if env["LECTURE_DEBUG"] == "1" { FileHandle.standardError.write("SOLO \(id) \(line)\n".data(using: .utf8)!) }
+        onLine?(Line(id: id, start: range.start.seconds, text: line, final: true, end: range.end.seconds))
+    }
+
+    /// Any thread.
+    nonisolated func push(_ buffer: AVAudioPCMBuffer) {
+        guard let c = input.continuation else { return }
+        if case .enqueued = c.yield(AnalyzerInput(buffer: buffer)) { input.markFed() }
+    }
+
+    /// As `Recognizer.finish()`: everything still held is written, but the wait never lasts forever.
+    func finish() async {
+        input.continuation?.finish()
+        let analyzer = self.analyzer, reader = self.reader
+        if input.fed {
+            try? await analyzer.finalizeAndFinishThroughEndOfInput()
+        } else {
+            await analyzer.cancelAndFinishNow()
+            reader?.cancel()
+        }
+        let limit = Task {
+            try? await Task.sleep(for: .seconds(15))
+            if Task.isCancelled { return }
+            log("recognizer: results did not end, giving up waiting")
+            await analyzer.cancelAndFinishNow()
+            reader?.cancel()
+        }
+        _ = await reader?.value
+        limit.cancel()
+    }
+
+    func cancel() async {
+        input.continuation?.finish()
+        await analyzer.cancelAndFinishNow()
+        reader?.cancel()
     }
 }
