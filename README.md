@@ -2,18 +2,18 @@
 
 <img src="docs/icon-v2.png" width="112" alt="">
 
-# 강의 받아쓰기
+# Arc 강의 받아쓰기
 
 <p><b>한국어</b> · <a href="README.en.md">English</a></p>
 
 **온라인 강의를 실시간으로 받아 적는 Mac 앱**<br>
 Apple 온디바이스 음성 인식 · 무료 · 오픈소스 · 모든 처리가 내 Mac 안에서
 
-<img src="docs/appstore/screenshots/2.3/02-live.png" width="760" alt="강의 받아쓰기 — 실시간 받아쓰기 화면">
+<img src="docs/appstore/screenshots/2.5.1/ko/02-live.png" width="760" alt="Arc 강의 받아쓰기 — 실시간 받아쓰기 화면">
 
-<img src="docs/appstore/screenshots/2.3/03-library.png" width="760" alt="기록 화면 — 받아 적은 글과 녹음을 함께">
+<img src="docs/appstore/screenshots/2.5.1/ko/03-library.png" width="760" alt="기록 화면 — 받아 적은 글과 녹음을 함께">
 
-<img src="docs/appstore/screenshots/2.5/ko-language.png" width="760" alt="화면 언어 — 첫 화면의 지구본에서 12개 언어 중 선택">
+<img src="docs/appstore/screenshots/2.5.1/ko/08-language.png" width="760" alt="화면 언어 — 첫 화면의 지구본에서 12개 언어 중 선택">
 
 <sub>화면은 12개 언어로 쓸 수 있습니다 — 처음에는 Mac의 언어를 따르고, 첫 화면 왼쪽 위의 지구본에서 바꿉니다.</sub>
 
@@ -57,7 +57,7 @@ Apple 온디바이스 음성 인식 · 무료 · 오픈소스 · 모든 처리�
 ## 요구 사항
 
 - **macOS 26 (Tahoe) 이상**, Apple Silicon(M1 이상) Mac
-- macOS 14.2\~15라면 [v1(Whisper 버전)](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)을 사용하십시오. 아래 설치 명령은 macOS 버전에 맞는 버전을 자동으로 선택합니다.
+- macOS 14.2\~15라면 [v1(Whisper 버전)](https://github.com/WeldingArc/arc-lecture-transcriber/releases/tag/v1.0.0)을 사용하십시오. 아래 설치 명령은 macOS 버전에 맞는 버전을 자동으로 선택합니다.
 
 ## 설치
 
@@ -66,14 +66,14 @@ Apple 온디바이스 음성 인식 · 무료 · 오픈소스 · 모든 처리�
 **터미널** 앱(Spotlight에서 "터미널" 검색)을 열고 아래 한 줄을 붙여 넣은 뒤 Enter 키를 누르십시오.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-transcriber/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/WeldingArc/arc-lecture-transcriber/main/scripts/install.sh | bash
 ```
 
 업데이트할 때도 같은 명령을 다시 실행하면 됩니다.
 
 ### 방법 2 · 직접 다운로드
 
-[최신 릴리스](https://github.com/WeldingArc/lecture-transcriber/releases/latest)에서 `LectureScribe-mac.zip`을 내려받아 압축을 풀고, `강의 받아쓰기.app`을 응용 프로그램 폴더로 옮기십시오. 아직 Apple 공증 전이라 브라우저로 내려받은 경우 처음 열 때 macOS가 경고를 표시하고 열지 않습니다. **[완료]**를 누른 뒤 **시스템 설정 › 개인정보 보호 및 보안**에서 아래쪽의 **[그래도 열기]**를 누르십시오(처음 한 번). 방법 1의 설치 명령으로 설치하면 이 단계가 필요 없습니다.
+[최신 릴리스](https://github.com/WeldingArc/arc-lecture-transcriber/releases/latest)에서 `LectureScribe-mac.zip`을 내려받아 압축을 풀고, `Arc 강의 받아쓰기.app`을 응용 프로그램 폴더로 옮기십시오(예전 `강의 받아쓰기.app`이 있다면 휴지통으로). 아직 Apple 공증 전이라 브라우저로 내려받은 경우 처음 열 때 macOS가 경고를 표시하고 열지 않습니다. **[완료]**를 누른 뒤 **시스템 설정 › 개인정보 보호 및 보안**에서 아래쪽의 **[그래도 열기]**를 누르십시오(처음 한 번). 방법 1의 설치 명령으로 설치하면 이 단계가 필요 없습니다.
 
 ## 처음 실행할 때
 
@@ -99,7 +99,7 @@ curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-transcriber/main
 
 ## 이용 안내 및 면책
 
-강의 받아쓰기는 개인 학습을 돕기 위한 도구입니다. 앱을 처음 실행하면 아래 내용에 동의해야 사용할 수 있으며, 설정 › 정보 › ‘이용 안내 및 면책 고지’에서 다시 볼 수 있습니다.
+Arc 강의 받아쓰기는 개인 학습을 돕기 위한 도구입니다. 앱을 처음 실행하면 아래 내용에 동의해야 사용할 수 있으며, 설정 › 정보 › ‘이용 안내 및 면책 고지’에서 다시 볼 수 있습니다.
 
 - 이 앱으로 녹음하거나 받아 적은 강의, 슬라이드, 녹취록의 저작권은 강의자와 학교 등 원저작권자에게 있습니다.
 - 녹음 파일, 녹취록, 슬라이드 PDF는 본인의 학습 용도로만 사용하십시오. 다른 사람에게 공유·배포하거나 인터넷에 게시하면 저작권 침해가 될 수 있습니다.
@@ -112,7 +112,7 @@ curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-transcriber/main
 <details>
 <summary>[시작]을 눌러도 글자가 나타나지 않는 경우</summary>
 
-강의 영상이 실제로 재생 중인지 확인하십시오. 그래도 나타나지 않으면 **시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 녹음**의 **"시스템 오디오 녹음만"** 목록에서 강의 받아쓰기를 켠 뒤 앱을 다시 여십시오.
+강의 영상이 실제로 재생 중인지 확인하십시오. 그래도 나타나지 않으면 **시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 녹음**의 **"시스템 오디오 녹음만"** 목록에서 Arc 강의 받아쓰기를 켠 뒤 앱을 다시 여십시오.
 </details>
 
 <details>
@@ -136,7 +136,7 @@ rm -rf ~/Library/Application\ Support/LectureScribe/models
 <details>
 <summary>문제가 발생한 경우</summary>
 
-메뉴 **도움말 → 로그 폴더 열기 (문제 신고용)**에서 `app.log`를 첨부하여 [이슈](https://github.com/WeldingArc/lecture-transcriber/issues)로 알려 주십시오. 로그에는 받아 적은 내용도, Mac 사용자 이름도 포함되지 않습니다.
+메뉴 **도움말 → 로그 폴더 열기 (문제 신고용)**에서 `app.log`를 첨부하여 [이슈](https://github.com/WeldingArc/arc-lecture-transcriber/issues)로 알려 주십시오. 로그에는 받아 적은 내용도, Mac 사용자 이름도 포함되지 않습니다.
 </details>
 
 ## 동작 원리
@@ -152,7 +152,7 @@ Mac 시스템 소리 ─▶ Core Audio 탭 (macOS 14.2+) ─▶ Apple SpeechAnal
 
 하나의 네이티브 Swift 앱입니다(AppKit + WKWebView). Apple 샌드박스 안에서 작동하며, 앱 크기는 약 17MB입니다(음성 인식 모델은 내려받을 때만). 직접 빌드하려면 [DEVELOPMENT.md](DEVELOPMENT.md)를 참고하십시오.
 
-**v1**은 OpenAI Whisper large-v3-turbo를 whisper.cpp로 실행하는 버전이었습니다. macOS 14.2\~15용으로 [v1.0.0 릴리스](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0)에 남아 있습니다.
+**v1**은 OpenAI Whisper large-v3-turbo를 whisper.cpp로 실행하는 버전이었습니다. macOS 14.2\~15용으로 [v1.0.0 릴리스](https://github.com/WeldingArc/arc-lecture-transcriber/releases/tag/v1.0.0)에 남아 있습니다.
 
 ## 라이선스
 

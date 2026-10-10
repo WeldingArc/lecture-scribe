@@ -6,7 +6,7 @@ This repo holds two generations of the app:
   sharing the engine, the session library and the UI: `app/`, `app/ios/`, `ui/`, `project.yml`, `scripts/build_v2.sh`.
 - **v1 (macOS 14.2–15)** — Swift shell + Python engine + whisper.cpp: `native/`, `backend.py`,
   `models/`, `tools/`, `tests/`, `scripts/build_release.sh`. Released as
-  [v1.0.0](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0); notes [below](#v1-legacy).
+  [v1.0.0](https://github.com/WeldingArc/arc-lecture-transcriber/releases/tag/v1.0.0); notes [below](#v1-legacy).
 
 `ui/index.html` is shared: both engines speak the same JSON events to it.
 
@@ -38,7 +38,7 @@ app/ios/Info.plist, Assets.xcassets, PrivacyInfo.xcprivacy
                          iOS app settings (background audio, Files app sharing), icon, privacy manifest
 app/Info.plist           usage descriptions, macOS 26 minimum (build settings fill in the $(…) variables)
 app/Resources/<code>.lproj/InfoPlist.strings, app/ios/<code>.lproj/InfoPlist.strings (the 12 languages)
-                         the app's name and permission prompts per system language — macOS picks the .lproj (강의 받아쓰기 / Lecture
+                         the app's name and permission prompts per system language — macOS picks the .lproj (Arc 강의 받아쓰기 / Lecture
                          Transcriber); an in-app choice only pins this app's AppleLanguages (menu bar name from the next launch)
 app/LectureScribe.entitlements
                          App Sandbox: Downloads read-write, user-selected read-only,
@@ -59,10 +59,10 @@ scripts/build_transcribe.sh  builds transcribe.cpp (pinned tag) into one self-co
 ### Build
 
 ```bash
-scripts/build_v2.sh                 # ad-hoc signed → build/v2/강의 받아쓰기.app, dist/v2/LectureScribe-mac.zip
+scripts/build_v2.sh                 # ad-hoc signed → build/v2/Arc 강의 받아쓰기.app, dist/v2/LectureScribe-mac.zip
 SIGN_ID="Developer ID Application: NAME (TEAMID)" scripts/build_v2.sh     # for GitHub, then notarize:
 xcrun notarytool submit dist/v2/LectureScribe-mac.zip --keychain-profile PROFILE --wait
-xcrun stapler staple "build/v2/강의 받아쓰기.app"                           # and zip again
+xcrun stapler staple "build/v2/Arc 강의 받아쓰기.app"                           # and zip again
 ```
 
 The script needs only the Command Line Tools. For signed builds and the App Store use Xcode
@@ -168,7 +168,7 @@ Italiano (it), Tiếng Việt (vi), Русский (ru). The lecture itself is s
   everything but Hangul in the other languages (`SlidesPDF.fallback`). Element-level `lang` keeps each language's own font (Русский in a
   Japanese page).
 - **macOS's and iOS's own words**: `<code>.lproj/InfoPlist.strings` for all 12 (app/Resources for the Mac, app/ios for
-  iPhone/iPad: the name — "Lecture Transcriber" in every language but Korean — and every permission prompt);
+  iPhone/iPad: the name — "Arc Lecture Transcriber" in every language but Korean — and every permission prompt);
   `CFBundleLocalizations` lists the 12; `CFBundleDevelopmentRegion` is `en`.
 - **Switching** (globe, 설정 › 언어) rebuilds the menus and the window title, resets the page script and reloads the page;
   the engine replays its state. Global constants must not call `L()`: they would keep the language of their first use,

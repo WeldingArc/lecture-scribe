@@ -13,7 +13,7 @@ import WebKit
 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
 let devDir = env["LECTURE_DEV_DIR"]
 let uiDir = devDir.map { $0 + "/ui" } ?? ((Bundle.main.resourcePath ?? "") + "/ui")
-let repoURL = "https://github.com/WeldingArc/lecture-transcriber"
+let repoURL = "https://github.com/WeldingArc/arc-lecture-transcriber"
 let sandboxed = env["APP_SANDBOX_CONTAINER_ID"] != nil
 
 @MainActor
@@ -183,6 +183,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
 
     /// After "Open Anyway" on a browser-downloaded copy, files inside the app keep the download flag.
     func clearQuarantine() {
+        #if APPSTORE
+        return                                    // the Mac App Store build never touches its own bundle
+        #else
         guard devDir == nil, !sandboxed else { return }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
@@ -191,6 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         p.standardError = FileHandle.nullDevice
         try? p.run()
         p.waitUntilExit()
+        #endif
     }
 
     // MARK: engine → page
@@ -287,7 +291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     /// 설정 › 언어 (or the globe on the start screen): menus and page in the new language; the engine replays its state.
     func languageChanged() {
         buildMenu()
-        window.title = L("강의 받아쓰기", "Lecture Transcriber")
+        window.title = L("Arc 강의 받아쓰기", "Arc Lecture Transcriber")
         web.configuration.userContentController.removeAllUserScripts()
         web.configuration.userContentController.addUserScript(pageScript())
         pageReady = false
@@ -345,7 +349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 780),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
-        window.title = L("강의 받아쓰기", "Lecture Transcriber")
+        window.title = L("Arc 강의 받아쓰기", "Arc Lecture Transcriber")
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.backgroundColor = NSColor(srgbRed: 13 / 255, green: 18 / 255, blue: 32 / 255, alpha: 1)
@@ -390,12 +394,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             i.keyEquivalentModifierMask = mods
             return i
         }
-        let appMenu = sub(L("강의 받아쓰기", "Lecture Transcriber"), [
-            it(L("강의 받아쓰기 정보", "About Lecture Transcriber"), #selector(showAbout), ""), .separator(),
+        let appMenu = sub(L("Arc 강의 받아쓰기", "Arc Lecture Transcriber"), [
+            it(L("Arc 강의 받아쓰기 정보", "About Arc Lecture Transcriber"), #selector(showAbout), ""), .separator(),
             it(L("설정…", "Settings…"), #selector(openSettings), ","), .separator(),
-            it(L("강의 받아쓰기 가리기", "Hide Lecture Transcriber"), #selector(NSApplication.hide(_:)), "h"),
+            it(L("Arc 강의 받아쓰기 가리기", "Hide Arc Lecture Transcriber"), #selector(NSApplication.hide(_:)), "h"),
             it(L("기타 가리기", "Hide Others"), #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]), .separator(),
-            it(L("강의 받아쓰기 종료", "Quit Lecture Transcriber"), #selector(NSApplication.terminate(_:)), "q"),
+            it(L("Arc 강의 받아쓰기 종료", "Quit Arc Lecture Transcriber"), #selector(NSApplication.terminate(_:)), "q"),
         ])
         let edit = sub(L("편집", "Edit"), [
             it(L("실행 취소", "Undo"), Selector(("undo:")), "z"), it(L("실행 복귀", "Redo"), Selector(("redo:")), "z", [.command, .shift]), .separator(),
@@ -434,7 +438,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     @objc func showAbout() {
         let credits = NSAttributedString(string: L("Apple 온디바이스 음성 인식으로 이 Mac 안에서 받아 적습니다.", "Transcribes on this Mac with Apple's on-device speech recognition."),
                                          attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor])
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: L("강의 받아쓰기", "Lecture Transcriber"), .credits: credits])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: L("Arc 강의 받아쓰기", "Arc Lecture Transcriber"), .credits: credits])
         NSApp.activate()
     }
     @objc func openSettings() { toPage(["ev": "openSettings"]) }

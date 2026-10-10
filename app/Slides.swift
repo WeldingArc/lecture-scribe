@@ -1321,7 +1321,7 @@ enum SlidesPDF {
 
     private static func footer(_ ctx: CGContext, _ title: String, _ n: Int, in box: CGRect = page, margin m: CGFloat = margin) {
         let f = font(7.5, "Light")
-        let full = CTLineCreateWithAttributedString(text("\(L("강의 받아쓰기", "Lecture Transcriber")) · \(title)", f, muted, kern: 0.3) as CFAttributedString)
+        let full = CTLineCreateWithAttributedString(text("\(L("Arc 강의 받아쓰기", "Arc Lecture Transcriber")) · \(title)", f, muted, kern: 0.3) as CFAttributedString)
         let room = Double(box.width - m * 2 - 40)                            // a long title stops short of the page number
         let l = CTLineGetTypographicBounds(full, nil, nil, nil) <= room ? full
             : CTLineCreateTruncatedLine(full, room, .end, CTLineCreateWithAttributedString(text("…", f, muted) as CFAttributedString)) ?? full
@@ -1505,7 +1505,7 @@ enum SlidesPDF {
     private static func context(_ url: URL, _ box: CGRect, _ deck: Deck, keywords: Bool) -> CGContext? {
         var b = box
         var info: [CFString: Any] = [kCGPDFContextTitle: deck.title.replacingOccurrences(of: "\u{00A0}", with: " "),   // searchable
-                                     kCGPDFContextCreator: L("강의 받아쓰기", "Lecture Transcriber")]
+                                     kCGPDFContextCreator: L("Arc 강의 받아쓰기", "Arc Lecture Transcriber")]
         if keywords { info[kCGPDFContextKeywords] = "slides=\(deck.slides.count)" }      // 기록 counts the slides from this
         return CGContext(url as CFURL, mediaBox: &b, info as CFDictionary)
     }

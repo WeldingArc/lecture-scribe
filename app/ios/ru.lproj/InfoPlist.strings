@@ -1,5 +1,5 @@
 /* iPhone/iPad app — Русский */
-"CFBundleDisplayName" = "Lecture Transcriber";
-"CFBundleName" = "Lecture Transcriber";
+"CFBundleDisplayName" = "Arc Lecture Transcriber";
+"CFBundleName" = "Arc Lecture Transcriber";
 "NSMicrophoneUsageDescription" = "Микрофон нужен, чтобы записывать и расшифровывать лекцию. Записи и текст хранятся только на этом устройстве.";
 "NSSpeechRecognitionUsageDescription" = "Расшифровывает записанные лекции на этом устройстве с помощью распознавания речи Apple. Звук и текст не покидают устройство.";

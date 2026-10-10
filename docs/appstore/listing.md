@@ -1,10 +1,10 @@
-# App Store Connect — 강의 받아쓰기 (copy & paste)
+# App Store Connect — Arc 강의 받아쓰기 (copy & paste)
 
 | Field | Value |
 |---|---|
-| Name | 강의 받아쓰기 |
+| Name | Arc 강의 받아쓰기 |
 | Subtitle | 한 마디도 놓치지 않는 실시간 받아쓰기 |
-| Name (English localization) | Lecture Transcriber |
+| Name (English localization) | Arc Lecture Transcriber |
 | Subtitle (English) | Every word, live and on-device |
 | Bundle ID | io.github.joshichoi.lecture-scribe |
 | SKU | lecture-scribe-mac |
@@ -13,22 +13,22 @@
 | Price | Free |
 | Age rating | 4+ (answer "No/None" to every question) |
 | Copyright | 2026 JoshiChoi |
-| Support URL | https://github.com/WeldingArc/lecture-transcriber/issues |
-| Marketing URL | https://github.com/WeldingArc/lecture-transcriber |
-| Privacy Policy URL | https://github.com/WeldingArc/lecture-transcriber/blob/main/PRIVACY.md |
+| Support URL | https://github.com/WeldingArc/arc-lecture-transcriber/issues |
+| Marketing URL | https://github.com/WeldingArc/arc-lecture-transcriber |
+| Privacy Policy URL | https://github.com/WeldingArc/arc-lecture-transcriber/blob/main/PRIVACY.md |
 | App Privacy | Data Not Collected |
 | Encryption | No (ITSAppUsesNonExemptEncryption = NO in Info.plist) |
-| Marketing screenshots (2880×1800, upload these) | Korean store: docs/appstore/marketing/ko/01-live.jpg, 02-key-sentences.jpg, 03-slides.jpg, 04-library.jpg, 05-find.jpg, 06-privacy.jpg · English store: the same names in docs/appstore/marketing/en/ (the English screens; a headline and a line of pitch over each; re-render with `tools/make_marketing.sh`) |
-| Screenshots (2880×1800), in this order | docs/appstore/screenshots/01-start.png, 02-live.png, 03-library.png, 04-playback.png, 05-saved.png, 06-slide-pdf.png, 07-settings.png (demo data only; re-render with tools/shot.swift and `?shot=start / (none) / library / playing / saved / slidesdemo&t=19.5 / settings` at 1440×900; the 2.0 set is kept in docs/appstore/*.png) |
+| Marketing screenshots (2880×1800, upload these) | Korean store: docs/appstore/marketing/ko/01-live.jpg, 02-key-sentences.jpg, 03-slides.jpg, 04-library.jpg, 05-find.jpg, 06-privacy.jpg, 07-languages.jpg · English store: the same names in docs/appstore/marketing/en/ (the English screens; a headline and a line of pitch over each; re-render with `tools/make_marketing.sh`) |
+| Screenshots (2880×1800), plain app screens | docs/appstore/screenshots/2.5.1/ko/ (Korean store) and docs/appstore/screenshots/2.5.1/en/ (English store): 01-start, 02-live, 03-library, 04-playback, 05-saved, 06-slide-pdf, 07-settings, 08-language (render: tools/shot.swift; demo data only) |
 
 ## Promotional text
 강의를 틀고 시작만 누르면 됩니다. Mac 안에서 바로 받아 적고, 강의마다 녹음과 글을 ‘기록’에 모아 줍니다. 인터넷 전송 없음 · 무료.
 
 ## Keywords
-받아쓰기,강의,자막,녹취,음성인식,필기,온라인강의,녹음,전사,요약,줌,런어스,대학생,STT,메모
+받아쓰기,강의,자막,녹취,음성인식,필기,온라인강의,녹음,전사,요약,대학생,STT,메모,속기,강의노트
 
 ## Description
-강의 받아쓰기는 Mac에서 재생되는 온라인 강의의 말소리를 실시간으로 받아 적어 주는 앱입니다.
+Arc 강의 받아쓰기는 Mac에서 재생되는 온라인 강의의 말소리를 실시간으로 받아 적어 주는 앱입니다.
 
 ■ 사용 방법
 런어스·유튜브·줌 등으로 강의를 틀고 [시작]만 누르면, Mac에서 나오는 소리를 그대로 받아 문장 단위로 받아 적습니다. 마이크를 사용하지 않으므로 이어폰을 껴도, 주변이 시끄러워도 괜찮습니다.
@@ -57,7 +57,7 @@
 • 처음 [시작]을 누를 때 ‘시스템 오디오 녹음’ 권한을 허용하십시오
 
 ■ 이용 안내 및 면책
-강의 받아쓰기는 개인 학습을 돕기 위한 도구입니다.
+Arc 강의 받아쓰기는 개인 학습을 돕기 위한 도구입니다.
 • 녹음하거나 받아 적은 강의, 슬라이드, 녹취록의 저작권은 강의자와 학교 등 원저작권자에게 있습니다.
 • 녹음 파일, 녹취록, 슬라이드 PDF는 본인의 학습 용도로만 사용하십시오. 다른 사람에게 공유·배포하거나 인터넷에 게시하면 저작권 침해가 될 수 있습니다.
 • 녹음하기 전에 해당 수업의 녹음·녹화 규정과 강의자의 방침을 확인하십시오.
@@ -65,7 +65,58 @@
 • 음성 인식 결과에는 오류가 있을 수 있습니다. 중요한 내용은 원래 강의에서 확인하십시오.
 • 처음 실행할 때 이 내용에 동의해야 사용할 수 있으며, 설정에서 다시 볼 수 있습니다.
 
-오픈소스(MIT)입니다: https://github.com/WeldingArc/lecture-transcriber
+오픈소스(MIT)입니다: https://github.com/WeldingArc/arc-lecture-transcriber
+
+## Promotional text (English localization)
+Play a lecture and press Start. Arc Lecture Transcriber writes it down live, right on your Mac, and keeps each lecture's recording and transcript in your Library. Free.
+
+## Keywords (English localization)
+transcribe,lecture,notes,speech to text,captions,student,recording,dictation,class,study,STT
+
+## Description (English localization)
+Arc Lecture Transcriber writes down the speech of the online lectures your Mac plays, in real time.
+
+■ How it works
+Play a lecture in LearnUs, YouTube, Zoom or any other app and press Start. The app takes the sound your Mac is playing and writes it down sentence by sentence. It doesn't use the microphone, so earphones and a noisy room are fine.
+
+■ Features
+• Live transcription — words appear as they are spoken
+• Library — each lecture's recording and transcript in one place; click a sentence to hear it again from there
+• Key Sentences — sentences with words such as "attendance", "exam" or "assignment" are underlined and collected at the top; choose your own key words
+• Find words in a recording with ⌘F, and fix misheard words in place with Edit Text
+• Pause during breaks — nothing is recorded meanwhile, and Resume carries on
+• The text (.txt) and the recording (.m4a) are also saved in a folder in your Downloads
+• Keeps up with lectures played at 1.5× or 2×
+• Copy All, then paste into an AI chat such as ChatGPT or Claude to summarize
+• English stays English and Korean stays Korean — nothing is translated on purpose (the lecture language is Korean or English)
+• Choose the speech engine — Apple's by default, or download an open model once and run it on your Mac: Qwen3-ASR (about 1.5 GB, best for lectures that mix Korean and English), Whisper (about 575 MB) or Parakeet (about 540 MB, English lectures only)
+• Drop an audio or video file onto the window to transcribe it, much faster than real time
+• Slide PDF — when there are no lecture notes, the slides are collected each time they change, with what was said, into a PDF (you choose the lecture window). The lecturer's camera is found and left out of slide detection, and Clean Capture keeps only the slide — no browser bar, player or black borders. Choose a Landscape, Two Files or A4 layout; every slide gets the title read from the screen and a bookmark
+• 12 interface languages — 한국어 · English · 简体中文 · 繁體中文 · 日本語 · Español · Français · Deutsch · Português (Brasil) · Italiano · Tiếng Việt · Русский; it follows your Mac's language and the globe on the start screen switches it
+
+■ Privacy
+Speech recognition runs on your Mac with Apple's on-device speech recognition. Sound and text are never sent anywhere, and no account is needed.
+
+■ Notes
+• macOS 26 or later, Mac with Apple silicon (M1 or later)
+• The first time you press Start, allow "System Audio Recording"
+
+■ Usage notice and disclaimer
+Arc Lecture Transcriber is a tool to support personal study.
+• Recorded lectures, slides and transcripts remain the copyright of the lecturer, the school and other rights holders.
+• Use recordings, transcripts and slide PDFs only for your own study. Sharing or distributing them, or posting them online, may infringe copyright.
+• Before recording, check the course's rules on recording and the lecturer's policy.
+• You bear all legal responsibility for your use of the app; the developer accepts no liability.
+• Speech recognition can make mistakes. Check important points against the lecture itself.
+• You agree to this notice the first time you open the app, and can read it again in Settings.
+
+Open source (MIT): https://github.com/WeldingArc/arc-lecture-transcriber
+
+## What's New (2.5.1)
+• 새 이름 — Arc 강의 받아쓰기 (Arc Lecture Transcriber). 기능은 2.5와 같습니다
+
+## What's New (2.5.1, English localization)
+• New name — Arc Lecture Transcriber (Arc 강의 받아쓰기). Same features as 2.5
 
 ## What's New (2.5)
 • 12개 언어 화면 — 한국어 · English에 简体中文 · 繁體中文 · 日本語 · Español · Français · Deutsch · Português (Brasil) · Italiano · Tiếng Việt · Русский가 더해졌습니다. 화면·메뉴·알림·PDF가 그 언어로 바뀌고, 권한 안내도 12개 언어로 준비되어 있습니다(macOS가 표시하므로 Mac의 언어 설정을 따릅니다). 강의 언어는 지금처럼 한국어 · English입니다
@@ -122,7 +173,7 @@
 • 영어 구간은 영어 그대로 받아 적습니다
 
 ## Notes for App Review (English)
-Lecture Transcriber transcribes the audio that is playing on the Mac (e.g. an online lecture in a browser) in real time, entirely on-device, using Apple's SpeechAnalyzer/SpeechTranscriber (ko-KR, plus en-US to keep English quotes in English). Optionally (Settings › Speech Recognition; 설정 › 음성 인식 in Korean) the user can download an open speech model — Whisper large-v3-turbo (about 575 MB), Qwen3-ASR 1.7B (about 1.5 GB) or Parakeet 0.6B (English only, about 540 MB), from huggingface.co — and transcribe with it instead, also entirely on-device. The main screen's lecture-language switch (Korean / English) sets the lecture's main language. The interface is in 12 languages: it follows the Mac's language (English for any other), and the globe at the top left of the start screen (or Settings › Language) switches it. The lecture language is Korean or English. No account, no server, no network use for content.
+Arc Lecture Transcriber transcribes the audio that is playing on the Mac (e.g. an online lecture in a browser) in real time, entirely on-device, using Apple's SpeechAnalyzer/SpeechTranscriber (ko-KR, plus en-US to keep English quotes in English). Optionally (Settings › Speech Recognition; 설정 › 음성 인식 in Korean) the user can download an open speech model — Whisper large-v3-turbo (about 575 MB), Qwen3-ASR 1.7B (about 1.5 GB) or Parakeet 0.6B (English only, about 540 MB), from huggingface.co — and transcribe with it instead, also entirely on-device. The main screen's lecture-language switch (Korean / English) sets the lecture's main language. The interface is in 12 languages: it follows the Mac's language (English for any other), and the globe at the top left of the start screen (or Settings › Language) switches it. The lecture language is Korean or English. No account, no server, no network use for content.
 
 How to test:
 1. Launch the app. On first launch it shows a usage notice and disclaimer (이용 안내 및 면책 고지: personal study use only; lecture content stays its owners' copyright and must not be shared; transcripts can contain errors) — click "Agree and Start" (동의하고 시작); it can be reopened from Settings › About or Help › Usage Notice and Disclaimer. Then wait for "Ready" (준비됨).

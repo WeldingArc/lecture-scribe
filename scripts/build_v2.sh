@@ -2,7 +2,7 @@
 # Builds 강의 받아쓰기 v2 — one native app (Apple's on-device speech recognition, macOS 26+; Whisper, Qwen3-ASR and
 # Parakeet as optional engines whose models are downloaded in the app).
 #
-#   scripts/build_v2.sh                       # ad-hoc signed, sandboxed → build/v2/강의 받아쓰기.app
+#   scripts/build_v2.sh                       # ad-hoc signed, sandboxed → build/v2/Arc 강의 받아쓰기.app
 #                                             #   and dist/v2/LectureScribe-mac.zip
 #   SIGN_ID="Developer ID Application: …" scripts/build_v2.sh     # signed for GitHub (then notarize)
 #   OUT=/some/dir DIST=/some/dir scripts/build_v2.sh               # build elsewhere (a copy may be running from build/v2)
@@ -12,13 +12,13 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${VERSION:-2.5.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-250}"
+VERSION="${VERSION:-2.5.1}"
+BUILD_NUMBER="${BUILD_NUMBER:-251}"
 SIGN_ID="${SIGN_ID:--}"
 ENTITLEMENTS="${ENTITLEMENTS:-$ROOT/app/LectureScribe.entitlements}"
 OUT="${OUT:-$ROOT/build/v2}"
 DIST="${DIST:-$ROOT/dist/v2}"
-APP="$OUT/강의 받아쓰기.app"
+APP="$OUT/Arc 강의 받아쓰기.app"
 RES="$APP/Contents/Resources"
 mkdir -p "$OUT" "$ROOT/dist"
 step() { printf '\n· %s\n' "$*"; }

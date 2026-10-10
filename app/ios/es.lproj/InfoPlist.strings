@@ -1,5 +1,5 @@
 /* iPhone/iPad app — Español */
-"CFBundleDisplayName" = "Lecture Transcriber";
-"CFBundleName" = "Lecture Transcriber";
+"CFBundleDisplayName" = "Arc Lecture Transcriber";
+"CFBundleName" = "Arc Lecture Transcriber";
 "NSMicrophoneUsageDescription" = "El micrófono es necesario para grabar y transcribir la clase. Las grabaciones y el texto solo se guardan en este dispositivo.";
 "NSSpeechRecognitionUsageDescription" = "Transcribe las clases grabadas con el reconocimiento de voz de Apple, en este mismo dispositivo. El sonido y el texto nunca salen del dispositivo.";

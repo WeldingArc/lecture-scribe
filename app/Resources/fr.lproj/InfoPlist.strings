@@ -1,6 +1,6 @@
 /* Mac app — Français */
-"CFBundleDisplayName" = "Lecture Transcriber";
-"CFBundleName" = "Lecture Transcriber";
+"CFBundleDisplayName" = "Arc Lecture Transcriber";
+"CFBundleName" = "Arc Lecture Transcriber";
 "NSAudioCaptureUsageDescription" = "Enregistre le son diffusé sur ce Mac afin de transcrire le cours. Le micro n’est pas utilisé.";
 "NSSpeechRecognitionUsageDescription" = "Transcrit les cours enregistrés sur ce Mac. Le son et le texte ne le quittent jamais.";
 "NSHumanReadableCopyright" = "© 2026 JoshiChoi · Licence MIT · Reconnaissance vocale d’Apple sur l’appareil";

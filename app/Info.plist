@@ -5,8 +5,8 @@
 	<key>CFBundleDevelopmentRegion</key><string>en</string>
 	<key>CFBundleLocalizations</key><array><string>ko</string><string>en</string><string>zh-Hans</string><string>zh-Hant</string><string>ja</string><string>es</string><string>fr</string><string>de</string><string>pt-BR</string><string>it</string><string>vi</string><string>ru</string></array>
 	<key>LSHasLocalizedDisplayName</key><true/>
-	<key>CFBundleName</key><string>강의 받아쓰기</string>
-	<key>CFBundleDisplayName</key><string>강의 받아쓰기</string>
+	<key>CFBundleName</key><string>Arc 강의 받아쓰기</string>
+	<key>CFBundleDisplayName</key><string>Arc 강의 받아쓰기</string>
 	<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIconFile</key><string>AppIcon</string>

@@ -1,5 +1,5 @@
 /* iPhone/iPad app — Tiếng Việt */
-"CFBundleDisplayName" = "Lecture Transcriber";
-"CFBundleName" = "Lecture Transcriber";
+"CFBundleDisplayName" = "Arc Lecture Transcriber";
+"CFBundleName" = "Arc Lecture Transcriber";
 "NSMicrophoneUsageDescription" = "Cần dùng micrô để ghi âm và chép lại bài giảng. Bản ghi âm và văn bản chỉ được lưu trên thiết bị này.";
 "NSSpeechRecognitionUsageDescription" = "Chép lại bài giảng đã ghi âm ngay trên thiết bị này bằng tính năng nhận dạng lời nói của Apple. Âm thanh và văn bản không bao giờ rời khỏi thiết bị.";
