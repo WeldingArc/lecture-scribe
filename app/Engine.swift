@@ -45,7 +45,7 @@ struct Settings {
     var size: String                       // text size: s | m | l | xl
     var icon: String                       // app icon: navy | ivory | brass | charcoal | sage
     var engine: String                     // 설정 › 음성 인식: apple | whisper | qwen3 | parakeet (Mac, once downloaded)
-    var language: String                   // 강의 언어 (main screen): ko | en — the lecture's main language
+    var language: String                   // 강의 언어 (main screen): one of LectureLanguage.ids — "ko", "en", "ja", "zh-Hans"…
     var uiLanguage: String                 // the app's own language (설정, the start screen's globe): one of uiLanguages
     var pdfLayout: String                  // 슬라이드 PDF: landscape (slide page, then its transcript) | split (two PDFs) | classic
     var cleanCapture: Bool                 // 깔끔하게 담기: the PDF keeps only the slide (not the browser, the player, black borders)
@@ -60,10 +60,18 @@ struct Settings {
                         size: pick("size", ["s", "m", "l", "xl"], "m"),
                         icon: pick("icon", appIcons, "navy"),
                         engine: env["LECTURE_ENGINE"] ?? pick("engine", speechEngines, "apple"),
-                        language: env["LECTURE_LANGUAGE"] ?? pick("language", ["ko", "en"], "ko"),
+                        language: env["LECTURE_LANGUAGE"] ?? pick("language", LectureLanguage.ids, firstLanguage(d)),
                         uiLanguage: AppLanguage.initial(d),
                         pdfLayout: env["LECTURE_PDF_LAYOUT"] ?? pick("pdfLayout", pdfLayouts, "landscape"),
                         cleanCapture: env["LECTURE_CLEAN_CAPTURE"].map { $0 != "0" } ?? (d.object(forKey: "cleanCapture") as? Bool ?? true))
+    }
+    /// A lecture language nobody chose yet: 2.5 and earlier started every lecture in Korean, so someone who used them keeps
+    /// Korean; a new user starts in the device's own language (English when a lecture can't be in it).
+    static func firstLanguage(_ d: UserDefaults) -> String {
+        let used = d.object(forKey: "outFolder") != nil || d.object(forKey: "keywords") != nil
+            || (env["LECTURE_TEST_NEW_USER"] != "1"                                   // tests: as on a Mac without one
+                && FileManager.default.fileExists(atPath: realHome.appendingPathComponent("Downloads/강의기록").path))
+        return used ? "ko" : LectureLanguage.deviceDefault
     }
     func save() {
         let d = UserDefaults.standard
@@ -82,7 +90,7 @@ struct Settings {
 
 let pdfLayouts = ["landscape", "split", "classic"]
 
-/// The app's 12 languages (screens, menus, notices, PDFs — a lecture is still transcribed in Korean or English).
+/// The app's 12 languages (screens, menus, notices, PDFs — the language a lecture is in is its own: LectureLanguage).
 let uiLanguages = ["ko", "en", "zh-Hans", "zh-Hant", "ja", "es", "fr", "de", "pt-BR", "it", "vi", "ru"]
 
 /// The app's own language — every message, menu and PDF follows it. Any thread.
@@ -355,6 +363,33 @@ final class Engine {
     let emit: ([String: Any]) -> Void
     private(set) var ready = false
     private var booting = false
+    /// 강의 언어: the lecture languages this device's recognizers speak (asked of macOS while booting), and which of them
+    /// have their speech models here.
+    private(set) var lectureLanguages: [LectureLanguage] = []
+    private var downloadMB: [String: Int] = [:]     // what choosing each would download (0: its models are here)
+    private var englishKorean = true                // an English lecture runs the Korean model too (englishWithKorean)
+    /// Lecture languages whose models are ready this launch (`pretended`: only pretend-downloaded, tests), on their way
+    /// (how far, 0–1), or that couldn't be (why).
+    private var prepared: Set<String> = []
+    private var pretended: Set<String> = []
+    private var fetching: [String: Task<Void, Never>] = [:]
+    private var fetchProgress: [String: Double] = [:]
+    private var fetchErrors: [String: ModelProblem] = [:]
+    /// Why a language's model isn't ready, worded in the app's language when shown (it can change meanwhile).
+    enum ModelProblem {
+        case missing, download, unsupported, koreanUnsupported
+        var message: String {
+            switch self {
+            case .missing: L("이 강의 언어의 음성 인식 모델이 이 기기에 없습니다. ‘다시 시도’를 누르면 내려받습니다.", "The speech model for this lecture language isn't on this device — Try Again downloads it.")
+            case .download: L("이 강의 언어의 음성 인식 모델을 내려받지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도하십시오.", "Couldn't download the speech model for this lecture language. Check the internet connection, then try again.")
+            case .unsupported: L("이 기기의 음성 인식은 이 강의 언어를 지원하지 않습니다.", "Speech recognition on this device doesn't support this lecture language.")
+            case .koreanUnsupported: L("이 기기에서 한국어 음성 인식을 지원하지 않습니다.", "This device doesn't support Korean speech recognition.")
+            }
+        }
+    }
+    private var shownState = ""                      // the engine state the page last heard of (sent again only when it changes)
+    private var recordingLanguage: String?           // the lecture language of the recording in progress (or being saved)
+    private var startWaiting = false                 // a Start waits for its model's reservation: further presses are ignored
     private(set) var session: Session?
     private var saving: [Task<Void, Never>] = []
     private var savingSessions: [Session] = []
@@ -417,8 +452,9 @@ final class Engine {
             return
         }
         selectEngine(id)
-        emit(["ev": "notice", "code": "engine_language",
-              "msg": L("\(name) 모델은 영어 강의 전용입니다. 강의 언어를 English로 바꾸면 \(name) 모델로 받아 적습니다.", "The \(name) model is for English lectures only. Switch the lecture language to English to transcribe with the \(name) model.")])
+        emit(["ev": "notice", "code": "engine_language", "msg": m.spec.languages == ["en"]
+              ? L("\(name) 모델은 영어 강의 전용입니다. 강의 언어를 English로 바꾸면 \(name) 모델로 받아 적습니다.", "The \(name) model is for English lectures only. Switch the lecture language to English to transcribe with the \(name) model.")
+              : L("\(name) 모델은 한국어와 영어 강의를 받아 적습니다. 강의 언어를 한국어나 English로 바꾸면 \(name) 모델로 받아 적습니다.", "The \(name) model transcribes Korean and English lectures. Switch the lecture language to Korean or English to transcribe with the \(name) model.")])
     }
 
     /// A shared file (the voice detector) may have gone with another engine's check.
@@ -431,7 +467,7 @@ final class Engine {
     /// 설정 › 음성 인식: every engine this app offers and its state. The page draws whatever is listed, so another
     /// platform (a Windows build, say) can offer its own engines through the same events and commands.
     var enginesEvent: [String: Any] {
-        var list: [[String: Any]] = [["id": "apple", "name": L("Apple 음성 인식", "Apple Speech Recognition"), "desc": L("기본 · 추가 다운로드 없이 가볍고 빠릅니다", "Default · Light and fast, with no extra download"),
+        var list: [[String: Any]] = [["id": "apple", "name": L("Apple 음성 인식", "Apple Speech Recognition"), "desc": L("기본 · 가볍고 빠르며 macOS에 들어 있습니다", "Default · Light and fast, built into macOS"),
                                       "state": "ready", "bytes": 0]]
         #if WHISPER
         for m in models {                                 // a ready engine's size: what 삭제 frees (the shared detector stays
@@ -501,11 +537,12 @@ final class Engine {
         if let m = model(settings.engine) {
             let name = m.spec.name
             if !m.spec.languages.contains(settings.language) {
-                emit(["ev": "notice", "code": "engine_language",
-                      "msg": L("\(name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적습니다.", "The \(name) model is for English lectures only, so Korean lectures are transcribed with Apple Speech Recognition.")])
+                emit(["ev": "notice", "code": "engine_language", "msg": sitsOut(m.spec)])
             } else if m.state == .ready {
                 let r = WhisperRecognizer(live: live, major: settings.language, spec: m.spec)
                 r.onFallback = { [weak m] in m?.recheck() }
+                let lang = settings.language                     // the recording's — not one chosen during it
+                r.makeApple = { [weak self] in self?.appleRecognizer(lang) ?? Recognizer(main: lang == "en" ? "en" : "ko") }
                 return (r, m.spec.id)
             } else {
                 emit(["ev": "notice", "code": "engine_missing", "msg": m.downloading || m.state == .verifying
@@ -514,7 +551,137 @@ final class Engine {
             }
         }
         #endif
-        return (Recognizer(main: settings.language), "apple")
+        return (appleRecognizer(), "apple")
+    }
+
+    /// Apple's recognizer for the lecture language: Korean and English write each other's quotes (an English lecture with
+    /// the Korean model only when `englishKorean`); any other language its own model alone.
+    func appleRecognizer(_ language: String? = nil) -> SpeechRecognizer {
+        let lang = language ?? settings.language
+        if lang == "ko" || (lang == "en" && englishKorean) { return Recognizer(main: lang) }
+        guard let l = lectureLanguages.first(where: { $0.id == lang }) else { return Recognizer(main: lang == "en" ? "en" : "ko") }
+        log("recognizer: \(l.locale.identifier(.bcp47))\(l.dictation ? " (dictation model)" : "")")
+        let r = SoloRecognizer(l)
+        r.onMissingModel = { [weak self] in self?.modelMissing(l.id) }
+        return r
+    }
+
+    /// A recording found its language's model gone (macOS deleted it; it starts fetching it by itself): it counts as
+    /// missing again and is fetched — the page hears of the download when the recording ends.
+    private func modelMissing(_ id: String) {
+        prepared.remove(id)
+        Task {
+            await refreshDownloads()
+            fetch(id)
+        }
+    }
+
+    #if WHISPER
+    /// An engine that doesn't write the lecture's language sits it out: Apple's recognizer writes it instead.
+    private func sitsOut(_ spec: EngineSpec) -> String {
+        let name = spec.name
+        if spec.languages == ["en"] && settings.language == "ko" {
+            return L("\(name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적습니다.", "The \(name) model is for English lectures only, so Korean lectures are transcribed with Apple Speech Recognition.")
+        }
+        return spec.languages == ["en"]
+            ? L("\(name) 모델은 영어 강의 전용이라 이 강의 언어는 Apple 음성 인식으로 받아 적습니다.", "The \(name) model is for English lectures only, so Apple Speech Recognition transcribes this lecture language.")
+            : L("\(name) 모델은 한국어와 영어 강의만 받아 적으므로 이 강의 언어는 Apple 음성 인식으로 받아 적습니다.", "The \(name) model transcribes Korean and English lectures only, so Apple Speech Recognition transcribes this lecture language.")
+    }
+    #endif
+
+    /// 강의 언어: the languages the page lists (it names them itself, in the app's language) and which need a download.
+    var languagesEvent: [String: Any] {
+        ["ev": "languages", "englishKorean": englishKorean, "list": lectureLanguages.map { l -> [String: Any] in
+            let mb = prepared.contains(l.id) && !pretended.contains(l.id) ? 0 : downloadMB[l.id] ?? 0
+            return ["id": l.id, "installed": mb == 0, "mb": mb, "dictation": l.dictation, "fetching": fetching[l.id] != nil && !prepared.contains(l.id)]
+        }]
+    }
+
+    /// What each language would download now (models come and go: fetched here or by another app, deleted by macOS).
+    private func refreshDownloads() async {
+        englishKorean = await LectureLanguage.englishWithKorean()
+        downloadMB = await LectureLanguage.downloadMB(lectureLanguages, englishKorean: englishKorean)
+        emit(languagesEvent)
+    }
+
+    /// What `makeRoom` lets go of last: the two languages at hand on the switch and the one being recorded.
+    private var keptLocales: [String] {
+        let quick = ["ko", "en"].contains(appLanguage.value) || !lectureLanguages.contains(where: { $0.id == appLanguage.value })
+            ? ["ko", "en"] : [appLanguage.value, "en"]
+        return Array(Set((quick + [recordingLanguage].compactMap { $0 }).flatMap(locales(of:))))
+    }
+
+    /// The recognizer locales a language's recording uses.
+    private func locales(of id: String) -> [String] {
+        if id == "ko" || (id == "en" && englishKorean) { return ["ko-KR", "en-US"] }
+        return lectureLanguages.first { $0.id == id }.map { [$0.locale.identifier(.bcp47)] } ?? []
+    }
+
+    /// Gets a lecture language's speech models onto this device — at once when they're here already. Several can be on
+    /// their way; the page hears only of the current language's (`emitLanguageState`).
+    private func fetch(_ lang: String) {
+        guard !prepared.contains(lang), fetching[lang] == nil else { return }
+        fetchErrors[lang] = nil
+        defer { if (downloadMB[lang] ?? 0) > 0 { emit(languagesEvent) } }     // the list marks it as on its way
+        fetching[lang] = Task {
+            do {
+                let done = try await Recognizer.prepare(language: lang, korean: englishKorean, keep: keptLocales) { fraction in
+                    Task { @MainActor in
+                        guard self.fetching[lang] != nil else { return }               // a tick after the end
+                        self.fetchProgress[lang] = fraction
+                        if lang == self.settings.language { self.emitLanguageState() }
+                    }
+                }
+                prepared.insert(lang)
+                if done.pretend { pretended.insert(lang) }
+                // a language whose model was let go of to make room is fetched again before its next recording
+                prepared = prepared.filter { id in id == lang || !locales(of: id).contains(where: done.released.contains) }
+            } catch {
+                log("lecture language \(lang): \(error)")
+                let ns = error as NSError
+                fetchErrors[lang] = (error as? EngineError)?.code == "unsupported" ? .unsupported
+                    : ns.domain == "LectureScribe" && ns.code == 1 ? .koreanUnsupported : .download
+            }
+            fetching[lang] = nil
+            fetchProgress[lang] = nil
+            await refreshDownloads()
+            if lang == settings.language { emitLanguageState() }
+        }
+    }
+
+    /// What the page shows for the current lecture language: ready, its model downloading, or why it couldn't be. Not while
+    /// a recording runs: it keeps the language it started with, and the page would take a new state for the engine
+    /// restarting (the end of the recording brings it up to date).
+    private func emitLanguageState(force: Bool = false) {
+        guard ready, !busy else { return }                  // recording or saving: their end brings the page up to date
+        let lang = settings.language
+        if prepared.contains(lang) || (fetching[lang] != nil && fetchProgress[lang] == nil && downloadMB[lang] == 0) {
+            showEngine(readyEvent, force: force)             // its models are here: reserving them takes a moment
+        } else if let e = fetchErrors[lang] {
+            showEngine(["ev": "engine", "state": "error", "retry": true, "msg": e.message,              // the status line: a short label,
+                        "label": L("음성 인식 모델 필요", "Speech model needed")], force: force)     // the notice: all of it
+        } else {
+            showEngine(downloadingEvent(fetchProgress[lang] ?? 0), force: force)
+        }
+    }
+
+    private var readyEvent: [String: Any] { ["ev": "engine", "state": "ready", "msg": L("준비됨", "Ready")] }
+
+    private func showEngine(_ ev: [String: Any], force: Bool = false) {
+        let key = "\(ev["state"] ?? "")|\(ev["done"] ?? "")|\(ev["msg"] ?? "")"
+        guard force || key != shownState else { return }
+        shownState = key
+        emit(ev)
+    }
+
+    private func downloadingEvent(_ fraction: Double) -> [String: Any] {
+        ["ev": "engine", "state": "downloading", "done": Int(fraction * 100), "total": 100,
+         "label": L("음성 인식 모델 준비 중", "Getting the speech model ready")]
+    }
+
+    /// 다시 시도: the engine didn't start, or the lecture language's model didn't download.
+    func retry() {
+        if ready { fetch(settings.language); emitLanguageState() } else { boot() }
     }
 
     var busy: Bool { session != nil || !saving.isEmpty }
@@ -531,7 +698,10 @@ final class Engine {
     func replay() {
         emit(settings.event)
         emit(enginesEvent)
-        emit(ready ? ["ev": "engine", "state": "ready", "msg": L("준비됨", "Ready")] : ["ev": "engine", "state": "loading", "msg": L("엔진 준비 중", "Getting the engine ready")])
+        if !lectureLanguages.isEmpty { emit(languagesEvent) }
+        if !ready { emit(["ev": "engine", "state": "loading", "msg": L("엔진 준비 중", "Getting the engine ready")]); shownState = "" }
+        else if busy { showEngine(readyEvent, force: true) }
+        else { emitLanguageState(force: true) }
         if let s = session { s.replay() }
         else if let s = savingSessions.first(where: { !$0.done }) {
             emit(["ev": "rec", "state": "finishing", "mode": s.mode == .live ? "live" : "file"])
@@ -544,41 +714,69 @@ final class Engine {
         emit(settings.event)
         emit(enginesEvent)
         emit(["ev": "engine", "state": "loading", "msg": L("엔진 준비 중", "Getting the engine ready")])
+        shownState = ""
         Task {
-            do {
-                try await Recognizer.prepare { fraction in
-                    Task { @MainActor in
-                        self.emit(["ev": "engine", "state": "downloading", "done": Int(fraction * 100), "total": 100,
-                                   "label": L("음성 인식 모델 준비 중", "Getting the speech model ready")])
+            let d = UserDefaults.standard
+            let chosenBefore = LectureLanguage.ids.contains(d.string(forKey: "language") ?? "")   // kept from an earlier launch
+            if lectureLanguages.isEmpty {
+                lectureLanguages = await LectureLanguage.available()
+                log("lecture languages: \(lectureLanguages.map { $0.locale.identifier(.bcp47) + ($0.dictation ? "*" : "") }.joined(separator: " "))")
+            }
+            let started = Date()
+            await refreshDownloads()                     // sizes first: the choices below look at them
+            log("lecture languages here: \(downloadMB.filter { $0.value == 0 }.keys.sorted().joined(separator: " ")) · English with Korean: \(englishKorean) (\(Int(Date().timeIntervalSince(started) * 1000)) ms)")
+            // a language that starts by itself is offered here and small: not macOS's dictation model (about 1.1 GB)
+            // unless that is here already
+            let small = { (id: String) -> Bool in
+                guard let l = self.lectureLanguages.first(where: { $0.id == id }) else { return false }
+                return !l.dictation || self.downloadMB[id] == 0
+            }
+            if !lectureLanguages.isEmpty, !lectureLanguages.contains(where: { $0.id == settings.language }),
+               let other = [LectureLanguage.deviceDefault, "en", "ko"].first(where: small) ?? lectureLanguages.first?.id {
+                log("lecture language \(settings.language) isn't on this device: \(other)")      // chosen on a newer macOS, or broken
+                settings.language = other
+                settings.save()
+                emit(settings.event)
+            }
+            // a new user starts small: when their device's language needs the dictation model, in English — they choose
+            // that language themselves, with its size shown
+            if env["LECTURE_LANGUAGE"] == nil, !chosenBefore, !lectureLanguages.isEmpty, !small(settings.language) {
+                log("lecture language \(settings.language): dictation model, not here — a new user starts in English")
+                settings.language = "en"
+                emit(settings.event)
+            }
+            // the first launch's lecture language stays this user's — a later launch would otherwise read the folder 2.6
+            // itself just made (`outFolder`) as a sign of 2.5 and start in Korean (Settings.firstLanguage)
+            if env["LECTURE_LANGUAGE"] == nil, !chosenBefore { d.set(settings.language, forKey: "language") }
+            ready = true
+            booting = false
+            if chosenBefore, env["LECTURE_LANGUAGE"] == nil, (downloadMB[settings.language] ?? 0) > 0 {
+                // the kept language's model isn't here (macOS deleted it, or its download never finished): ask first —
+                // 다시 시도 fetches it (a first launch's own language downloads as it always did, the page showing how far)
+                log("lecture language \(settings.language): its model isn't here — asking before downloading it")
+                fetchErrors[settings.language] = .missing
+            } else {
+                fetch(settings.language)
+            }
+            emitLanguageState()
+            log("engine ready")
+            #if WHISPER
+            for m in models { m.warmUpIfUpdated(selected: settings.engine == m.spec.id) }
+            #endif
+            let dir = self.outDir
+            Task.detached {
+                recoverSlides()
+                await recoverOrphans(in: dir) { id, busy in
+                    await MainActor.run {
+                        if busy { self.recovering.insert(id) } else { self.recovering.remove(id); self.emit(["ev": "recovered", "id": id]) }
                     }
                 }
-                ready = true
-                booting = false
-                emit(["ev": "engine", "state": "ready", "msg": L("준비됨", "Ready")])
-                log("engine ready")
-                #if WHISPER
-                for m in models { m.warmUpIfUpdated(selected: settings.engine == m.spec.id) }
-                #endif
-                let dir = self.outDir
-                Task.detached {
-                    recoverSlides()
-                    await recoverOrphans(in: dir) { id, busy in
-                        await MainActor.run {
-                            if busy { self.recovering.insert(id) } else { self.recovering.remove(id); self.emit(["ev": "recovered", "id": id]) }
-                        }
-                    }
+            }
+            if env["LECTURE_AUTOSTART"] == "1" {
+                start(.live)
+                if let s = Double(env["LECTURE_AUTOSTOP"] ?? "") {
+                    Task { try? await Task.sleep(for: .seconds(s)); self.stop() }
                 }
-                if env["LECTURE_AUTOSTART"] == "1" {
-                    start(.live)
-                    if let s = Double(env["LECTURE_AUTOSTOP"] ?? "") {
-                        Task { try? await Task.sleep(for: .seconds(s)); self.stop() }
-                    }
-                }
-            } catch {
-                booting = false
-                log("engine boot failed: \(error)")
-                emit(["ev": "engine", "state": "error", "retry": true,
-                      "msg": (error as NSError).localizedDescription.isEmpty ? L("음성 인식을 시작하지 못했습니다.", "Couldn't start speech recognition.") : L("음성 인식을 시작하지 못했습니다. \((error as NSError).localizedDescription)", "Couldn't start speech recognition. \((error as NSError).localizedDescription)")])
             }
         }
     }
@@ -606,9 +804,33 @@ final class Engine {
             discardIfTemp(file)
             return
         }
+        let lang = settings.language
+        guard prepared.contains(lang) else {                           // a lecture language chosen a moment ago
+            if let f = fetching[lang], fetchProgress[lang] == nil, downloadMB[lang] == 0 {   // its models are here: only being
+                guard !startWaiting else {                                                  // reserved, a moment
+                    emit(["ev": "notice", "code": "not_ready", "msg": L("이 강의 언어의 음성 인식 모델을 아직 준비하는 중입니다. 준비되면 시작할 수 있습니다.", "The speech model for this lecture language is still getting ready. You can start once it's ready.")])
+                    discardIfTemp(file); return
+                }
+                startWaiting = true
+                Task { await f.value; self.startWaiting = false; self.start(mode, file: file) }
+                return
+            }
+            emit(["ev": "notice", "code": "not_ready", "msg": fetchErrors[lang]?.message
+                  ?? L("이 강의 언어의 음성 인식 모델을 아직 준비하는 중입니다. 준비되면 시작할 수 있습니다.", "The speech model for this lecture language is still getting ready. You can start once it's ready.")])
+            emitLanguageState()
+            discardIfTemp(file)
+            return
+        }
+        guard !pretended.contains(lang) else {                         // tests: macOS would fetch the real model by itself
+            log("test: \(lang) was only pretend-downloaded (LECTURE_TEST_FAKE_DOWNLOAD) — not recording in it")
+            emit(["ev": "notice", "code": "not_ready", "msg": "Test: \(lang) was only pretend-downloaded — no recording in it."])
+            discardIfTemp(file)
+            return
+        }
         do {
             let s = try Session(engine: self, mode: mode, file: file)
             session = s
+            recordingLanguage = lang
             emit(enginesEvent)
             Task {
                 do { try await s.start() } catch {
@@ -643,6 +865,8 @@ final class Engine {
             await t.value
             saving.removeAll { $0 == t }
             savingSessions.removeAll { $0 === s }
+            if session == nil && saving.isEmpty { recordingLanguage = nil }
+            emitLanguageState()                           // a lecture language chosen during the recording may be downloading
         }
     }
 
@@ -666,14 +890,18 @@ final class Engine {
         if let v = msg["pdfLayout"] as? String, pdfLayouts.contains(v) { settings.pdfLayout = v }
         if let v = msg["cleanCapture"] as? Bool { settings.cleanCapture = v }
         if let v = msg["uiLanguage"] as? String, uiLanguages.contains(v) { settings.uiLanguage = v; appLanguage.value = v; AppLanguage.choose(v) }
-        if let v = msg["language"] as? String, ["ko", "en"].contains(v), v != settings.language {
+        if let v = msg["language"] as? String, v != settings.language,
+           lectureLanguages.isEmpty ? LectureLanguage.ids.contains(v) : lectureLanguages.contains(where: { $0.id == v }) {
             settings.language = v
             #if WHISPER
             if let m = model(settings.engine), m.state == .ready, !m.spec.languages.contains(v) {   // Parakeet: English only
-                emit(["ev": "notice", "code": "engine_language",
-                      "msg": L("\(m.spec.name) 모델은 영어 강의 전용이라 한국어 강의는 Apple 음성 인식으로 받아 적습니다.", "The \(m.spec.name) model is for English lectures only, so Korean lectures are transcribed with Apple Speech Recognition.")])
+                emit(["ev": "notice", "code": "engine_language", "msg": sitsOut(m.spec)])
             }
             #endif
+            if ready {                                    // booting: the boot gets the language it ends with
+                fetch(v)
+                emitLanguageState()
+            }
         }
         settings.save()
         emit(settings.event)
@@ -834,7 +1062,7 @@ final class Session {
         recognizer.onLine = { [weak self] in self?.handle($0) }
         recognizer.onError = { [weak self] e in
             log("recognizer error: \(e)")
-            self?.engine.emit(["ev": "notice", "code": "recognizer",
+            self?.engine.emit(["ev": "notice", "code": (e as? EngineError)?.code ?? "recognizer",
                                "msg": (e as? EngineError)?.message ?? L("음성 인식이 잠시 멈췄습니다. 녹음은 계속됩니다.", "Speech recognition stopped for a moment. Recording continues.")])
         }
         try await recognizer.start()

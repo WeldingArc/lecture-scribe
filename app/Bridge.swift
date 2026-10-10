@@ -110,7 +110,7 @@ final class Bridge {
         case "stop": engine.stop()
         case "pauseRec": engine.session?.setPaused(true)
         case "resumeRec": engine.session?.setPaused(false)
-        case "retry": engine.boot()
+        case "retry": engine.retry()
         case "settings":
             let icon = engine.settings.icon, slides = engine.settings.slides, lang = engine.settings.uiLanguage
             engine.updateSettings(body)

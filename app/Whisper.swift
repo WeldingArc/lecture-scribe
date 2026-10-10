@@ -330,7 +330,9 @@ final class WhisperRecognizer: SpeechRecognizer {
     /// The model didn't load and Apple's recognizer took over (the engine then checks the model files).
     var onFallback: (() -> Void)?
     private let core: WhisperCore
-    private var apple: Recognizer?
+    private var apple: SpeechRecognizer?
+    /// Apple's recognizer for the lecture language (Engine.appleRecognizer) — what takes over when the model doesn't load.
+    var makeApple: (() -> SpeechRecognizer)?
     private var takeover: Task<Void, Never>?
 
     /// `major`: the lecture's language (강의 언어), "ko" or "en"; the other one is written where it is spoken.
@@ -360,7 +362,7 @@ final class WhisperRecognizer: SpeechRecognizer {
 
     private func fallBack(_ error: Error) {
         guard takeover == nil else { return }
-        let apple = Recognizer(main: core.major), core = self.core
+        let apple = makeApple?() ?? Recognizer(main: core.major), core = self.core
         apple.onLine = { [weak self] in self?.onLine?($0) }
         apple.onError = { [weak self] in self?.onError?($0) }
         self.apple = apple

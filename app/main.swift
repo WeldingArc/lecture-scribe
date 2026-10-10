@@ -72,6 +72,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             guard let s = Double(env[key] ?? "") else { continue }                        // them (시작 with 슬라이드 PDF if on)
             Timer.scheduledTimer(withTimeInterval: s, repeats: false) { [weak self] _ in MainActor.assumeIsolated { self?.bridge.handle(cmd, [:]) } }
         }
+        if let spec = env["LECTURE_TEST_EVAL"] {             // tests: "4:<js>|9:<js>" — the page does this then (a click, a
+            for step in spec.components(separatedBy: "|") {         // choice), and app.log gets what it returned
+                guard let colon = step.firstIndex(of: ":"), let s = Double(step[..<colon]) else { continue }
+                let js = String(step[step.index(after: colon)...])
+                Timer.scheduledTimer(withTimeInterval: s, repeats: false) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        self?.web.evaluateJavaScript(js) { r, e in log("test eval \(s): \(r.map { "\($0)" } ?? "-") \(e.map { "\($0)" } ?? "")") }
+                    }
+                }
+            }
+        }
         if let spec = env["LECTURE_TEST_LANG"], let colon = spec.firstIndex(of: ":"), let s = Double(spec[..<colon]) {   // tests: "3:en" switches
             let to = String(spec[spec.index(after: colon)...])                  // the language as the page would, then reports what changed
             let report = { (when: String) in
@@ -536,6 +547,7 @@ if flag("--transcribe") != nil || flag("--live") != nil || downloadID != nil {
                     Task { try? await Task.sleep(for: .seconds(secs)); engine.stop() }
                 }
             case ("engine", "error"): quit(1)
+            case ("notice", _) where ev["code"] as? String == "not_ready" && engine.session == nil: quit(1)   // a start refused
             case ("rec", "idle"): DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { quit(0) }
             default: break
             }

@@ -83,7 +83,7 @@ build/v2/LectureScribe --transcribe some-lecture.m4a      # JSON lines on stdout
 build/v2/LectureScribe --live 30                          # 30 s of system audio
 ```
 
-Downloaded engines: `LECTURE_ENGINE=whisper|qwen3|parakeet` (instead of the saved choice), `LECTURE_LANGUAGE=ko|en`,
+Downloaded engines: `LECTURE_ENGINE=whisper|qwen3|parakeet` (instead of the saved choice), `LECTURE_LANGUAGE=<id>` (a lecture language: ko, en, ja, zh-Hans …),
 `LECTURE_MODEL_DIR=<dir>` (the model files plus `ggml-silero-v5.1.2.bin` — make it of hard links: the app deletes files
 that fail their checksum), `LECTURE_MODEL_URL=<url>` + `build/v2/LectureScribe --download-engine ID` (the in-app
 download from a local server: `python3 -m http.server 8977 --directory models`; `--download-whisper` still works),
@@ -100,7 +100,12 @@ session; `trash:` deletes and undoes it, `delete:` deletes it — the page logs 
 and the reloaded page — `LECTURE_TEST_JS=<expression>` replaces that page probe; the bare `build/v2/LectureScribe` needs
 `LECTURE_DEV_DIR` to find `ui/`, otherwise its window stays blank), `LECTURE_TEST_START=<sec>` / `LECTURE_TEST_STOP=<sec>`
 / `LECTURE_TEST_PAUSE=<sec>` / `LECTURE_TEST_RESUME=<sec>` (시작 / 정지 / 일시정지 / 계속 as the page presses them — 시작 also
-opens 슬라이드 PDF's capture), `LECTURE_TEST_SNAP=<sec,sec,…>` (WebKit's own
+opens 슬라이드 PDF's capture), `LECTURE_TEST_EVAL=<sec>:<js>|<sec>:<js>…` (the page runs
+that script then — a click, a choice — and app.log gets `test eval <sec>: <result>`), `LECTURE_TEST_FAKE_DOWNLOAD=<sec>`
+(a lecture language other than Korean — and English with Korean — whose model isn't on the Mac pretends to download for that long — nothing is fetched or reserved,
+and the app refuses to record in it — a recording would make macOS fetch the real model by itself), `LECTURE_TEST_ENGLISH_ALONE=1` (English
+lectures without the Korean model, as for someone with no Korean on the device), `LECTURE_TEST_NEW_USER=1` (a first launch
+as on a Mac without ~/Downloads/강의기록 — with `-AppleLanguages '(ru-RU)'` as launch arguments for the device's language), `LECTURE_TEST_SNAP=<sec,sec,…>` (WebKit's own
 picture of the page at those seconds into `LECTURE_OUT_DIR`: no screen access needed), `LECTURE_FAKE_SCREEN=<video>` (a video
 plays the lecture window for 슬라이드 PDF, in real time, instead of the picker), `LECTURE_CLEAN_CAPTURE=0|1`. Any
 `LECTURE_TEST_*` skips the first-run notice. `OUT=<dir> DIST=<dir> scripts/build_v2.sh` builds elsewhere. CLI: `--live <sec> --pause-at <sec> --pause-for <sec>` pauses a test recording.
@@ -117,7 +122,7 @@ for still frames (`slides`: recording with 슬라이드 PDF, the camera outlined
 
 The app's screens, menus, notices, permission prompts and PDFs are in 12 languages (2.5): 한국어 (ko), English (en),
 简体中文 (zh-Hans), 繁體中文 (zh-Hant), 日本語 (ja), Español (es), Français (fr), Deutsch (de), Português (Brasil) (pt-BR),
-Italiano (it), Tiếng Việt (vi), Русский (ru). The lecture itself is still transcribed in Korean or English (강의 언어).
+Italiano (it), Tiếng Việt (vi), Русский (ru). The language a lecture is in (강의 언어) is separate: see Lecture languages.
 
 - **Which language.** `AppLanguage` (app/Engine.swift) holds it. A choice made in the app (the start screen's globe opens
   the list; 설정 › 언어) is kept as `uiLanguageChoice` and pins this app's `AppleLanguages`, so macOS's own words (the
@@ -175,6 +180,64 @@ Italiano (it), Tiếng Việt (vi), Русский (ru). The lecture itself is s
   and `engineSpecs` → `Settings.load()` → `AppLanguage` → `engineSpecs` was an initialization cycle that trapped at
   launch — keep both texts and choose when they are read (`EngineSpec.desc`).
 
+### Lecture languages (2.6)
+
+강의 언어 is any language Apple's on-device recognizers write on the device — 49 on macOS 27. `LectureLanguage`
+(app/Recognizer.swift) holds the catalog: an id (what `settings.language` keeps and the page names: ko, en, ja, zh-Hans,
+zh-Hant, yue-Hant, yue-Hans, es, fr, de, it, pt-BR, pt-PT, ru, vi, ar, … ur) and the recognizer locales that write it
+(Mandarin zh-CN / zh-TW, Cantonese zh-HK / yue-CN; es-ES/es-MX/es-US/es-CL… — a locale of the device's region goes
+first, Latin America → es-MX). `available()` asks macOS once per launch: SpeechTranscriber (the long-form model) where it
+speaks the language, otherwise DictationTranscriber (macOS's dictation model: 22 of the 49 on macOS 27 — ru, vi, ar, nl,
+pl, th, tr, uk …). The boot logs the list (`lecture languages: … ru-RU* …`, `*` = dictation) and which are here.
+
+- **Recognizers.** A Korean lecture keeps the two-model `Recognizer` (English quotes rescued), and so does an English one
+  when `LectureLanguage.englishWithKorean()` — the Korean model is on the device (anyone who records Korean lectures has
+  it); anyone else's English lectures run en-US alone (no Korean model they never asked for, half the work), and Korean
+  added to the Mac's languages later never holds English back behind a download.
+  Every other language gets `SoloRecognizer`: one module with volatile previews, a final per result; a line never starts
+  with punctuation. The dictation model ignores `.punctuation` (ru-RU, every preset tried: none punctuates) — the page
+  says so when such a language is chosen. Optional engines (Whisper, Qwen3-ASR, Parakeet) stay ko/en: for any other
+  language `makeRecognizer` uses Apple's (`appleRecognizer`, also Whisper's fallback) and `sitsOut` explains why.
+- **Models.** `Recognizer.prepare(language:korean:)` gets the language's modules through `AssetInventory` and returns
+  what it released. macOS reserves at most 5 locales per app (`maximumReservedLocales`; a 6th throws
+  SFSpeechErrorDomain 11 "Too many allocated locales"), and a request reserves its locales even without downloading:
+  `makeRoom` first releases the one chosen longest ago (`speechLocalesUsed` in the app's defaults, oldest first; never
+  chosen ones first) — a language whose locale went leaves `prepared` and is fetched again before its next recording.
+  Release only macOS's own `Locale` values from `reservedLocales` — a `Locale(identifier:)` rebuilt from the tag is not
+  released (returns false). Reservations follow the executable's name for a bare binary. `AssetInventory.status`
+  answers for this app only (another app's model reads "supported"): what is on the device comes from
+  `installedLocales` (`LectureLanguage.downloadMB`: 0 = here; else about 350 MB a long-form model — measured 327 ko-KR,
+  341 ja-JP, 392 en-US — and 1,100 MB the dictation model, measured ru-RU 1.1 GB, Siri's `com.apple.siri.asr.assistant.*`).
+  **A recording in a language whose model is missing makes macOS fetch it by itself** — `SoloRecognizer` then reports
+  it plainly (`onMissingModel` → the engine fetches it again) instead of the generic "stopped for a moment".
+- **Engine state.** The boot lists the languages and their sizes, then is `ready`; the lecture language's model comes
+  like any other: `fetch(lang)` (several can be on their way), `prepared` = what a recording may use. `start()` waits
+  for a model that is here and only being reserved, refuses one still downloading (notice), and never records in a
+  pretend-downloaded language (`LECTURE_TEST_FAKE_DOWNLOAD`). `emitLanguageState()` tells the page — ready (also while a
+  model that is here is being reserved: no "downloading" flash), downloading (the boot's "Getting the speech model ready
+  · N%" bar) or error with 다시 시도 (`retry()`) — only while nothing records or saves (a new engine state mid-recording
+  would read as an engine restart, `lostSession`); their end brings it up to date. A new user starts in the device's
+  language unless it needs a dictation model that isn't here (then English); someone who used 2.5 or earlier and never chose keeps
+  Korean (`Settings.firstLanguage`). `{"ev":"languages","englishKorean","list":[{"id","installed","mb","dictation","fetching"}]}` lists them.
+  A kept language whose model isn't here at launch asks (error + 다시 시도) instead of downloading; Start never downloads.
+  Why a model isn't ready is kept as a kind (`ModelProblem`) and worded when shown (a language switch rewords it); engine
+  errors carry a short `label` for the status line; a model missing mid-recording is notice `model_missing` (stays).
+  `makeRoom` lets go of the switch's two languages and the one being recorded last (`keptLocales`); reservations run
+  one at a time (`Recognizer.Gate`); one Start waits for a reservation at a time (`startWaiting`).
+- **Page.** The switch: two at hand (한국어 | English; in the other app languages that language | English) and 다른
+  언어 ▴ — a searchable card of every language, named with `Intl.DisplayNames` in the app's language (standard style,
+  first letter capitalized) with its own name beside it, and a download mark where its model isn't on the device yet.
+  Choosing one without its model asks first, with the size (`modelSize`, from `mb`).
+  Transcript lines get `lang` (`lineLang`): the lecture language for live lines; else `cjkLang` (kana → ja; Han without
+  Hangul → zh-Hant/zh-Hans by common characters) or the script (th, ko, ru/uk, el, he, ar, Indic, vi; `und-Latn` for
+  other Latin beyond Latin-1); the Library uses the whole session's (`sessionLang`) so Chinese and Japanese break between characters
+  and use their own fonts; every line has `dir="auto"` (Arabic, Hebrew, Urdu). The PDF draws Han in its language's font
+  too (`Slides.hanFont`). Demo: `?lectmenu` opens the card; the demo pretends to download languages other than ko/en/ja.
+- **Test.** `LECTURE_LANGUAGE=ja LECTURE_OUT_DIR=<scratch> build/v2/LectureScribe --transcribe <file>` — only in a
+  language whose model is on the Mac (a missing one downloads: ja-JP ~20 s); `say -v Kyoko -o x.aiff` +
+  `afconvert -f WAVE -d LEI16@16000 -c 1` makes test audio without playing it. Measured: ja-JP near-perfect on TTS;
+  ru-RU (dictation) every word right, no punctuation.
+
 ### Speech engines (설정 › 음성 인식)
 
 The page draws whatever engines the app lists, so another platform (a Windows build with WebView2, say) can offer
@@ -184,7 +247,8 @@ its own through the same messages:
   (`languages`: the lecture languages an engine writes — Parakeet only "en"; for a Korean lecture the status line and
   설정's footer show Apple as in use, and the chosen Parakeet row says Apple writes the Korean lecture)
 - page → app `engineSelect` / `engineDownload` / `engineCancel` / `engineRemove` with `{"engine": id}`
-- 강의 언어 (`settings.language`: ko | en, main screen): the lecture's main language. Apple: the main language's
+- 강의 언어 (`settings.language`, main screen — ko and en here; every other language is `SoloRecognizer`, see Lecture
+  languages): the lecture's main language. Apple: the main language's
   transcriber writes the transcript and the previews; for an English lecture a Korean aside (a run of Hangul tokens
   from the Korean transcriber, mean confidence ≥ 0.6) replaces the English model's words only where those were unsure
   (mean < 0.5) or absent. Whisper: the main language replaces "ko" in every rule (short pieces, rescue, language ID).
