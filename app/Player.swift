@@ -116,7 +116,7 @@ final class Player: NSObject, AVAudioPlayerDelegate {
         #if os(iOS)
         if let p {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = [
-                MPMediaItemPropertyTitle: title, MPMediaItemPropertyArtist: L("강의 받아쓰기", "Lecture Transcriber"),
+                MPMediaItemPropertyTitle: title, MPMediaItemPropertyArtist: L("Arc 강의 받아쓰기", "Arc Lecture Transcriber"),
                 MPMediaItemPropertyPlaybackDuration: p.duration, MPNowPlayingInfoPropertyElapsedPlaybackTime: p.currentTime,
                 MPNowPlayingInfoPropertyPlaybackRate: p.isPlaying ? Double(rate) : 0,
             ]

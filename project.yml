@@ -9,8 +9,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "2.5.0"
-    CURRENT_PROJECT_VERSION: "250"
+    MARKETING_VERSION: "2.5.1"
+    CURRENT_PROJECT_VERSION: "251"
     CODE_SIGN_STYLE: Automatic
     ENABLE_HARDENED_RUNTIME: YES
     DEAD_CODE_STRIPPING: YES
@@ -89,7 +89,7 @@ targets:
     scheme: {}                                      # shared scheme, so xcodebuild can archive
     settings:
       base:
-        PRODUCT_NAME: "강의 받아쓰기"
+        PRODUCT_NAME: "Arc 강의 받아쓰기"
         EXECUTABLE_NAME: LectureScribe                # ASCII binary name, as in build_v2.sh
         PRODUCT_MODULE_NAME: LectureScribe
         PRODUCT_BUNDLE_IDENTIFIER: io.github.joshichoi.lecture-scribe
@@ -133,7 +133,7 @@ targets:
           copyFiles: { destination: resources, subpath: licenses }
     settings:
       base:
-        PRODUCT_NAME: "강의 받아쓰기"
+        PRODUCT_NAME: "Arc 강의 받아쓰기"
         EXECUTABLE_NAME: LectureScribe
         PRODUCT_MODULE_NAME: LectureScribe
         PRODUCT_BUNDLE_IDENTIFIER: io.github.joshichoi.lecture-scribe   # same as the Mac app: one App Store listing

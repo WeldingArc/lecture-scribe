@@ -1,6 +1,6 @@
 # Third-party notices
 
-강의 받아쓰기 is MIT-licensed (see `LICENSE`).
+Arc 강의 받아쓰기 is MIT-licensed (see `LICENSE`).
 
 ## v2 (current, macOS 26+)
 
@@ -20,7 +20,7 @@ them in 설정 › 음성 인식. License texts ship in `Contents/Resources/lice
 | [Qwen3-ASR-1.7B](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) — © Alibaba Cloud (Qwen team); GGUF conversion from [handy-computer](https://huggingface.co/handy-computer/Qwen3-ASR-1.7B-gguf) | Mac: model weights, downloaded on request (not bundled) | Apache-2.0 (`licenses/Qwen3-ASR-Apache-2.0.txt`) |
 | [parakeet-unified-en-0.6b](https://huggingface.co/nvidia/parakeet-unified-en-0.6b) — NVIDIA Corporation; converted to GGUF and quantized (Q5_K_M) by [handy-computer](https://huggingface.co/handy-computer/parakeet-unified-en-0.6b-gguf) | Mac: model weights, downloaded on request (not bundled). Licensed by NVIDIA Corporation under the NVIDIA Open Model License | NVIDIA Open Model License (`licenses/Parakeet-NVIDIA-Open-Model-License.txt`) |
 
-## v1 (macOS 14.2–15, [release v1.0.0](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0))
+## v1 (macOS 14.2–15, [release v1.0.0](https://github.com/WeldingArc/arc-lecture-transcriber/releases/tag/v1.0.0))
 
 v1 bundles or downloads the open-source components below. Their license texts ship inside the app: `Contents/Resources/licenses/` (copies of the files in
 this repo's `licenses/` folder), NumPy's `numpy-*.dist-info/LICENSE.txt`, and

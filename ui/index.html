@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-<title>강의 받아쓰기</title>
+<title>Arc 강의 받아쓰기</title>
 <script>
   // The app's language, decided before anything is drawn: the app says which (__LANG__); the browser demo takes ?lang=,
   // then what it remembers, then the device's language — English for any language the app doesn't speak. Korean and
@@ -86,8 +86,9 @@
      languages WebKit then breaks right after an apostrophe or an opening quote ("dall’ | accento", "“ | Frases").
      The transcript itself (Korean or English) keeps Korean's word breaks. */
   html:not([lang="ko"]) * { word-break: normal !important; }
-  html:not([lang="ko"]) .ko { word-break: keep-all !important; }   /* "(강의 받아쓰기)" inside a notice stays whole */
+  html:not([lang="ko"]) .ko { word-break: keep-all !important; }   /* "(Arc 강의 받아쓰기)" inside a notice stays whole */
   .ko.whole, .nobr { white-space: nowrap; }
+  html[lang="ko"] .about-note { word-break: keep-all; text-wrap: balance; }   /* 설정 › 정보: no syllable left alone */
   html:not([lang="ko"]) .ko { overflow-wrap: anywhere; }       /* a Korean word longer than the line still breaks */
   html:lang(zh-Hans) *, html:lang(zh-Hant) *, html:lang(ja) * { line-break: strict; }
   html:not([lang="ko"]) :is(.seg p, .srow-text, .cue-line, .saved .cues),
@@ -1038,7 +1039,7 @@
 </head>
 <body class="engine-loading">
   <header class="top">
-    <div class="brand">강의 받아쓰기</div>
+    <div class="brand">Arc 강의 받아쓰기</div>
     <div class="status"><span class="dot"></span><span id="status">엔진 준비 중</span><span class="sep">·</span><span id="timer"></span></div>
     <div class="meter"><i id="meter"></i></div>
   </header>
@@ -1124,7 +1125,7 @@
   <div class="panel" id="legal" role="dialog" aria-modal="true" aria-labelledby="legalTitle">
     <div class="card legal-card">
       <h2 id="legalTitle">이용 안내 및 면책 고지</h2>
-      <p class="legal-lead">강의 받아쓰기는 개인 학습을 돕기 위한 도구입니다.</p>
+      <p class="legal-lead">Arc 강의 받아쓰기는 개인 학습을 돕기 위한 도구입니다.</p>
       <ul class="legal-list">
         <li>이 앱으로 녹음하거나 받아 적은 강의, 슬라이드, 녹취록의 저작권은 강의자와 학교 등 원저작권자에게 있습니다.</li>
         <li>녹음 파일, 녹취록, 슬라이드 PDF는 본인의 학습 용도로만 사용하십시오. 다른 사람에게 공유·배포하거나 인터넷에 게시하면 저작권 침해가 될 수 있습니다.</li>
@@ -1176,12 +1177,12 @@
         <div class="set-group"><em>정 보</em>
           <div class="set-row"><span>버전</span><span class="muted" id="setVersion">—</span></div>
           <div class="set-row"><span>음성 인식</span><span class="muted" id="setEngInfo">Apple 온디바이스 · 인터넷 전송 없음</span></div>
-          <button class="set-row link-row" data-url="https://github.com/WeldingArc/lecture-transcriber"><span>GitHub 페이지</span><i>›</i></button>
-          <button class="set-row link-row" data-url="https://github.com/WeldingArc/lecture-transcriber/blob/main/PRIVACY.md"><span>개인정보 처리방침</span><i>›</i></button>
+          <button class="set-row link-row" data-url="https://github.com/WeldingArc/arc-lecture-transcriber"><span>GitHub 페이지</span><i>›</i></button>
+          <button class="set-row link-row" data-url="https://github.com/WeldingArc/arc-lecture-transcriber/blob/main/PRIVACY.md"><span>개인정보 처리방침</span><i>›</i></button>
           <button class="set-row link-row" id="setLegal"><span>이용 안내 및 면책 고지</span><i>›</i></button>
           <button class="set-row link-row" id="setLogs"><span>문제 신고용 로그 폴더</span><i>›</i></button>
         </div>
-        <p class="set-note" style="text-align:center; padding-top:22px">강의 받아쓰기 · MIT 라이선스 · 개인 학습용으로 사용하십시오</p>
+        <p class="set-note about-note" style="text-align:center; padding-top:22px">Arc 강의 받아쓰기&nbsp;· MIT 라이선스&nbsp;· 개인 학습용으로 사용하십시오</p>
       </div>
     </div>
   </section>
@@ -1437,9 +1438,9 @@
     "• 출석 문구: 은하수": "• Attendance phrase: Milky Way",
     "↓ 최신 문장으로": "↓ Jump to Latest",
     "가격이 오르면 수요량은 줄어든다": "As price rises, quantity demanded falls",
-    "강의 받아쓰기": "Lecture Transcriber",
-    "강의 받아쓰기 · MIT 라이선스 · 개인 학습용으로 사용하십시오": "Lecture Transcriber · MIT License · Use for personal study",
-    "강의 받아쓰기는 개인 학습을 돕기 위한 도구입니다.": "Lecture Transcriber is a tool to support personal study.",
+    "Arc 강의 받아쓰기": "Arc Lecture Transcriber",
+    "Arc 강의 받아쓰기 · MIT 라이선스 · 개인 학습용으로 사용하십시오": "Arc Lecture Transcriber · MIT License · Use for personal study",
+    "Arc 강의 받아쓰기는 개인 학습을 돕기 위한 도구입니다.": "Arc Lecture Transcriber is a tool to support personal study.",
     "강의 언어": "Lecture language",
     "강의 언어 도움말": "Lecture language help",
     "강의 영상을 재생하고": "Play the lecture video,",
@@ -1579,11 +1580,17 @@
     }
   }
   translatePage(document.body);
+  // 설정 › 정보's line wraps only at its dots in the other languages, so no word is split (Korean wraps by its own rule)
+  if (!IN_KO) {
+    const ab = document.querySelector(".about-note"), parts = ab.textContent.split(/\s·\s/);
+    ab.textContent = "";
+    parts.forEach((t, i) => { if (i) ab.append(" · "); const sp = document.createElement("span"); sp.className = "nobr"; sp.textContent = t; ab.append(sp); });
+  }
   function folderLabel(path) {
     const KO = { Downloads: "다운로드", Documents: "문서", Desktop: "데스크탑" };
     return path.replace(/\/+$/, "").split("/").slice(-2).map((x, i) => (i === 0 && (IN_KO ? KO[x] : L(x, x))) || x).join("/");
   }
-  document.title = L("강의 받아쓰기", "Lecture Transcriber");
+  document.title = L("Arc 강의 받아쓰기", "Arc Lecture Transcriber");
   const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.native;
   let slideCount = 0;
   // 슬라이드 PDF while recording: the lecture window as the app last saw it (about once a second), what 깔끔하게 담기 keeps
@@ -1797,7 +1804,7 @@
     return h ? L(`${h}시간 ${m}분`, `${h} hr ${m} min`) : m ? L(`${m}분 ${s}초`, `${m} min ${s} sec`) : L(`${s}초`, `${s} sec`);
   };
   let toastTimer;
-  /// Text into an element; in other languages Korean inside it ("Lecture Transcriber (강의 받아쓰기)", a recording's name)
+  /// Text into an element; in other languages Korean inside it ("Arc Lecture Transcriber (Arc 강의 받아쓰기)", a recording's name)
   /// keeps Korean's word breaks — the page breaks between characters elsewhere, which would split it mid-word. `whole`: a
   /// short Korean name never splits (notices); `dates`: "2026-09-28" stays on one line (titles).
   function setText(e, msg, { whole = true, dates = false } = {}) {
@@ -3059,7 +3066,7 @@
     notice(ev) {
       const openSettings = [IOS ? L("설정 열기", "Open Settings") : L("권한 설정 열기", "Open Privacy Settings"), () => send("openPrivacy")];
       if (IOS && ["no_input", "tap_error", "mic_denied"].includes(ev.code)) {
-        notice(L(`마이크를 사용할 수 없습니다. 설정에서 강의 받아쓰기의 ‘마이크’를 켜십시오.`, `The microphone isn't available. In Settings, turn on “Microphone” for Lecture Transcriber (강의 받아쓰기).`), [openSettings]);
+        notice(L(`마이크를 사용할 수 없습니다. 설정에서 Arc 강의 받아쓰기의 ‘마이크’를 켜십시오.`, `The microphone isn't available. In Settings, turn on “Microphone” for Arc Lecture Transcriber (Arc 강의 받아쓰기).`), [openSettings]);
       } else if (IOS && ev.code === "no_audio") {
         notice(L(`20초째 아무 소리도 들리지 않습니다. 강의 소리가 ${DEVICE}에 들리는지 확인하십시오.`, `No sound for 20 seconds. Make sure your ${DEVICE} can hear the lecture.`));
       } else if (ev.code === "capture_resumed") {
@@ -3076,7 +3083,7 @@
         closeDetail();
       } else if (ev.code === "no_input") {
         notice(L("아직 소리가 들어오지 않습니다. 강의 영상을 재생하십시오. ", "No sound is coming in yet. Play the lecture video. ")
-             + L("영상이 재생 중인데도 이 메시지가 계속 보이면 ‘시스템 오디오 녹음’ 권한에서 강의 받아쓰기를 허용하십시오.", "If this message keeps appearing while the video is playing, allow Lecture Transcriber (강의 받아쓰기) in the “System Audio Recording” permission."),
+             + L("영상이 재생 중인데도 이 메시지가 계속 보이면 ‘시스템 오디오 녹음’ 권한에서 Arc 강의 받아쓰기를 허용하십시오.", "If this message keeps appearing while the video is playing, allow Arc Lecture Transcriber (Arc 강의 받아쓰기) in the “System Audio Recording” permission."),
                [[L("권한 설정 열기", "Open Privacy Settings"), () => send("openPrivacy")]]);
       } else if (ev.code === "backend_restart") {
         lostSession();
@@ -3085,7 +3092,7 @@
         notice(ev.msg);
       } else if (ev.code === "no_audio") {
         notice(L("20초째 소리가 들어오지 않습니다. 강의 영상이 재생 중인지 확인하십시오. ", "No sound for 20 seconds. Make sure the lecture video is playing. ")
-             + L("처음 사용하는 경우 ‘시스템 오디오 녹음’ 권한에서 강의 받아쓰기를 허용해야 합니다.", "If you're using the app for the first time, you need to allow Lecture Transcriber (강의 받아쓰기) in the “System Audio Recording” permission."),
+             + L("처음 사용하는 경우 ‘시스템 오디오 녹음’ 권한에서 Arc 강의 받아쓰기를 허용해야 합니다.", "If you're using the app for the first time, you need to allow Arc Lecture Transcriber (Arc 강의 받아쓰기) in the “System Audio Recording” permission."),
                [[L("권한 설정 열기", "Open Privacy Settings"), () => send("openPrivacy")]]);
       } else if (ev.code === "tap_error") {
         notice(L("이 Mac의 소리를 가져오지 못했습니다. ‘시스템 오디오 녹음’ 권한을 확인하십시오.", "Couldn't capture this Mac's sound. Check the “System Audio Recording” permission."), [[L("권한 설정 열기", "Open Privacy Settings"), () => send("openPrivacy")]]);
@@ -3749,6 +3756,8 @@
   refreshControls();
   send("ready");
   if (!native && IN_EN) setLang("en");
+  if (!native && new URLSearchParams(location.search).has("langmenu")) setTimeout(() => $("langBtn").click(), 200);   // demo: the language list open
+  if (!native) $("setVersion").textContent = "2.5.1";                     // demo (screenshots): the version 설정 shows
   try { if (sessionStorage.getItem("reopen") === "settings") { sessionStorage.removeItem("reopen"); setTimeout(openSettings, 60); } } catch (e) {}                      // the English demo transcribes an English lecture
   {
     let agreed = false;

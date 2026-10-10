@@ -2,18 +2,18 @@
 
 <img src="docs/icon-v2.png" width="112" alt="">
 
-# Lecture Transcriber (강의 받아쓰기)
+# Arc Lecture Transcriber (Arc 강의 받아쓰기)
 
 <p><a href="README.md">한국어</a> · <b>English</b></p>
 
 **A Mac app that transcribes online lectures in real time**<br>
 Apple on-device speech recognition · free · open source · everything stays on your Mac
 
-<img src="docs/appstore/screenshots/2.4/en/02-live.png" width="760" alt="Lecture Transcriber — live transcription">
+<img src="docs/appstore/screenshots/2.5.1/en/02-live.png" width="760" alt="Arc Lecture Transcriber — live transcription">
 
-<img src="docs/appstore/screenshots/2.4/en/03-library.png" width="760" alt="Library — each lecture's transcript and recording together">
+<img src="docs/appstore/screenshots/2.5.1/en/03-library.png" width="760" alt="Library — each lecture's transcript and recording together">
 
-<img src="docs/appstore/screenshots/2.5/en-language.png" width="760" alt="Interface language — pick one of 12 with the globe on the start screen">
+<img src="docs/appstore/screenshots/2.5.1/en/08-language.png" width="760" alt="Interface language — pick one of 12 with the globe on the start screen">
 
 <sub>The app speaks 12 languages — Korean, English, Simplified and Traditional Chinese, Japanese, Spanish, French, German, Portuguese (Brazil), Italian, Vietnamese and Russian. It follows your Mac's language (English for any other), and the globe on the start screen switches it.</sub>
 
@@ -57,7 +57,7 @@ Apple on-device speech recognition · free · open source · everything stays on
 ## Requirements
 
 - **macOS 26 (Tahoe) or later** on an Apple Silicon (M1 or later) Mac
-- On macOS 14.2–15, use [v1 (the Whisper version)](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0). The install command below picks the right version for your macOS automatically.
+- On macOS 14.2–15, use [v1 (the Whisper version)](https://github.com/WeldingArc/arc-lecture-transcriber/releases/tag/v1.0.0). The install command below picks the right version for your macOS automatically.
 
 ## Install
 
@@ -66,14 +66,14 @@ Apple on-device speech recognition · free · open source · everything stays on
 Open the **Terminal** app (search "Terminal" in Spotlight), paste this line and press Enter:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/WeldingArc/lecture-transcriber/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/WeldingArc/arc-lecture-transcriber/main/scripts/install.sh | bash
 ```
 
 Run the same line again to update.
 
 ### Option 2 · Download
 
-Download `LectureScribe-mac.zip` from the [latest release](https://github.com/WeldingArc/lecture-transcriber/releases/latest), unzip it, and move `강의 받아쓰기.app` (Finder shows it as Lecture Transcriber on a Mac set to any language but Korean) to your Applications folder. The app is not notarized yet, so if you downloaded it with a browser, macOS blocks it the first time ("Apple could not verify…"): click **Done**, then open **System Settings › Privacy & Security**, scroll down and click **Open Anyway** (once). The installer command in Option 1 doesn't need this step.
+Download `LectureScribe-mac.zip` from the [latest release](https://github.com/WeldingArc/arc-lecture-transcriber/releases/latest), unzip it, and move `Arc 강의 받아쓰기.app` (Finder shows it as Arc Lecture Transcriber on a Mac set to any language but Korean) to your Applications folder (move an older `강의 받아쓰기.app` to the Trash). The app is not notarized yet, so if you downloaded it with a browser, macOS blocks it the first time ("Apple could not verify…"): click **Done**, then open **System Settings › Privacy & Security**, scroll down and click **Open Anyway** (once). The installer command in Option 1 doesn't need this step.
 
 ## First launch
 
@@ -99,7 +99,7 @@ On first launch the app shows a **Usage Notice and Disclaimer**. Read it and cli
 
 ## Usage notice and disclaimer
 
-Lecture Transcriber is a tool to support personal study. On first launch you must agree to the following before using the app; you can read it again under Settings › About › Usage Notice and Disclaimer, or from the Help menu.
+Arc Lecture Transcriber is a tool to support personal study. On first launch you must agree to the following before using the app; you can read it again under Settings › About › Usage Notice and Disclaimer, or from the Help menu.
 
 - Lectures, slides and transcripts you record or transcribe with this app remain the copyright of their owners, such as the lecturer and the university.
 - Use recordings, transcripts and slide PDFs only for your own study. Sharing or distributing them, or posting them online, may infringe copyright.
@@ -112,7 +112,7 @@ Lecture Transcriber is a tool to support personal study. On first launch you mus
 <details>
 <summary>I clicked Start but no text appears</summary>
 
-Make sure the lecture is actually playing. If text still doesn't appear, open **System Settings → Privacy & Security → Screen & System Audio Recording**, turn on Lecture Transcriber (강의 받아쓰기 on a Mac set to Korean) in the **"System Audio Recording Only"** list, and reopen the app.
+Make sure the lecture is actually playing. If text still doesn't appear, open **System Settings → Privacy & Security → Screen & System Audio Recording**, turn on Arc Lecture Transcriber (Arc 강의 받아쓰기 on a Mac set to Korean) in the **"System Audio Recording Only"** list, and reopen the app.
 </details>
 
 <details>
@@ -136,7 +136,7 @@ Move the app to the Trash, then delete the `~/Library/Containers/io.github.joshi
 <details>
 <summary>Something went wrong</summary>
 
-Attach `app.log` from **Help → Open Log Folder (for Reporting Problems)** to an [issue](https://github.com/WeldingArc/lecture-transcriber/issues). The log contains neither your transcripts nor your Mac user name.
+Attach `app.log` from **Help → Open Log Folder (for Reporting Problems)** to an [issue](https://github.com/WeldingArc/arc-lecture-transcriber/issues). The log contains neither your transcripts nor your Mac user name.
 </details>
 
 ## How it works
@@ -152,7 +152,7 @@ When you choose another engine, a small runtime inside the app — **whisper.cpp
 
 It is a single native Swift app (AppKit + WKWebView) that runs in Apple's sandbox. The app is about 17 MB (speech models are downloaded only if you choose one). To build it yourself, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
-**v1** ran OpenAI Whisper large-v3-turbo with whisper.cpp. It remains available for macOS 14.2–15 as the [v1.0.0 release](https://github.com/WeldingArc/lecture-transcriber/releases/tag/v1.0.0).
+**v1** ran OpenAI Whisper large-v3-turbo with whisper.cpp. It remains available for macOS 14.2–15 as the [v1.0.0 release](https://github.com/WeldingArc/arc-lecture-transcriber/releases/tag/v1.0.0).
 
 ## License
 

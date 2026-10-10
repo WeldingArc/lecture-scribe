@@ -1,5 +1,5 @@
 /* iPhone/iPad app — 繁體中文 */
-"CFBundleDisplayName" = "Lecture Transcriber";
-"CFBundleName" = "Lecture Transcriber";
+"CFBundleDisplayName" = "Arc Lecture Transcriber";
+"CFBundleName" = "Arc Lecture Transcriber";
 "NSMicrophoneUsageDescription" = "需要使用麥克風來錄製並轉錄課程。錄音和文字只會儲存在此裝置上。";
 "NSSpeechRecognitionUsageDescription" = "使用 Apple 語音辨識，在此裝置上將錄下的課程轉錄成文字。聲音和文字都不會離開此裝置。";

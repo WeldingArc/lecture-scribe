@@ -33,5 +33,6 @@ done <<'EOF'
 04-library|library|기록|모든 강의를 한곳에|녹음과 글을 함께 보관하고, 이름 변경과 삭제도 바로|LIBRARY|Every lecture in one place|Recordings and transcripts together — rename or delete right from the list
 05-find|find|찾기 · 다시 듣기 · 글 편집|찾고, 다시 듣고, 바로 고칩니다|⌘F로 찾고, 문장을 누르면 그 부분부터 재생하고, 잘못 들린 단어는 글 편집으로|FIND · REPLAY · EDIT|Find it. Hear it again. Fix it.|⌘F to search, click a sentence to replay, fix misheard words in place
 06-privacy|settings&at=engines|개인정보|모든 처리는 이 Mac 안에서|인터넷 전송 없음 · Apple 온디바이스 음성 인식 · 원하면 다른 엔진도|PRIVACY|Everything stays on your Mac|No uploads · Apple's on-device speech recognition · more engines if you want
+07-languages|start&langmenu|12개 언어|화면은 12개 언어로|처음에는 Mac의 언어를 따르고, 첫 화면의 지구본에서 언제든 바꿉니다|12 LANGUAGES|In your language|Follows your Mac's language — switch anytime with the globe
 EOF
 echo "→ $OUT/ko, $OUT/en"

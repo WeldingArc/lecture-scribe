@@ -80,7 +80,7 @@ final class SystemAudioSource: AudioSource {
         guard !stopped else { return }
         let desc = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
         desc.uuid = UUID()
-        desc.name = "강의 받아쓰기"
+        desc.name = "Arc 강의 받아쓰기"
         desc.isPrivate = true
         desc.muteBehavior = .unmuted
         log("capture: creating tap")
@@ -89,7 +89,7 @@ final class SystemAudioSource: AudioSource {
         guard st == noErr else { throw CaptureError(step: "create tap", status: st) }
 
         let agg: [String: Any] = [
-            kAudioAggregateDeviceNameKey: "강의 받아쓰기 Tap",
+            kAudioAggregateDeviceNameKey: "Arc 강의 받아쓰기 Tap",
             kAudioAggregateDeviceUIDKey: UUID().uuidString,
             kAudioAggregateDeviceIsPrivateKey: true,
             kAudioAggregateDeviceIsStackedKey: false,
