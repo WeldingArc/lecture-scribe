@@ -13,6 +13,8 @@ Apple on-device speech recognition · free · open source · everything stays on
 
 <img src="docs/appstore/screenshots/2.4/en/03-library.png" width="760" alt="Library — each lecture's transcript and recording together">
 
+<img src="docs/appstore/screenshots/2.5/en-language.png" width="760" alt="Interface language — pick one of 12 with the globe on the start screen">
+
 <sub>The app speaks 12 languages — Korean, English, Simplified and Traditional Chinese, Japanese, Spanish, French, German, Portuguese (Brazil), Italian, Vietnamese and Russian. It follows your Mac's language (English for any other), and the globe on the start screen switches it.</sub>
 
 </div>

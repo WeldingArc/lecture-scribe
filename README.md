@@ -13,6 +13,10 @@ Apple 온디바이스 음성 인식 · 무료 · 오픈소스 · 모든 처리�
 
 <img src="docs/appstore/screenshots/2.3/03-library.png" width="760" alt="기록 화면 — 받아 적은 글과 녹음을 함께">
 
+<img src="docs/appstore/screenshots/2.5/ko-language.png" width="760" alt="화면 언어 — 첫 화면의 지구본에서 12개 언어 중 선택">
+
+<sub>화면은 12개 언어로 쓸 수 있습니다 — 처음에는 Mac의 언어를 따르고, 첫 화면 왼쪽 위의 지구본에서 바꿉니다.</sub>
+
 </div>
 
 ## 주요 기능
