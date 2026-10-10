@@ -38,8 +38,8 @@ app/ios/Info.plist, Assets.xcassets, PrivacyInfo.xcprivacy
                          iOS app settings (background audio, Files app sharing), icon, privacy manifest
 app/Info.plist           usage descriptions, macOS 26 minimum (build settings fill in the $(…) variables)
 app/Resources/<code>.lproj/InfoPlist.strings, app/ios/<code>.lproj/InfoPlist.strings (the 12 languages)
-                         the app's name and permission prompts per language (the system's; after a choice in the app, the
-                         app's own from the next launch) (강의 받아쓰기 / Lecture Transcriber)
+                         the app's name and permission prompts per system language — macOS picks the .lproj (강의 받아쓰기 / Lecture
+                         Transcriber); an in-app choice only pins this app's AppleLanguages (menu bar name from the next launch)
 app/LectureScribe.entitlements
                          App Sandbox: Downloads read-write, user-selected read-only,
                          network.client (WKWebView; the optional model downloads),
@@ -165,7 +165,7 @@ Italiano (it), Tiếng Việt (vi), Русский (ru). The lecture itself is s
   (`:lang()` rules in the page — the Korean fallback would draw Korean forms of Han
   characters). In PDFs, what Pretendard doesn't carry is drawn with the system's Korean font (ko, en), PingFang /
   Hiragino (zh, ja; Latin punctuation there from Helvetica Neue — PingFang's hyphen looks like a dash), or Helvetica Neue for
-  everything but Hangul in the other languages (`Slides.fallback`). Element-level `lang` keeps each language's own font (Русский in a
+  everything but Hangul in the other languages (`SlidesPDF.fallback`). Element-level `lang` keeps each language's own font (Русский in a
   Japanese page).
 - **macOS's and iOS's own words**: `<code>.lproj/InfoPlist.strings` for all 12 (app/Resources for the Mac, app/ios for
   iPhone/iPad: the name — "Lecture Transcriber" in every language but Korean — and every permission prompt);
