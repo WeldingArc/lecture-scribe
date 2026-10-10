@@ -37,8 +37,9 @@ app/ios/App.swift        iPhone/iPad: SwiftUI scene + WKWebView, share sheet, do
 app/ios/Info.plist, Assets.xcassets, PrivacyInfo.xcprivacy
                          iOS app settings (background audio, Files app sharing), icon, privacy manifest
 app/Info.plist           usage descriptions, macOS 26 minimum (build settings fill in the $(…) variables)
-app/Resources/{ko,en}.lproj/InfoPlist.strings, app/ios/{ko,en}.lproj/InfoPlist.strings
-                         the app's name and permission prompts per system language (강의 받아쓰기 / Lecture Transcriber)
+app/Resources/<code>.lproj/InfoPlist.strings, app/ios/<code>.lproj/InfoPlist.strings (the 12 languages)
+                         the app's name and permission prompts per language (the system's; after a choice in the app, the
+                         app's own from the next launch) (강의 받아쓰기 / Lecture Transcriber)
 app/LectureScribe.entitlements
                          App Sandbox: Downloads read-write, user-selected read-only,
                          network.client (WKWebView; the optional model downloads),
@@ -94,8 +95,8 @@ Hooks (environment variables): `LECTURE_OUT_DIR`, `LECTURE_AUTOSTART=1`, `LECTUR
 stderr), `LECTURE_TEST_OPEN=library|<session>|trash:<session>|delete:<session>` (the page opens 기록 or a
 session; `trash:` deletes and undoes it, `delete:` deletes it — the page logs what it rendered),
 `LECTURE_TEST_QUIT=<sec>` (logs the 녹음 menu as it reads then, then ⌘Q) with `LECTURE_TEST_QUIT_ANSWER=quit|cancel`
-(answers the warning 3 s later), `LECTURE_UI_LANGUAGE=ko|en` (the app's language), `LECTURE_PDF_LAYOUT=landscape|split|classic`,
-`LECTURE_TEST_LANG=<sec>:<ko|en>` (switches the language the way the page does, then logs the window title, every menu
+(answers the warning 3 s later), `LECTURE_UI_LANGUAGE=<code>` (the app's language, one of the 12), `LECTURE_LOG_DIR=<dir>` (app.log there instead of Application Support — bare binaries side by side; note that they still share Application Support/LectureScribe/Slides, which every launch recovers), `LECTURE_PDF_LAYOUT=landscape|split|classic`,
+`LECTURE_TEST_LANG=<sec>:<code>` (switches the language the way the page does, then logs the window title, every menu
 and the reloaded page — `LECTURE_TEST_JS=<expression>` replaces that page probe; the bare `build/v2/LectureScribe` needs
 `LECTURE_DEV_DIR` to find `ui/`, otherwise its window stays blank), `LECTURE_TEST_START=<sec>` / `LECTURE_TEST_STOP=<sec>`
 / `LECTURE_TEST_PAUSE=<sec>` / `LECTURE_TEST_RESUME=<sec>` (시작 / 정지 / 일시정지 / 계속 as the page presses them — 시작 also
@@ -105,30 +106,74 @@ plays the lecture window for 슬라이드 PDF, in real time, instead of the pick
 `LECTURE_TEST_*` skips the first-run notice. `OUT=<dir> DIST=<dir> scripts/build_v2.sh` builds elsewhere. CLI: `--live <sec> --pause-at <sec> --pause-for <sec>` pauses a test recording.
 
 The UI runs in a normal browser as a demo (no sound): `ui/index.html?shot`, `?shot=saved|keywords|library|detail|playing|slides|find`
-for still frames (`slides`: recording with 슬라이드 PDF, the camera outlined; `find`: ⌘F in a session, `&q=` the word), `&ios` for the iPhone wording, `&lang=en|ko` for the language, `slidescard` / `slidesfind` for the live preview as a card / still looking for the slide, `settings&at=engines` scrolled to 음성 인식. Screenshots: `swiftc -O tools/shot.swift -o /tmp/shot`, then
+for still frames (`slides`: recording with 슬라이드 PDF, the camera outlined; `find`: ⌘F in a session, `&q=` the word), `&ios` for the iPhone wording, `&lang=<code>` for the language (any of the 12), `slidescard` / `slidesfind` for the live preview as a card / still looking for the slide, `settings&at=engines` scrolled to 음성 인식. Screenshots: `swiftc -O tools/shot.swift -o /tmp/shot`, then
 `/tmp/shot "file://$PWD/ui/index.html?shot=library" library.png 1440 900`. The 슬라이드 PDF demo GIF: `swiftc -O tools/frames.swift -o /tmp/frames`,
 `/tmp/frames "file://$PWD/ui/index.html?shot=slidesdemo" /tmp/f 720 660 22 10 __renderDemo`, then
 `python3 tools/make_gif.py /tmp/f docs/slides-demo.gif 600 1.75` (1.75 = the page's `DEMO_SPEED`). Marketing screenshots
 (App Store and README; a feature label, a headline and a line of pitch over each screen, Korean and English):
 `tools/make_marketing.sh` → `docs/appstore/marketing/{ko,en}/*.jpg` (template `tools/marketing.html`; the captions are in the script). Logs: `~/Library/Containers/io.github.joshichoi.lecture-scribe/Data/Library/Application Support/LectureScribe/logs/app.log`.
 
-### Languages (English / Korean)
+### Languages (12 interface languages)
 
-The whole app is in Korean and English (2.4). `AppLanguage` (app/Engine.swift) holds the app's language — `uiLanguage`
-in the settings; before anyone chooses, the Mac's (iPhone's) own language: Korean if it comes first, English otherwise;
-`LECTURE_UI_LANGUAGE` for tests — and `L("한국어", "English")` picks the text, in Swift and in the page alike. The page
-gets `window.__LANG__` at document start. Markup text is translated once by `translatePage()` from the `EN_TEXT` table
-(keys: the Korean text with its whitespace collapsed; `translate="no"` keeps the language picker's 한국어), whatever the
-script writes goes through `L()`, and `nEN(n, "slide")` makes English plurals. Changing the language (the start screen's
-globe, 설정 › 언어) rebuilds the menus and the window title, resets the page script and reloads the page; the engine
-replays its state. Saved files follow the language of the moment — `YYYY-MM-DD HH시MM분 강의` / `YYYY-MM-DD HH.MM Lecture`,
-`… 받아쓰기` / `… transcript`, the headers `강의 녹취 · …` / `Lecture transcript · …` and `파일 받아쓰기 · …` /
-`File transcription · …`, the tail `── 중요 문장 ──` / `── Key Sentences ──` — and 기록 reads both (`Library.headerPrefixes`,
-`Library.defaultNameRE`). A new library folder is `Downloads/Lecture Transcriber` in English unless `Downloads/강의기록`
-exists. The permission prompts and the Finder name come from the `.lproj` InfoPlist.strings, so they follow the system's
-language, not the app's. Global constants must not call `L()`: they would keep the language of their first use, and
-`engineSpecs` → `Settings.load()` → `AppLanguage` → `engineSpecs` was an initialization cycle that trapped at launch —
-keep both texts and choose when they are read (`EngineSpec.desc`).
+The app's screens, menus, notices, permission prompts and PDFs are in 12 languages (2.5): 한국어 (ko), English (en),
+简体中文 (zh-Hans), 繁體中文 (zh-Hant), 日本語 (ja), Español (es), Français (fr), Deutsch (de), Português (Brasil) (pt-BR),
+Italiano (it), Tiếng Việt (vi), Русский (ru). The lecture itself is still transcribed in Korean or English (강의 언어).
+
+- **Which language.** `AppLanguage` (app/Engine.swift) holds it. A choice made in the app (the start screen's globe opens
+  the list; 설정 › 언어) is kept as `uiLanguageChoice` and pins this app's `AppleLanguages`, so macOS's own words (the
+  menu bar's app name, Open/Save panels, the Edit menu's extras, the About window) follow from the next launch. Until
+  someone chooses: the first of `Locale.preferredLanguages`, mapped by `AppLanguage.supported` — zh-Hans/zh-CN/zh-SG → zh-Hans,
+  zh-Hant/zh-TW/zh-HK/zh-MO and Cantonese (yue; yue-Hans → zh-Hans) → zh-Hant, pt-* → pt-BR, es-* / fr-* / de-* / it-* / en-* → their language, ko, ja, vi, ru;
+  anything else (or nothing) → English. Only the FIRST preferred language counts. 2.4.0 pinned `AppleLanguages` at every
+  launch, so the Mac app clears it once (`languagePinCleared`); macOS has already read that pin for this launch, so its own words
+  stay in the old language until the next one and the page says so (the `lang_restart` notice). The old `uiLanguage` key is ignored;
+  `LECTURE_UI_LANGUAGE=<code>` for tests; the log's start line says which (`app started 2.5.0 · ja (system)` — the bare test binary
+  prints `dev` for the version; `(chosen)` when a choice is stored, otherwise `(system)`, a test override included).
+- **Korean and English are written in the code**: `L("한국어", "English")` in Swift and in the page alike; the page's
+  markup is Korean and `translatePage()` translates it once from the `EN_TEXT` table (keys: the Korean text with its
+  whitespace collapsed; `translate="no"` keeps the language lists as they are).
+- **The other ten come from packs** `ui/i18n/<code>.js` — `{"plural": …, "text": {English → theirs}}`. The page loads the
+  pack in `<head>` (where the language is decided, `window.__UI_LANG__`); the app reads the same file (`Translations`,
+  app/Engine.swift — the strict JSON after `(window.I18N = window.I18N || {})["<code>"] = `). `L()` returns
+  `ko` / `en` / the pack's text for `en`. A key may hold `{0}`, `{1}`…: the code's `${…}` / `\(…)` in the English, in order
+  (`Downloaded the {0} model…`); a lookup that isn't exact matches the English against those templates (the most
+  specific first) and puts the pieces into the translation — translated themselves when the pack has them ("Korean").
+  Anything the pack lacks shows in English. So **a new or changed English string needs its entry in all ten packs**:
+  `python3 tools/i18n_check.py` lists every L() / EN_TEXT string a pack is missing or has stale (exit 1 if a string is missing or a placeholder differs).
+- **Counts**: `nEN(n, "slide")` (page) and `nL(n, "slide")` (Swift) — English plurals, or the pack's forms by CLDR plural
+  category (`Intl.PluralRules` in the page, `Translations.category` in Swift: ru one/few/many, fr one = 0 and 1, pt-BR one = 1 only ("0 gravações"),
+  zh/ja/vi only other). Korean callers write their own (`${n}장`). A sentence with a number and a literal noun must be
+  translated so it reads right for any number.
+- **Dates and times** in the other languages come from the system (`toLocaleDateString(LANG, …)`, `DateFormatter` with the
+  language's locale — the PDF cover's `{0} Lecture`).
+- **Saved files keep Korean or English formats** (`LF()` in both): `YYYY-MM-DD HH시MM분 강의` in Korean, `YYYY-MM-DD HH.MM
+  Lecture` in every other language; likewise `… 받아쓰기` / `… transcript`, `(받아쓰기).pdf` / `(Transcript).pdf`, the headers
+  `강의 녹취 · …` / `Lecture transcript · …`, `파일 받아쓰기 · …` / `File transcription · …` and the tail
+  `── 중요 문장 ──` / `── Key Sentences ──` — so 기록 reads every file whatever language wrote it (`Library.headerPrefixes`,
+  `Library.defaultNameRE`), and shows default names in the current language (`{0} Lecture` from the recording's time). A
+  new library folder is `Downloads/Lecture Transcriber` unless the app is in Korean or `Downloads/강의기록` exists.
+- **Layout in longer languages**: Korean's `word-break: keep-all` applies only to the Korean UI and to transcript text
+  (elsewhere it made a Chinese/Japanese sentence one unbreakable word and broke Latin text after ’ and “); a Korean name
+  inside a notice keeps it (`setText` wraps Hangul in `.ko`). The start screen's globe and a sheet's back label drop their
+  text when it would touch the title (`fitLangBtn`, `fitBars`); the 글 view's card is sized from the room left of 전체 복사
+  (`fitCampv`/`campvWidth`: 200–400 px, ≥ 8 px clear, else hidden; its chips drop the 깔끔하게 담기 name and keep the switch
+  when even the tight row doesn't fit); a wrapped lower dock row adds its height (`--dock-extra`, 0 when it doesn't wrap) to the
+  transcript's bottom padding (not in the 화면 view while recording, which keeps 2.4's), the card's offset and the toast's;
+  a "?" wraps with what it explains (`.row2 .grp`); counts keep a no-break space to their noun.
+- **Fonts**: Pretendard covers Hangul, Latin (Vietnamese too) and Cyrillic; Chinese and Japanese text uses PingFang SC /
+  PingFang TC / Hiragino Sans, with Latin letters, digits and ASCII punctuation from "Pretendard Latin" (a unicode-range face)
+  (`:lang()` rules in the page — the Korean fallback would draw Korean forms of Han
+  characters). In PDFs, what Pretendard doesn't carry is drawn with the system's Korean font (ko, en), PingFang /
+  Hiragino (zh, ja; Latin punctuation there from Helvetica Neue — PingFang's hyphen looks like a dash), or Helvetica Neue for
+  everything but Hangul in the other languages (`Slides.fallback`). Element-level `lang` keeps each language's own font (Русский in a
+  Japanese page).
+- **macOS's and iOS's own words**: `<code>.lproj/InfoPlist.strings` for all 12 (app/Resources for the Mac, app/ios for
+  iPhone/iPad: the name — "Lecture Transcriber" in every language but Korean — and every permission prompt);
+  `CFBundleLocalizations` lists the 12; `CFBundleDevelopmentRegion` is `en`.
+- **Switching** (globe, 설정 › 언어) rebuilds the menus and the window title, resets the page script and reloads the page;
+  the engine replays its state. Global constants must not call `L()`: they would keep the language of their first use,
+  and `engineSpecs` → `Settings.load()` → `AppLanguage` → `engineSpecs` was an initialization cycle that trapped at
+  launch — keep both texts and choose when they are read (`EngineSpec.desc`).
 
 ### Speech engines (설정 › 음성 인식)
 

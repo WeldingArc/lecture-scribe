@@ -30,7 +30,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
 
     func applicationDidFinishLaunching(_ n: Notification) {
         clearQuarantine()
-        AppLanguage.pinSystem(appLanguage.value)
         buildMenu()
         bridge = Bridge { [weak self] ev in self?.toPage(ev) }
         bridge.platform = self
@@ -39,7 +38,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         setAppIcon(bridge.engine.settings.icon)
         buildWindow()
         NSApp.activate()
-        log("app started \(appVersion)")
+        log("app started \(appVersion) · \(appLanguage.value) (\(AppLanguage.chosen == nil ? "system" : "chosen"))")
+        if AppLanguage.pinClearedNow, Bundle.main.preferredLocalizations.first?.hasPrefix(appLanguage.value) == false {
+            toPage(["ev": "notice", "code": "lang_restart",       // after 2.4.0: macOS's own words follow from the next launch
+                    "msg": L("메뉴 막대의 앱 이름과 열기 창 같은 시스템 화면은 앱을 다시 열면 바뀝니다.", "The app's name in the menu bar and system windows such as Open change the next time you open the app.")])
+        }
         if let s = Double(env["LECTURE_TEST_QUIT"] ?? "") {     // tests: the 녹음 menu as it reads mid-recording, then ⌘Q
             Timer.scheduledTimer(withTimeInterval: s, repeats: false) { [weak self] _ in   // a run-loop timer, like a key press
                 MainActor.assumeIsolated {

@@ -2,8 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleDevelopmentRegion</key><string>ko</string>
-	<key>CFBundleLocalizations</key><array><string>ko</string><string>en</string></array>
+	<key>CFBundleDevelopmentRegion</key><string>en</string>
+	<key>CFBundleLocalizations</key><array><string>ko</string><string>en</string><string>zh-Hans</string><string>zh-Hant</string><string>ja</string><string>es</string><string>fr</string><string>de</string><string>pt-BR</string><string>it</string><string>vi</string><string>ru</string></array>
 	<key>LSHasLocalizedDisplayName</key><true/>
 	<key>CFBundleName</key><string>강의 받아쓰기</string>
 	<key>CFBundleDisplayName</key><string>강의 받아쓰기</string>

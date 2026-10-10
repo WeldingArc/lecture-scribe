@@ -46,7 +46,7 @@ struct Settings {
     var icon: String                       // app icon: navy | ivory | brass | charcoal | sage
     var engine: String                     // 설정 › 음성 인식: apple | whisper | qwen3 | parakeet (Mac, once downloaded)
     var language: String                   // 강의 언어 (main screen): ko | en — the lecture's main language
-    var uiLanguage: String                 // the app's own language (설정, the start screen's globe): ko | en
+    var uiLanguage: String                 // the app's own language (설정, the start screen's globe): one of uiLanguages
     var pdfLayout: String                  // 슬라이드 PDF: landscape (slide page, then its transcript) | split (two PDFs) | classic
     var cleanCapture: Bool                 // 깔끔하게 담기: the PDF keeps only the slide (not the browser, the player, black borders)
     static func load() -> Settings {
@@ -69,7 +69,7 @@ struct Settings {
         let d = UserDefaults.standard
         d.set(keywords, forKey: "keywords"); d.set(timestamps, forKey: "timestamps"); d.set(slides, forKey: "slides")
         d.set(theme, forKey: "theme"); d.set(accent, forKey: "accent"); d.set(size, forKey: "size"); d.set(icon, forKey: "icon")
-        d.set(engine, forKey: "engine"); d.set(language, forKey: "language"); d.set(uiLanguage, forKey: "uiLanguage")
+        d.set(engine, forKey: "engine"); d.set(language, forKey: "language")   // uiLanguage: only a choice is kept (AppLanguage.choose)
         d.set(pdfLayout, forKey: "pdfLayout"); d.set(cleanCapture, forKey: "cleanCapture")
     }
     /// What the page needs to show them.
@@ -82,6 +82,9 @@ struct Settings {
 
 let pdfLayouts = ["landscape", "split", "classic"]
 
+/// The app's 12 languages (screens, menus, notices, PDFs — a lecture is still transcribed in Korean or English).
+let uiLanguages = ["ko", "en", "zh-Hans", "zh-Hant", "ja", "es", "fr", "de", "pt-BR", "it", "vi", "ru"]
+
 /// The app's own language — every message, menu and PDF follows it. Any thread.
 final class AppLanguage: @unchecked Sendable {
     private let lock = NSLock()
@@ -89,38 +92,150 @@ final class AppLanguage: @unchecked Sendable {
                                                // Settings.load(): that reads the engine list, whose text needs this)
     var value: String {
         get { lock.lock(); defer { lock.unlock() }; return v }
-        set { lock.lock(); v = newValue == "en" ? "en" : "ko"; lock.unlock() }
+        set { lock.lock(); v = AppLanguage.supported(newValue) ?? "en"; lock.unlock() }
     }
-    /// Before anyone chooses: the Mac's (iPhone's) own language — Korean if that comes first, English otherwise.
-    static var system: String { (Locale.preferredLanguages.first ?? "ko").hasPrefix("ko") ? "ko" : "en" }
-    /// macOS's own words in this app — the menu bar's app name, the Open window, the Edit menu's extras, the About
-    /// window — follow the app's language from its next launch (this app's setting only, not the Mac's).
-    static func pinSystem(_ v: String) {
+    /// A language tag ("zh-TW", "pt-PT", "fr-CA", "en-KR"…) → the app's language for it; nil for one it doesn't speak.
+    static func supported(_ tag: String?) -> String? {
+        let t = (tag ?? "").lowercased().replacingOccurrences(of: "_", with: "-")
+        if t.hasPrefix("yue-hans") { return "zh-Hans" }                                                         // Cantonese in Simplified
+        if ["zh-hant", "zh-tw", "zh-hk", "zh-mo", "yue"].contains(where: { t.hasPrefix($0) }) { return "zh-Hant" }   // Cantonese: Traditional
+        if t.hasPrefix("zh") { return "zh-Hans" }
+        if t.hasPrefix("pt") { return "pt-BR" }
+        let p = String(t.split(separator: "-").first ?? "")
+        return ["ko", "en", "ja", "es", "fr", "de", "it", "vi", "ru"].contains(p) ? p : nil
+    }
+    /// Until someone chooses: the Mac's (iPhone's) own language — the first of its preferred languages, and English when
+    /// the app doesn't speak that one.
+    static var system: String { supported(Locale.preferredLanguages.first) ?? "en" }
+    /// The language chosen in the app (설정 › 언어, the start screen's globe), nil until someone chooses.
+    static var chosen: String? { uiLanguages.first { $0 == UserDefaults.standard.string(forKey: "uiLanguageChoice") } }
+    /// Someone chose: the app keeps this language, and macOS's own words in it — the menu bar's app name, the Open
+    /// window, the Edit menu's extras, the About window — follow from its next launch (this app's setting only).
+    static func choose(_ v: String) {
         let d = UserDefaults.standard
+        d.set(v, forKey: "uiLanguageChoice")
         if d.stringArray(forKey: "AppleLanguages") != [v] { d.set([v], forKey: "AppleLanguages") }
     }
-    /// The language to start in: the one chosen; someone who used an earlier version (which was Korean only) keeps
-    /// Korean; a new user gets the Mac's language.
+    /// This launch cleared 2.4.0's pin: macOS already read it, so its own words (Edit menu extras, Open panel) are in
+    /// the pinned language until the next launch.
+    nonisolated(unsafe) static var pinClearedNow = false
+    /// The language to start in: the one chosen, otherwise the system's.
     static func initial(_ d: UserDefaults = .standard) -> String {
-        if let v = env["LECTURE_UI_LANGUAGE"] { return v == "en" ? "en" : "ko" }
-        if let v = d.string(forKey: "uiLanguage"), ["ko", "en"].contains(v) { return v }
-        return usedBefore(d) ? "ko" : system
-    }
-    /// A setting an earlier version saved, or its recordings (someone who never changed a setting still has those).
-    private static func usedBefore(_ d: UserDefaults) -> Bool {
-        if ["language", "slides", "theme", "keywords", "engine", "timestamps", "size"].contains(where: { d.object(forKey: $0) != nil }) { return true }
+        if let v = env["LECTURE_UI_LANGUAGE"] { return supported(v) ?? "en" }
+        if let v = d.string(forKey: "uiLanguageChoice"), uiLanguages.contains(v) { return v }
         #if os(macOS)
-        return FileManager.default.fileExists(atPath: realHome.appendingPathComponent("Downloads/강의기록").path)
-        #else
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return ((try? FileManager.default.contentsOfDirectory(atPath: docs.path)) ?? []).contains { $0.hasSuffix(".txt") }
+        // 2.4.0 pinned the app to its language at every launch: let the Mac's own language through, once (after that, a
+        // language set for this app in System Settings is respected). Only this app's own pin counts — reading the key
+        // through UserDefaults would also see the Mac's own list.
+        if !d.bool(forKey: "languagePinCleared") {
+            let own = d.persistentDomain(forName: Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName)
+            if own?["AppleLanguages"] != nil { pinClearedNow = true }
+            d.removeObject(forKey: "AppleLanguages")
+            d.set(true, forKey: "languagePinCleared")
+        }
         #endif
+        return system
     }
 }
 let appLanguage = AppLanguage()
 
-/// The same text in the app's language: L("한국어", "English").
-func L(_ ko: String, _ en: String) -> String { appLanguage.value == "en" ? en : ko }
+/// The same text in the app's language: L("한국어", "English") — any other language is looked up from the English.
+func L(_ ko: String, _ en: String) -> String {
+    switch appLanguage.value {
+    case "ko": return ko
+    case "en": return en
+    case let lang: return translations.text(en, lang)
+    }
+}
+
+/// File names and the headers inside saved files: Korean or English only, so 기록 reads every file in any language.
+func LF(_ ko: String, _ en: String) -> String { appLanguage.value == "ko" ? ko : en }
+
+/// A count with its noun in the app's language: "1 slide", "3 slides", "3 слайда", "5 слайдов" (Korean callers write
+/// their own).
+func nL(_ n: Int, _ one: String, _ many: String? = nil) -> String {
+    let lang = appLanguage.value
+    if lang != "ko", lang != "en", let forms = translations.pack(lang).plural[one] {
+        return (forms[Translations.category(n, lang)] ?? forms["other"] ?? "{n}")
+            .replacingOccurrences(of: "{n} ", with: "{n}\u{00A0}").replacingOccurrences(of: " {n}", with: "\u{00A0}{n}")   // stays with its noun
+            .replacingOccurrences(of: "{n}", with: "\(n)")
+    }
+    return "\(n) \(n == 1 ? one : many ?? one + "s")"
+}
+
+/// The other languages' words — the page's own packs (ui/i18n/<lang>.js): English → theirs, where "{0}", "{1}"… stand
+/// for what the code puts in. Loaded once per language. Any thread.
+final class Translations: @unchecked Sendable {
+    struct Pack {
+        var text: [String: String] = [:]
+        var plural: [String: [String: String]] = [:]
+        var templates: [(re: NSRegularExpression, order: [Int], key: String)] = []
+    }
+    private let lock = NSLock()
+    private var packs: [String: Pack] = [:]
+
+    func pack(_ lang: String) -> Pack {
+        lock.lock(); defer { lock.unlock() }
+        if let p = packs[lang] { return p }
+        var p = Pack()
+        let dirs = [env["LECTURE_DEV_DIR"].map { $0 + "/ui" }, Bundle.main.resourcePath.map { $0 + "/ui" }].compactMap { $0 }
+        if let js = dirs.lazy.compactMap({ try? String(contentsOfFile: $0 + "/i18n/\(lang).js", encoding: .utf8) }).first,
+           let head = js.range(of: "(window.I18N = window.I18N || {})[\"\(lang)\"] = "), let b = js.lastIndex(of: "}"),
+           let a = js[head.upperBound...].firstIndex(of: "{"), a < b,
+           let o = try? JSONSerialization.jsonObject(with: Data(js[a...b].utf8)) as? [String: Any] {
+            p.text = o["text"] as? [String: String] ?? [:]
+            p.plural = o["plural"] as? [String: [String: String]] ?? [:]
+            let hole = try! NSRegularExpression(pattern: #"\{(\d+)\}"#)
+            for k in p.text.keys where k.contains("{0}") {
+                let ns = k as NSString
+                var pattern = "^", order: [Int] = [], at = 0
+                for m in hole.matches(in: k, range: NSRange(location: 0, length: ns.length)) {
+                    pattern += NSRegularExpression.escapedPattern(for: ns.substring(with: NSRange(location: at, length: m.range.location - at))) + "([\\s\\S]*?)"
+                    order.append(Int(ns.substring(with: m.range(at: 1))) ?? 0)
+                    at = m.range.location + m.range.length
+                }
+                pattern += NSRegularExpression.escapedPattern(for: ns.substring(from: at)) + "$"
+                if let re = try? NSRegularExpression(pattern: pattern) { p.templates.append((re, order, k)) }
+            }
+            let literal = { (k: String) in k.replacingOccurrences(of: #"\{\d+\}"#, with: "", options: .regularExpression).count }
+            p.templates.sort { literal($0.key) > literal($1.key) }          // the most specific first, as the page does
+        } else {
+            log("language pack \(lang) missing — English instead")
+        }
+        packs[lang] = p
+        return p
+    }
+
+    /// English → `lang`; what fills a "{0}" is translated too when the pack has it. Anything it lacks stays English.
+    func text(_ en: String, _ lang: String) -> String {
+        let p = pack(lang)
+        if let t = p.text[en] { return t }
+        let ns = en as NSString
+        for t in p.templates {
+            guard let m = t.re.firstMatch(in: en, range: NSRange(location: 0, length: ns.length)), let out = p.text[t.key] else { continue }
+            var v: [Int: String] = [:]
+            for (j, n) in t.order.enumerated() { v[n] = ns.substring(with: m.range(at: j + 1)) }
+            var s = out
+            for (n, x) in v { s = s.replacingOccurrences(of: "{\(n)}", with: p.text[x] ?? x) }
+            return s
+        }
+        return en
+    }
+
+    /// CLDR's plural category of a whole number, for the app's languages.
+    static func category(_ n: Int, _ lang: String) -> String {
+        switch lang {
+        case "ru":
+            let a = n % 10, b = n % 100
+            return a == 1 && b != 11 ? "one" : (2...4).contains(a) && !(12...14).contains(b) ? "few" : "many"
+        case "fr": return n == 0 || n == 1 ? "one" : "other"
+        case "pt-BR": return n == 1 ? "one" : "other"            // CLDR says 0 too, but Brazilian UIs write "0 gravações"
+        case "zh-Hans", "zh-Hant", "ja", "vi", "ko": return "other"
+        default: return n == 1 ? "one" : "other"
+        }
+    }
+}
+let translations = Translations()
 
 let appIcons = ["navy", "ivory", "brass", "charcoal", "sage"]
 
@@ -255,7 +370,7 @@ final class Engine {
     var keywords: NSRegularExpression?
     let outDir: URL = env["LECTURE_OUT_DIR"].map { URL(fileURLWithPath: $0) } ?? Engine.defaultOutDir
 
-    /// Mac: 다운로드/강의기록 — or Downloads/Lecture Transcriber for someone who starts in English; chosen once, so a
+    /// Mac: 다운로드/강의기록 — or Downloads/Lecture Transcriber for someone who starts in any other language; chosen once, so a
     /// later change of language never moves the library. iPhone/iPad: the app's own folder in the Files app.
     static var defaultOutDir: URL {
         #if os(macOS)
@@ -550,7 +665,7 @@ final class Engine {
         if let v = msg["icon"] as? String, appIcons.contains(v) { settings.icon = v }
         if let v = msg["pdfLayout"] as? String, pdfLayouts.contains(v) { settings.pdfLayout = v }
         if let v = msg["cleanCapture"] as? Bool { settings.cleanCapture = v }
-        if let v = msg["uiLanguage"] as? String, ["ko", "en"].contains(v) { settings.uiLanguage = v; appLanguage.value = v; AppLanguage.pinSystem(v) }
+        if let v = msg["uiLanguage"] as? String, uiLanguages.contains(v) { settings.uiLanguage = v; appLanguage.value = v; AppLanguage.choose(v) }
         if let v = msg["language"] as? String, ["ko", "en"].contains(v), v != settings.language {
             settings.language = v
             #if WHISPER
@@ -690,13 +805,13 @@ final class Session {
         try FileManager.default.createDirectory(at: engine.outDir, withIntermediateDirectories: true)
         let now = Date(), cal = Calendar(identifier: .gregorian), c = cal.dateComponents([.year, .month, .day, .hour, .minute, .weekday], from: now)
         let stamp = String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
-        let title = mode == .live ? L(String(format: "%@ %02d시%02d분 강의", stamp, c.hour!, c.minute!), String(format: "%@ %02d.%02d Lecture", stamp, c.hour!, c.minute!))
-                                  : "\(file!.deletingPathExtension().lastPathComponent) \(L("받아쓰기", "transcript"))"
+        let title = mode == .live ? LF(String(format: "%@ %02d시%02d분 강의", stamp, c.hour!, c.minute!), String(format: "%@ %02d.%02d Lecture", stamp, c.hour!, c.minute!))
+                                  : "\(file!.deletingPathExtension().lastPathComponent) \(LF("받아쓰기", "transcript"))"
         txtURL = Session.unique(engine.outDir.appendingPathComponent("\(title).txt"))
         header = mode == .live
-            ? L(String(format: "강의 녹취 · %@ (%@) %02d:%02d 시작", stamp, weekdays[c.weekday! - 1], c.hour!, c.minute!),
+            ? LF(String(format: "강의 녹취 · %@ (%@) %02d:%02d 시작", stamp, weekdays[c.weekday! - 1], c.hour!, c.minute!),
                 String(format: "Lecture transcript · %@ (%@) %02d:%02d", stamp, weekdaysEN[c.weekday! - 1], c.hour!, c.minute!))
-            : L("파일 받아쓰기 · \(file!.lastPathComponent) · \(stamp)", "File transcription · \(file!.lastPathComponent) · \(stamp)")
+            : LF("파일 받아쓰기 · \(file!.lastPathComponent) · \(stamp)", "File transcription · \(file!.lastPathComponent) · \(stamp)")
         wav = try WavWriter(url: txtURL.deletingPathExtension().appendingPathExtension("wav"))   // files too: every session keeps its audio
         FileManager.default.createFile(atPath: txtURL.path, contents: (header + "\n\n").data(using: .utf8))
         handle = try FileHandle(forWritingTo: txtURL)
@@ -919,7 +1034,7 @@ final class Session {
         var text = header + "\n\n" + finals.map { "[\(fmtTime($0.start))] \($0.text)\n" }.joined()
         if let kw = engine.keywords {
             let hits = finals.filter { kw.firstMatch(in: $0.text, range: NSRange($0.text.startIndex..., in: $0.text)) != nil }
-            if !hits.isEmpty { text += "\n── \(L("중요 문장", "Key Sentences")) ──\n" + hits.map { "[\(fmtTime($0.start))] \($0.text)\n" }.joined() }
+            if !hits.isEmpty { text += "\n── \(LF("중요 문장", "Key Sentences")) ──\n" + hits.map { "[\(fmtTime($0.start))] \($0.text)\n" }.joined() }
         }
         try? handle?.close()
         try? text.data(using: .utf8)?.write(to: txtURL, options: .atomic)
@@ -1028,8 +1143,8 @@ func recoverOrphans(in dir: URL, busy: (@Sendable (String, Bool) async -> Void)?
 
 private let logQueue = DispatchQueue(label: "lecture.log")
 let logURL: URL = {
-    let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("LectureScribe/logs")
+    let dir = env["LECTURE_LOG_DIR"].map { URL(fileURLWithPath: $0) }          // tests running side by side: a log each
+        ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("LectureScribe/logs")
     try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     return dir.appendingPathComponent("app.log")
 }()
