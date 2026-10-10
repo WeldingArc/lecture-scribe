@@ -27,7 +27,7 @@ Apple on-device speech recognition · free · open source · everything stays on
   - **Whisper large-v3 turbo** (OpenAI's open model, about 575 MB)
   - **Parakeet** (NVIDIA's open model, about 540 MB) — for English lectures only. Korean speech is dropped or comes out as made-up English. The fastest and lightest of the downloadable engines.
 - **Transcribes whatever your Mac is playing.** LearnUs, YouTube, Zoom — just play it. It never uses the microphone, so you can wear earphones and background noise doesn't matter.
-- **Words appear as they are spoken.** When you stop, a text file (`.txt`) and a recording (`.m4a`) are saved automatically to `Downloads/Lecture Transcriber` (`Downloads/강의기록` if that folder already exists or the app is in Korean).
+- **Words appear as they are spoken.** When you stop, a text file (`.txt`) and a recording (`.m4a`) are saved automatically to `Downloads/Lecture Transcriber` (`Downloads/강의기록` if that folder already existed or the app was in Korean when it first opened; the folder is chosen once).
 - **Library** — each lecture's recording and transcript in one place inside the app. Click a sentence to play from there; important sentences are collected at the top. Every session shows rename and delete buttons right on it; its ⋯ button (or a right-click) has share too, and you can search them all. Inside a session, ⌘F finds words, and **Edit Text** fixes a misheard word in place (the recording is left as it is).
 - **Pause.** In a break, click **Pause** under the start button. Nothing is recorded or transcribed meanwhile; **Resume** carries on in the same session.
 - **Safe from a stray ⌘Q.** Quitting or closing the window mid-lecture asks first, and whatever was recorded and transcribed until then is saved either way.
@@ -73,7 +73,7 @@ Run the same line again to update.
 
 ### Option 2 · Download
 
-Download `LectureScribe-mac.zip` from the [latest release](https://github.com/WeldingArc/lecture-transcriber/releases/latest), unzip it, and move `강의 받아쓰기.app` (Finder shows it as Lecture Transcriber on a Mac set to any language but Korean) to your Applications folder. The app is not notarized yet, so if you downloaded it with a browser, right-click the app and choose **Open** the first time.
+Download `LectureScribe-mac.zip` from the [latest release](https://github.com/WeldingArc/lecture-transcriber/releases/latest), unzip it, and move `강의 받아쓰기.app` (Finder shows it as Lecture Transcriber on a Mac set to any language but Korean) to your Applications folder. The app is not notarized yet, so if you downloaded it with a browser, macOS blocks it the first time ("Apple could not verify…"): click **Done**, then open **System Settings › Privacy & Security**, scroll down and click **Open Anyway** (once). The installer command in Option 1 doesn't need this step.
 
 ## First launch
 
